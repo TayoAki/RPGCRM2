@@ -2673,7 +2673,7 @@ export class ConfigVariables {
     isEnvOnly: true,
   })
   @IsUrl({ require_tld: false, require_protocol: true })
-  @IsOptional()
+  @IsOptionalOrEmptyString()
   BRAND_LOGO_URL: string | undefined;
 
   @ConfigVariablesMetadata({
@@ -2684,7 +2684,7 @@ export class ConfigVariables {
     isEnvOnly: true,
   })
   @IsUrl({ require_tld: false, require_protocol: true })
-  @IsOptional()
+  @IsOptionalOrEmptyString()
   BRAND_WEBSITE_URL: string | undefined;
 
   @ConfigVariablesMetadata({
@@ -2705,7 +2705,7 @@ export class ConfigVariables {
     isEnvOnly: true,
   })
   @IsUrl({ require_tld: false, require_protocol: true })
-  @IsOptional()
+  @IsOptionalOrEmptyString()
   BRAND_DOCUMENTATION_URL: string | undefined;
 
   @ConfigVariablesMetadata({
@@ -2716,7 +2716,7 @@ export class ConfigVariables {
     isEnvOnly: true,
   })
   @IsUrl({ require_tld: false, require_protocol: true })
-  @IsOptional()
+  @IsOptionalOrEmptyString()
   BRAND_TERMS_OF_SERVICE_URL: string | undefined;
 
   @ConfigVariablesMetadata({
@@ -2727,7 +2727,7 @@ export class ConfigVariables {
     isEnvOnly: true,
   })
   @IsUrl({ require_tld: false, require_protocol: true })
-  @IsOptional()
+  @IsOptionalOrEmptyString()
   BRAND_PRIVACY_POLICY_URL: string | undefined;
 
   @ConfigVariablesMetadata({
@@ -2738,7 +2738,7 @@ export class ConfigVariables {
     isEnvOnly: true,
   })
   @IsUrl({ require_tld: false, require_protocol: true })
-  @IsOptional()
+  @IsOptionalOrEmptyString()
   SOURCE_CODE_URL: string | undefined;
 
   @ConfigVariablesMetadata({
