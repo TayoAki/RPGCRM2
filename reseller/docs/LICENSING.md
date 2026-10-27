@@ -35,7 +35,7 @@ What this fork does:
 
 1. **Ask Twenty for written confirmation** that hosting the free edition for your customers is fine, or join their partner program. Twenty lists implementation partners, so they have a channel for this. This is the cheapest path.
 2. **Buy Twenty Enterprise** for the instances that need SSO, row-level permissions and so on. Set `ENTERPRISE_KEY` per instance. Price that into what you charge.
-3. **Remove the Enterprise code.** This is a substantial engineering project, because billing, SSO and permissions are wired into the auth flow, entities and migrations. It also makes upstream syncs much harder.
+3. **Remove the Enterprise code** ([ENTERPRISE_REMOVAL_PLAN.md](ENTERPRISE_REMOVAL_PLAN.md)). This is a substantial engineering project, because billing, SSO and permissions are wired into the auth flow, entities and migrations. It also makes upstream syncs much harder.
 
 ## Trademark
 
