@@ -18,6 +18,8 @@ EXCLUDED_PATHSPECS=(
 )
 # The LICENSE links to the trademark policy, so it is kept for reference.
 KEPT_PATHS=(.github/TRADEMARK.md)
+# Files the fork rewrote entirely: on conflict our version always wins.
+FORK_OWNED_PATHS=(README.md)
 
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
@@ -73,12 +75,27 @@ if [ "$has_head" = false ]; then
   exit 0
 fi
 
-if ! git merge --no-ff --no-edit -m "Merge Twenty upstream ${upstream_sha:0:12} (${UPSTREAM_REF})" "$vendor_commit"; then
+merge_message="Merge Twenty upstream ${upstream_sha:0:12} (${UPSTREAM_REF})"
+
+if ! git merge --no-ff --no-edit -m "$merge_message" "$vendor_commit"; then
+  for path in "${FORK_OWNED_PATHS[@]}"; do
+    if git diff --name-only --diff-filter=U | grep -qxF "$path"; then
+      git checkout --ours -- "$path"
+      git add -- "$path"
+    fi
+  done
+
+  if [ -z "$(git diff --name-only --diff-filter=U)" ]; then
+    git commit --no-edit -m "$merge_message"
+    echo "Merged (fork-owned files kept as ours). Run 'yarn install' and the checks in reseller/docs/UPSTREAM.md before pushing."
+    exit 0
+  fi
+
   cat >&2 <<HELP
 
 Merge stopped on conflicts. Typical resolution:
   - yarn.lock:  git checkout --theirs yarn.lock && yarn install && git add yarn.lock
-  - branding:   keep our side, then re-run: node reseller/scripts/check-branding.mjs
+  - branding:   keep our side, then re-run: reseller/scripts/check-branding.sh
   - then:       git commit
 HELP
   exit 1
