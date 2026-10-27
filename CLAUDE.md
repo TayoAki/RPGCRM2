@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+> **This repository is a white-label fork of Twenty** (see `README.md` and `reseller/`). Fork rules on top of the upstream guidance below:
+> - Never edit files marked `/* @license Enterprise */`; `reseller/scripts/check-license-boundary.sh` enforces it.
+> - Put fork code in the `white-label` modules or `reseller/`; keep edits to upstream files to a line or two so `reseller/scripts/sync-upstream.sh` merges stay cheap (`reseller/docs/UPSTREAM.md`).
+> - User-visible product name, logo and links come from branding (`BRANDING` in the front, `WhiteLabelService` / `BRAND_NAME` on the server, `getEmailBranding()` in emails) — never hard-code "Twenty" or twenty.com.
+
 Twenty is an open-source CRM — an Nx / Yarn 4 monorepo. Main packages: `twenty-front` (React 18, Jotai, Linaria, Vite), `twenty-server` (NestJS, TypeORM, PostgreSQL, Redis, GraphQL), `twenty-shared` (isomorphic types/utils), `twenty-ui`, `twenty-sdk` (application definitions and runtime), `twenty-cli` (standalone CLI), `twenty-e2e-testing` (Playwright).
 
 Match the surrounding code — the adjacent files in the directory you are editing beat any written rule, including for file naming, which varies by area.

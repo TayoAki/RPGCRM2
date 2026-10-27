@@ -44,7 +44,8 @@ Next:
   2. Review $instance_dir/.env (branding, SMTP, storage).
   3. Start it:
        docker compose -f $deploy_dir/docker-compose.yml --env-file $instance_dir/.env -p $name up -d
-  4. Open https://$domain and create the first account; it becomes the workspace admin.
+  4. Open https://$domain and sign up yourself first: the first account becomes server
+     admin. Then invite the customer's admin from Settings > Members.
 
 Back up $instance_dir/.env: ENCRYPTION_KEY cannot be recovered and encrypts stored credentials.
 NEXT

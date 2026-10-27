@@ -1,0 +1,19 @@
+RPG CRM
+
+This product is a modified version of Twenty (https://github.com/twentyhq/twenty),
+Copyright (c) 2023-present Twenty.com, PBC, licensed under the GNU Affero General
+Public License v3.0 with the additional permission described in LICENSE.
+
+Modifications made in this repository, starting 2026-10-27, are licensed under the
+same terms. They are recorded in this repository's git history after the commit
+"Import Twenty upstream snapshot f0ab542a56bb" and in later upstream merge commits;
+in summary: runtime white-label branding, removal of Twenty-specific product
+surfaces (DPA generator, compliance badges, community links), telemetry disabled
+by default, a bundled source-code endpoint, and reseller deployment tooling.
+
+Files marked "/* @license Enterprise */" are not covered by the AGPL. They remain
+under the Twenty.com Commercial License at the end of LICENSE and are not modified
+in this repository.
+
+"Twenty" and the Twenty logo are trademarks of Twenty.com, PBC. This product is
+not affiliated with or endorsed by Twenty.com, PBC.
