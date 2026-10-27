@@ -15,12 +15,13 @@ fi
 
 violations=()
 while IFS= read -r -d '' file; do
-  if head -n 5 "$file" | grep -q '@license Enterprise'; then
+  # Some files place the marker below their imports, so scan the whole file.
+  if grep -qF '/* @license Enterprise */' "$file"; then
     violations+=("$file")
   fi
 done < <(git diff -z --name-only --diff-filter=AM "$vendor_commit" HEAD -- packages)
 
-enterprise_file_count=$(git grep -l '@license Enterprise' -- packages | wc -l | tr -d ' ')
+enterprise_file_count=$(git grep -lF '/* @license Enterprise */' -- packages | wc -l | tr -d ' ')
 
 if [ ${#violations[@]} -gt 0 ]; then
   echo "These Enterprise-licensed files were added or modified in this fork:" >&2
