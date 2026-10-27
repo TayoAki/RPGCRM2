@@ -1,0 +1,71 @@
+name: Publish image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      # The frontend build needs ~8 GB of heap; hosted runners for private repos have less RAM.
+      - name: Add swap
+        run: |
+          sudo fallocate -l 12G /swap-build
+          sudo chmod 600 /swap-build
+          sudo mkswap /swap-build
+          sudo swapon /swap-build
+
+      - name: Read upstream version
+        id: version
+        run: |
+          version=$(grep -oE "[0-9]+\.[0-9]+\.[0-9]+" \
+            packages/twenty-server/src/engine/core-modules/upgrade/constants/twenty-current-version.constant.ts)
+          echo "upstream=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=sha
+          labels: |
+            org.opencontainers.image.title=${{ github.event.repository.name }}
+            org.opencontainers.image.description=CRM server and frontend, built from a fork of Twenty (AGPL-3.0)
+            org.opencontainers.image.licenses=AGPL-3.0
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/twenty-docker/twenty/Dockerfile
+          target: twenty
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Admin panel compares this to upstream releases to flag available syncs.
+          build-args: APP_VERSION=${{ steps.version.outputs.upstream }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

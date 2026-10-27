@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The license boundary check diffs against the last vendor snapshot commit.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - run: corepack enable
+
+      - run: yarn install --immutable
+
+      - name: License boundary
+        run: reseller/scripts/check-license-boundary.sh
+
+      - name: Upstream branding
+        run: reseller/scripts/check-branding.sh
+
+      - name: Build workspace dependencies
+        run: npx nx run-many -t build -p twenty-shared twenty-emails twenty-ui twenty-client-sdk twenty-sdk twenty-front-component-renderer twenty-oxlint-rules
+
+      - name: Typecheck server
+        run: npx tsgo -p packages/twenty-server/tsconfig.json --noEmit
+
+      - name: Typecheck front
+        run: npx tsgo -p packages/twenty-front/tsconfig.json --noEmit
+
+      - name: White-label tests
+        run: |
+          npx jest --config=packages/twenty-shared/jest.config.mjs packages/twenty-shared/src/i18n
+          npx jest --config=packages/twenty-server/jest.config.mjs \
+            packages/twenty-server/src/engine/core-modules/white-label \
+            packages/twenty-server/src/engine/core-modules/approved-access-domain
+          npx jest --config=packages/twenty-front/jest.config.mjs \
+            packages/twenty-front/src/modules/white-label \
+            packages/twenty-front/src/utils/__tests__/title-utils.test.ts \
+            packages/twenty-front/src/modules/settings/mcp \
+            packages/twenty-front/src/modules/app/hooks/__tests__/usePageChangeEffectNavigateLocation.test.ts

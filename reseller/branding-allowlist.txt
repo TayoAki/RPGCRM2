@@ -1,0 +1,106 @@
+"If Twenty is working for you, you'
+"Read Twenty'
+"Search Twenty'
+"Thanks for registering for an account on Twenty! Before we get started, we just need to confirm that this is you. Click below to verify your email address."
+"Twenty works best with your own customers, deals, and conversations. Where should we start?"
+"Visit Twenty'
+"We received a request to change the email address associated with your Twenty account. Click below to confirm this change."
+"what is a dashboard in Twenty?"
+'//Twenty//Calendar//EN'
+'AI agent specialized in helping users learn how to use Twenty CRM'
+'Connect to Twenty'
+'Deployment region that determines the DPA hosting location shown to customers. The Processor entity (Twenty.com PBC) and governing law (Delaware, USA) are the same for all regions. EU (default) = Frankfurt, Germany; US = United States. Must match where Customer Personal Data actually lives.'
+'Failed to create the Twenty CLI application registration'
+'Find out more about **Twenty**'
+'Join your team on Twenty'
+'Lambda resource tags must be a JSON object with at most 48 string values, valid AWS tag characters, keys of 1–128 characters and values of at most 256 characters; aws: prefixes and Twenty checksum keys are reserved'
+'Official CLI for Twenty application development'
+'Read and write your Twenty CRM data - companies, people, opportunities, tasks, notes and any custom objects - from AI assistants. Tools are discovered at runtime and scoped to the authenticated workspace.'
+'Representing Twenty serverless or logic functions.'
+'Representing the Twenty admin panel or instance-level administration.'
+'Representing the Twenty command line tool or its commands.'
+'The search query to find relevant help articles about Twenty'
+'Twenty Api'
+'Twenty CLI'
+'Twenty CRM'
+'Twenty MCP Server'
+'Twenty MCP bridge not available. Missing requests library or credentials.'
+'Twenty Repo'
+'Twenty app'
+'Twenty email'
+'Twenty has no separate Favorites concept — favorites are just navigation menu items with scope=user.'
+'Twenty logo'
+'Twenty server version'
+'Twenty standard application not found in workspace'
+'Twenty'
+'Twenty-Marketplace'
+'What is Twenty?'
+'X-Twenty-Webhook-Nonce'
+'X-Twenty-Webhook-Signature'
+'X-Twenty-Webhook-Timestamp'
+'d ever like to give Twenty another try, you can start a fresh workspace in minutes — we'
+'https://www.figma.com/design/xt8O9mFeLl46C5InWwoMrN/Twenty?node-id=43908-39914'
+'s MCP installer with the Twenty remote server config.`
+'s output schema exactly and is addressed directly; Twenty does not add a "
+`  http_request is ONLY for external third-party APIs, never for Twenty'
+` tool is ONLY for external third-party APIs (not for Twenty'
+`${redirectUrl.hostname} is not a valid Twenty domain`
+`A heads up before your Twenty trial ends`
+`Access your Twenty workspace through MCP`
+`Add Twenty as a Streamable HTTP extension in Goose.`
+`Add the Twenty MCP server as a remote context server in Zed.`
+`Add the Twenty MCP server from Augment Code settings.`
+`Add the Twenty MCP server from Raycast'
+`Add the Twenty MCP server in Gemini CLI settings.`
+`Add the Twenty MCP server to your LibreChat configuration file.`
+`Add the Twenty remote server with LM Studio'
+`Add these records at your DNS provider. Twenty checks them automatically.`
+`App requires Twenty server ${requiredVersionRange} but this server is ${version}.`
+`App requires Twenty server ${requiredVersionRange} but this workspace has only completed the upgrade to ${version}.`
+`Automatically selected by Twenty for this mode.`
+`Billing portal session error. Please retry or contact Twenty team`
+`Checkout session error. Please retry or contact Twenty team`
+`Configure the Twenty MCP server manually in Cascade.`
+`Configure the Twenty MCP server manually in Cline.`
+`Could not search Twenty'
+`Count clicks by routing campaign links through Twenty before the original page.`
+`Cross-origin browser request from ${comparableOrigin} (API host: ${getRequestBaseUrl(request)}); credentialed requests from it will be blocked by the browser. If this is your Twenty front-end, serve it same-origin with the API, or add the origin to AUTH_COOKIE_ALLOWED_ORIGINS. Logged once per origin.`
+`Error while ending trial period. Please contact Twenty team.`
+`Join your team on Twenty`
+`Model used when you chat with Twenty`
+`One subscription provides one Organization key that powers one production instance and one potential staging or test instance. To run a staging or test environment, install Twenty on a second server, activate it with this same Organization key, then register that server as a development instance. Development instances unlock premium features without extra billing and do not count toward your production seats.`
+`Open Claude with the Twenty connector name and MCP URL prefilled.`
+`Open Replit with the Twenty remote server config.`
+`Page Not Found | Twenty`
+`Subscription error. Please retry or contact Twenty team`
+`System indexes are required for Twenty to work and cannot be deleted.`
+`The base data model every Twenty workspace runs on.`
+`This app requires a newer version of the Twenty server. Please upgrade your server or use a compatible app version.`
+`This application is not vetted by Twenty. Use at your own risk.`
+`Twenty adds the people you email and meet, and keeps them up to date without manual data entry.`
+`Twenty fields`
+`Twenty fills each level with the best model that meets your requirements`
+`Twenty primitives:`
+`Twenty works better with your team`
+`Welcome to Twenty: Please Confirm Your Email`
+`Welcome to Twenty`
+`X-Twenty-Webhook-Timestamp`
+`You are an AI assistant for a Twenty CRM workspace.`
+`Your Twenty plan renews soon`
+`Your Twenty trial is ending soon`
+https://acme.twenty.com/settings/billing
+https://app.twenty.com
+https://app.twenty.com/
+https://app.twenty.com/invite/123
+https://app.twenty.com/reset-password/123
+https://app.twenty.com/validate-domain
+https://app.twenty.com/verify-email/123
+https://custom.twenty.com
+https://docs.twenty.com
+https://docs.twenty.com/getting-started/introduction
+https://docs.twenty.com/mcp
+https://docs.twenty.com/user-guide/workflows/capabilities/workflow-actions#form
+https://subdomain.twenty.com
+https://test.twenty.com/
+https://twenty.com
+https://twenty.com/api/enterprise
