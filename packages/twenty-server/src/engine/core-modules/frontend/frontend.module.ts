@@ -13,9 +13,10 @@ import { ClientConfigModule } from 'src/engine/core-modules/client-config/client
 import { WorkspaceDomainsModule } from 'src/engine/core-modules/domain/workspace-domains/workspace-domains.module';
 import { DOCUMENT_CONTENT_SECURITY_POLICY_DIRECTIVES } from 'src/engine/core-modules/frontend/constants/document-content-security-policy-directives.constant';
 import { FrontendService } from 'src/engine/core-modules/frontend/frontend.service';
+import { WhiteLabelModule } from 'src/engine/core-modules/white-label/white-label.module';
 
 @Module({
-  imports: [ClientConfigModule, WorkspaceDomainsModule],
+  imports: [ClientConfigModule, WorkspaceDomainsModule, WhiteLabelModule],
   providers: [
     FrontendService,
     { provide: 'FRONTEND_PATH', useValue: join(__dirname, '../../../front') },

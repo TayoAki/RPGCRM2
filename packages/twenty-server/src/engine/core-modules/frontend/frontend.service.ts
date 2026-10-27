@@ -14,6 +14,8 @@ import { DOCUMENT_CONTENT_SECURITY_POLICY_DIRECTIVES } from 'src/engine/core-mod
 import { isFrontendDocumentRequest } from 'src/engine/core-modules/frontend/utils/is-frontend-document-request.util';
 import { renderFrontendHtml } from 'src/engine/core-modules/frontend/utils/render-frontend-html.util';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { WhiteLabelService } from 'src/engine/core-modules/white-label/services/white-label.service';
+import { applyBrandingToFrontendHtml } from 'src/engine/core-modules/white-label/utils/apply-branding-to-frontend-html.util';
 import { WorkspaceNotFoundDefaultError } from 'src/engine/core-modules/workspace/workspace.exception';
 import { getRequestBaseUrl } from 'src/utils/get-request-base-url.util';
 import { streamToBuffer } from 'src/utils/stream-to-buffer';
@@ -29,6 +31,7 @@ export class FrontendService {
   constructor(
     private readonly clientConfigService: ClientConfigService,
     private readonly workspaceDomainsService: WorkspaceDomainsService,
+    private readonly whiteLabelService: WhiteLabelService,
     @Inject('FRONTEND_PATH') readonly frontPath: string,
     twentyConfigService: TwentyConfigService,
   ) {
@@ -147,13 +150,22 @@ export class FrontendService {
         response.removeHeader('X-Frame-Options');
       }
 
-      response.type('html').end(renderFrontendHtml(template, clientConfig));
+      response
+        .type('html')
+        .end(
+          applyBrandingToFrontendHtml(
+            renderFrontendHtml(template, clientConfig),
+            this.whiteLabelService.getBranding(),
+          ),
+        );
     } catch (error) {
       this.logger.error('Unable to serve frontend document', error);
       response
         .status(503)
         .type('text')
-        .send('Unable to load Twenty. Please try again.');
+        .send(
+          `Unable to load ${this.whiteLabelService.getBranding().name}. Please try again.`,
+        );
     }
   }
 }

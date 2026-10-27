@@ -1,6 +1,7 @@
-import { type Messages } from '@lingui/core';
-import { createI18nInstanceFactory } from 'twenty-shared/i18n';
+import { type I18n, type Messages } from '@lingui/core';
+import { createI18nInstanceFactory, rebrandMessages } from 'twenty-shared/i18n';
 import { type APP_LOCALES } from 'twenty-shared/translations';
+import { getEmailBranding } from 'src/utils/email-branding';
 import { messages as afMessages } from '@/locales/generated/af-ZA';
 import { messages as arMessages } from '@/locales/generated/ar-SA';
 import { messages as caMessages } from '@/locales/generated/ca-ES';
@@ -75,4 +76,29 @@ const messages: Record<keyof typeof APP_LOCALES, Messages> = {
   'zh-TW': zhHantMessages,
 };
 
-export const createI18nInstance = createI18nInstanceFactory(messages);
+let brandedFactory:
+  | {
+      productName: string;
+      createInstance: (locale: keyof typeof APP_LOCALES) => I18n;
+    }
+  | undefined;
+
+export const createI18nInstance = (locale: keyof typeof APP_LOCALES): I18n => {
+  const productName = getEmailBranding().name;
+
+  if (brandedFactory?.productName !== productName) {
+    brandedFactory = {
+      productName,
+      createInstance: createI18nInstanceFactory(
+        Object.fromEntries(
+          Object.entries(messages).map(([messagesLocale, localeMessages]) => [
+            messagesLocale,
+            rebrandMessages(localeMessages, productName),
+          ]),
+        ),
+      ),
+    };
+  }
+
+  return brandedFactory.createInstance(locale);
+};

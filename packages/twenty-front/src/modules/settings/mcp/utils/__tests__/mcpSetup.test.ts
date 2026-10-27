@@ -1,3 +1,4 @@
+import { DEFAULT_BRANDING } from 'twenty-shared/constants';
 import {
   buildClaudeInstallLink,
   buildCursorInstallLink,
@@ -73,7 +74,7 @@ describe('buildClaudeInstallLink', () => {
       true,
     );
     expect(params.get('modal')).toBe('add-custom-connector');
-    expect(params.get('connectorName')).toBe('Twenty');
+    expect(params.get('connectorName')).toBe(DEFAULT_BRANDING.name);
     expect(params.get('connectorUrl')).toBe(mcpServerUrl);
   });
 });
@@ -117,7 +118,7 @@ describe('buildGooseInstallLink', () => {
     expect(link.startsWith('goose://extension?')).toBe(true);
     expect(params.get('type')).toBe('streamable_http');
     expect(params.get('id')).toBe('twenty');
-    expect(params.get('name')).toBe('Twenty');
+    expect(params.get('name')).toBe(DEFAULT_BRANDING.name);
     expect(params.get('url')).toBe(mcpServerUrl);
     expect(params.get('header')).toBe('Authorization=Bearer <YOUR_API_KEY>');
   });
@@ -129,7 +130,7 @@ describe('buildReplitInstallLink', () => {
 
     expect(link.startsWith('https://replit.com/integrations?')).toBe(true);
     expect(decodeBase64JsonParam(link, 'mcp')).toEqual({
-      displayName: 'Twenty',
+      displayName: DEFAULT_BRANDING.name,
       baseUrl: mcpServerUrl,
       headers: [
         {

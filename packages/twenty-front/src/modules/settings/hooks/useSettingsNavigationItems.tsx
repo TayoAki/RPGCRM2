@@ -19,6 +19,7 @@ import {
   IconAt,
   IconCalendarEvent,
   IconCode,
+  IconCodeCircle,
   IconColorSwatch,
   type IconComponent,
   IconCreditCard,
@@ -39,6 +40,8 @@ import {
   PermissionFlagType,
 } from '~/generated-metadata/graphql';
 import { openUrlInNewTab } from '~/utils/openUrlInNewTab';
+import { BRANDING } from '@/white-label/constants/Branding';
+import { isDefined } from 'twenty-shared/utils';
 
 export type SettingsNavigationSection = {
   label: string;
@@ -205,9 +208,12 @@ const useSettingsNavigationItems = (): SettingsNavigationSection[] => {
         },
         {
           label: t`Support`,
-          onClick: () => window.FrontChat?.('show'),
+          onClick: () =>
+            isSupportChatConfigured
+              ? window.FrontChat?.('show')
+              : openUrlInNewTab(BRANDING.supportUrl ?? ''),
           Icon: IconMessage,
-          isHidden: !isSupportChatConfigured,
+          isHidden: !isSupportChatConfigured && !isDefined(BRANDING.supportUrl),
         },
         {
           label: t`Documentation`,
@@ -216,6 +222,11 @@ const useSettingsNavigationItems = (): SettingsNavigationSection[] => {
               getDocumentationUrl({ locale: currentWorkspaceMember?.locale }),
             ),
           Icon: IconHelpCircle,
+        },
+        {
+          label: t`Source code`,
+          onClick: () => openUrlInNewTab(BRANDING.sourceCodeUrl),
+          Icon: IconCodeCircle,
         },
         {
           label: t`Logout`,

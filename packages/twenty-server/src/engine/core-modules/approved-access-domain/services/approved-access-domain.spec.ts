@@ -332,6 +332,7 @@ describe('ApprovedAccessDomainService', () => {
         .mockImplementation((key: string) => {
           if (key === 'EMAIL_FROM_ADDRESS') return 'no-reply@example.com';
           if (key === 'SERVER_URL') return 'https://api.example.com';
+          if (key === 'BRAND_NAME') return 'Acme CRM';
         });
 
       jwtWrapperService.signAsyncOrThrow.mockResolvedValue('signed.jwt.token');
@@ -364,7 +365,7 @@ describe('ApprovedAccessDomainService', () => {
       });
 
       expect(emailService.send).toHaveBeenCalledWith({
-        from: 'John Doe (via Twenty) <no-reply@example.com>',
+        from: 'John Doe (via Acme CRM) <no-reply@example.com>',
         to: email,
         subject: 'Approve your access domain',
         text: expect.any(String),

@@ -1,3 +1,4 @@
+import { DEFAULT_BRANDING } from 'twenty-shared/constants';
 import { i18n } from '@lingui/core';
 import { messages as enMessages } from '~/locales/generated/en';
 import { getPageTitleFromPath } from '~/utils/title-utils';
@@ -52,7 +53,7 @@ describe('title-utils', () => {
     expect(getPageTitleFromPath('/settings/general')).toBe(
       'General - Settings',
     );
-    expect(getPageTitleFromPath('/')).toBe('Twenty');
-    expect(getPageTitleFromPath('/random')).toBe('Twenty');
+    expect(getPageTitleFromPath('/')).toBe(DEFAULT_BRANDING.name);
+    expect(getPageTitleFromPath('/random')).toBe(DEFAULT_BRANDING.name);
   });
 });

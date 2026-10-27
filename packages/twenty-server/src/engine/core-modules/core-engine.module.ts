@@ -31,7 +31,6 @@ import { CaptchaModule } from 'src/engine/core-modules/captcha/captcha.module';
 import { CloudflareModule } from 'src/engine/core-modules/cloudflare/cloudflare.module';
 import { CodeInterpreterModule } from 'src/engine/core-modules/code-interpreter/code-interpreter.module';
 import { DnsManagerModule } from 'src/engine/core-modules/dns-manager/dns-manager.module';
-import { DpaModule } from 'src/engine/core-modules/dpa/dpa.module';
 import { EmailModule } from 'src/engine/core-modules/email/email.module';
 import { EmailingDomainModule } from 'src/engine/core-modules/emailing-domain/emailing-domain.module';
 import { EnvironmentModule } from 'src/engine/core-modules/environment/environment.module';
@@ -60,6 +59,8 @@ import { RedisClientService } from 'src/engine/core-modules/redis-client/redis-c
 import { SearchModule } from 'src/engine/core-modules/search/search.module';
 import { WorkspaceSsoModule } from 'src/engine/core-modules/sso/sso.module';
 import { WellKnownModule } from 'src/engine/core-modules/well-known/well-known.module';
+import { WhiteLabelModule } from 'src/engine/core-modules/white-label/white-label.module';
+import { DpaModule } from 'src/engine/core-modules/dpa/dpa.module';
 import { TelemetryModule } from 'src/engine/core-modules/telemetry/telemetry.module';
 import { TwentyConfigModule } from 'src/engine/core-modules/twenty-config/twenty-config.module';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
@@ -167,6 +168,7 @@ import { FileApiModule } from './file/file-api.module';
     SearchModule,
     ApiKeyModule,
     DpaModule,
+    WhiteLabelModule,
     PageLayoutModule,
     ImpersonationModule,
     TrashCleanupModule,

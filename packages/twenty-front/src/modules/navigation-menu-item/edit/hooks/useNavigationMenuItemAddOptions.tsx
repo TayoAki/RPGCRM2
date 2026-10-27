@@ -37,6 +37,7 @@ import { getObjectColorWithFallback } from '@/object-metadata/utils/getObjectCol
 import { ColoredIcon } from '@/ui/icon/components/ColoredIcon';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { ViewKey } from '@/views/types/ViewKey';
+import { BRANDING } from '@/white-label/constants/Branding';
 import { getAbsoluteImageUrl } from '~/utils/image/getAbsoluteImageUrl';
 
 type UseNavigationMenuItemAddOptionsParams = {
@@ -171,8 +172,8 @@ export const useNavigationMenuItemAddOptions = ({
           onClick: () => {
             addItem({
               type: NavigationMenuItemType.LINK,
-              name: 'Twenty',
-              link: 'https://twenty.com',
+              name: BRANDING.name,
+              link: BRANDING.websiteUrl ?? window.location.origin,
               color: DEFAULT_NAVIGATION_MENU_ITEM_COLOR_LINK,
             });
           },

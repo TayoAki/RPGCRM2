@@ -1,2 +1,4 @@
+import { BRANDING } from '@/white-label/constants/Branding';
+
 export const DEFAULT_WORKSPACE_LOGO =
-  'https://twentyhq.github.io/placeholder-images/workspaces/twenty-logo.png';
+  BRANDING.logoUrl ?? '/images/icons/android/android-launchericon-192-192.png';

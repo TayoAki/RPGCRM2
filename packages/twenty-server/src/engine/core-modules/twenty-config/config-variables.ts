@@ -17,6 +17,7 @@ import {
   validateSync,
 } from 'class-validator';
 import {
+  DEFAULT_BRANDING,
   ENTERPRISE_INSTANCE_TYPE,
   type EnterpriseInstanceType,
 } from 'twenty-shared/constants';
@@ -520,7 +521,7 @@ export class ConfigVariables {
     description: 'Name used in the From header for outgoing emails',
     type: ConfigVariableType.STRING,
   })
-  EMAIL_FROM_NAME = 'Felix from Twenty';
+  EMAIL_FROM_NAME = DEFAULT_BRANDING.name;
 
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.EMAIL_SETTINGS,
@@ -967,7 +968,7 @@ export class ConfigVariables {
     type: ConfigVariableType.BOOLEAN,
   })
   @IsOptional()
-  TELEMETRY_ENABLED = true;
+  TELEMETRY_ENABLED = false;
 
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.LOGGING,
@@ -2653,6 +2654,115 @@ export class ConfigVariables {
   })
   @IsOptional()
   APP_REGISTRY_TOKEN: string;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.SERVER_CONFIG,
+    description: 'Product name shown to users in place of the upstream name',
+    type: ConfigVariableType.STRING,
+    isEnvOnly: true,
+  })
+  @IsString()
+  @IsOptional()
+  BRAND_NAME: string = DEFAULT_BRANDING.name;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.SERVER_CONFIG,
+    description:
+      'Absolute URL of the square logo used in the app and in emails. Defaults to the bundled icon.',
+    type: ConfigVariableType.STRING,
+    isEnvOnly: true,
+  })
+  @IsUrl({ require_tld: false, require_protocol: true })
+  @IsOptional()
+  BRAND_LOGO_URL: string | undefined;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.SERVER_CONFIG,
+    description:
+      'Marketing website linked from the app and emails. Links are hidden when unset.',
+    type: ConfigVariableType.STRING,
+    isEnvOnly: true,
+  })
+  @IsUrl({ require_tld: false, require_protocol: true })
+  @IsOptional()
+  BRAND_WEBSITE_URL: string | undefined;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.SERVER_CONFIG,
+    description:
+      'Support link (https:// or mailto:) shown in settings. Hidden when unset.',
+    type: ConfigVariableType.STRING,
+    isEnvOnly: true,
+  })
+  @IsString()
+  @IsOptional()
+  BRAND_SUPPORT_URL: string | undefined;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.SERVER_CONFIG,
+    description: 'User documentation linked from the app. Hidden when unset.',
+    type: ConfigVariableType.STRING,
+    isEnvOnly: true,
+  })
+  @IsUrl({ require_tld: false, require_protocol: true })
+  @IsOptional()
+  BRAND_DOCUMENTATION_URL: string | undefined;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.SERVER_CONFIG,
+    description:
+      'Terms of service linked on the sign-in page. Hidden when unset.',
+    type: ConfigVariableType.STRING,
+    isEnvOnly: true,
+  })
+  @IsUrl({ require_tld: false, require_protocol: true })
+  @IsOptional()
+  BRAND_TERMS_OF_SERVICE_URL: string | undefined;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.SERVER_CONFIG,
+    description:
+      'Privacy policy linked on the sign-in page. Hidden when unset.',
+    type: ConfigVariableType.STRING,
+    isEnvOnly: true,
+  })
+  @IsUrl({ require_tld: false, require_protocol: true })
+  @IsOptional()
+  BRAND_PRIVACY_POLICY_URL: string | undefined;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.SERVER_CONFIG,
+    description:
+      'Where users can download the source code of this deployment (AGPL section 13). When unset, /source-code serves the archive bundled in the image.',
+    type: ConfigVariableType.STRING,
+    isEnvOnly: true,
+  })
+  @IsUrl({ require_tld: false, require_protocol: true })
+  @IsOptional()
+  SOURCE_CODE_URL: string | undefined;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.SERVER_CONFIG,
+    description:
+      'Legal entity and address printed in email footers, e.g. "Acme Inc., Austin, TX"',
+    type: ConfigVariableType.STRING,
+    isEnvOnly: true,
+  })
+  @IsString()
+  @IsOptional()
+  BRAND_LEGAL_ENTITY: string | undefined;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.SERVER_CONFIG,
+    description:
+      'Path of the source archive served at /source-code when SOURCE_CODE_URL is unset',
+    type: ConfigVariableType.STRING,
+    isEnvOnly: true,
+    isHiddenInAdminPanel: true,
+  })
+  @IsString()
+  @IsOptional()
+  SOURCE_CODE_ARCHIVE_PATH = '/app/source-code.tar.gz';
 }
 
 export const validate = (config: Record<string, unknown>): ConfigVariables => {

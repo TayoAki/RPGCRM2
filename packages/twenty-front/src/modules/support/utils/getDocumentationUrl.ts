@@ -5,6 +5,9 @@ import {
   DOCUMENTATION_SUPPORTED_LANGUAGES,
   type DocumentationPath,
 } from 'twenty-shared/constants';
+import { isDefined } from 'twenty-shared/utils';
+
+import { BRANDING } from '@/white-label/constants/Branding';
 
 export const getDocumentationUrl = ({
   locale,
@@ -13,6 +16,10 @@ export const getDocumentationUrl = ({
   locale?: string | null;
   path?: DocumentationPath | string;
 }): string => {
+  if (isDefined(BRANDING.documentationUrl)) {
+    return BRANDING.documentationUrl;
+  }
+
   if (!locale) {
     return `${DOCUMENTATION_BASE_URL}${path}`;
   }

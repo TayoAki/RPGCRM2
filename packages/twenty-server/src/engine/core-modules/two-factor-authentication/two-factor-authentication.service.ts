@@ -21,6 +21,7 @@ import { type EncryptedString } from 'src/engine/core-modules/secret-encryption/
 import { type PlaintextString } from 'src/engine/core-modules/secret-encryption/branded-strings/plaintext-string.type';
 import { SecretEncryptionService } from 'src/engine/core-modules/secret-encryption/secret-encryption.service';
 import { ThrottlerService } from 'src/engine/core-modules/throttler/throttler.service';
+import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { UserEntity } from 'src/engine/core-modules/user/user.entity';
 import {
   TWO_FACTOR_AUTHENTICATION_OTP_RATE_LIMIT_MAX,
@@ -56,6 +57,7 @@ export class TwoFactorAuthenticationService {
     private readonly userWorkspaceService: UserWorkspaceService,
     private readonly secretEncryptionService: SecretEncryptionService,
     private readonly throttlerService: ThrottlerService,
+    private readonly twentyConfigService: TwentyConfigService,
   ) {}
 
   private async decryptStoredSecret({
@@ -133,7 +135,7 @@ export class TwoFactorAuthenticationService {
         workspaceId,
       });
 
-      const issuer = `Twenty${workspaceDisplayName ? ` - ${workspaceDisplayName}` : ''}`;
+      const issuer = `${this.twentyConfigService.get('BRAND_NAME')}${workspaceDisplayName ? ` - ${workspaceDisplayName}` : ''}`;
       const reuseUri = authenticator.keyuri(userEmail, issuer, existingSecret);
 
       return reuseUri;
@@ -172,7 +174,7 @@ export class TwoFactorAuthenticationService {
       TOTP_DEFAULT_CONFIGURATION,
     ).initiate(
       userEmail,
-      `Twenty${workspaceDisplayName ? ` - ${workspaceDisplayName}` : ''}`,
+      `${this.twentyConfigService.get('BRAND_NAME')}${workspaceDisplayName ? ` - ${workspaceDisplayName}` : ''}`,
     );
 
     return {

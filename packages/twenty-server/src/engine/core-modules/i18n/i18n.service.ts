@@ -8,6 +8,7 @@ import {
   setupI18n,
 } from '@lingui/core';
 import { compileMessage } from '@lingui/message-utils/compileMessage';
+import { rebrandMessages } from 'twenty-shared/i18n';
 import { type APP_LOCALES, SOURCE_LOCALE } from 'twenty-shared/translations';
 
 import { messages as afMessages } from 'src/engine/core-modules/i18n/locales/generated/af-ZA';
@@ -45,16 +46,21 @@ import { messages as uzMessages } from 'src/engine/core-modules/i18n/locales/gen
 import { messages as viMessages } from 'src/engine/core-modules/i18n/locales/generated/vi-VN';
 import { messages as zhHansMessages } from 'src/engine/core-modules/i18n/locales/generated/zh-CN';
 import { messages as zhHantMessages } from 'src/engine/core-modules/i18n/locales/generated/zh-TW';
+import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 
 @Injectable()
 export class I18nService implements OnModuleInit {
   private i18nInstancesMap: Record<keyof typeof APP_LOCALES, I18n> =
     {} as Record<keyof typeof APP_LOCALES, I18n>;
 
+  constructor(private readonly twentyConfigService: TwentyConfigService) {}
+
   async loadTranslations() {
+    const productName = this.twentyConfigService.get('BRAND_NAME');
+
     // The global singleton backs server-side t`` with no compiled catalog, so it needs a runtime compiler; since lingui 5.9 it also throws unless a locale is active.
     i18n.setMessagesCompiler(compileMessage);
-    i18n.load(SOURCE_LOCALE, enMessages);
+    i18n.load(SOURCE_LOCALE, rebrandMessages(enMessages, productName));
     i18n.activate(SOURCE_LOCALE);
 
     const messagesByLocale: Record<keyof typeof APP_LOCALES, Messages> = {
@@ -101,7 +107,7 @@ export class I18nService implements OnModuleInit {
       const localeI18n = setupI18n();
 
       localeI18n.setMessagesCompiler(compileMessage);
-      localeI18n.load(locale, messages);
+      localeI18n.load(locale, rebrandMessages(messages, productName));
       localeI18n.activate(locale);
 
       this.i18nInstancesMap[locale] = localeI18n;

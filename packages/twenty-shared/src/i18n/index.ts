@@ -25,6 +25,7 @@ export {
   buildObjectMetadataLabelPlaceholderValues,
   hasObjectMetadataLabelPlaceholder,
 } from './metadata-label-placeholder';
+export { rebrandMessages } from './rebrand-messages';
 export type {
   TranslatableMetadataName,
   TranslatablePropertyName,

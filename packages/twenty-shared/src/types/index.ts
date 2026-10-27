@@ -19,6 +19,7 @@ export type { Arrayable } from './Arrayable';
 export type { ArraySortDirection } from './ArraySortDirection';
 export type { AssertUnreachable } from './AssertUnreachable';
 export { BlocklistScope } from './BlocklistScope';
+export type { Branding } from './Branding';
 export { CalendarChannelContactAutoCreationPolicy } from './CalendarChannelContactAutoCreationPolicy';
 export { CalendarChannelSyncStage } from './CalendarChannelSyncStage';
 export { CalendarChannelSyncStatus } from './CalendarChannelSyncStatus';
