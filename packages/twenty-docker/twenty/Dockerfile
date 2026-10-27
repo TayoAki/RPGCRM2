@@ -44,6 +44,21 @@ COPY ./packages/twenty-oxlint-rules/package.json /app/packages/twenty-oxlint-rul
 RUN yarn workspaces focus twenty-monorepo twenty-server twenty-emails twenty-shared twenty-client-sdk && yarn cache clean && npx nx reset
 
 
+# ===========================================================================
+# Source archive served at /source-code (AGPL section 13)
+# ===========================================================================
+
+FROM node-base AS source-archive
+
+RUN apk add --no-cache tar
+WORKDIR /src
+COPY . .
+RUN tar --create --gzip --file /source-code.tar.gz --sort=name \
+      --owner=0 --group=0 --numeric-owner --no-wildcards-match-slash \
+      --exclude='./.nx' --exclude='./packages/*/build' \
+      --exclude='./packages/*/dist' --exclude='./packages/*/*/dist' .
+
+
 FROM server-deps AS twenty-server-build
 
 COPY ./packages/twenty-emails /app/packages/twenty-emails
@@ -162,6 +177,8 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 RUN mkdir -p /app/.local-storage /app/packages/twenty-server/.local-storage && \
     chown 1000:1000 /app/.local-storage /app/packages/twenty-server/.local-storage
+
+COPY --from=source-archive /source-code.tar.gz /app/source-code.tar.gz
 
 USER 1000
 
