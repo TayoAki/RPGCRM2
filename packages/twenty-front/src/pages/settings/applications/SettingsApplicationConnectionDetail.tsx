@@ -1,0 +1,369 @@
+import { useMutation, useQuery } from '@apollo/client/react';
+import { styled } from '@linaria/react';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { isNonEmptyString } from '@sniptt/guards';
+import { type ReactNode } from 'react';
+import { useParams } from 'react-router-dom';
+import { SettingsPath } from 'twenty-shared/types';
+import { getSettingsPath } from 'twenty-shared/utils';
+import { Section } from 'twenty-ui/components/layout';
+import { Status, Tag } from 'twenty-ui/primitives/data-display';
+import { IconRefresh, IconTrash } from 'twenty-ui/icon';
+import { Button } from 'twenty-ui/primitives/input';
+import { themeCssVariables } from 'twenty-ui/theme';
+
+import { GET_MY_CONNECTED_ACCOUNTS } from '@/settings/accounts/graphql/queries/getMyConnectedAccounts';
+import { SettingsPageContainer } from '@/settings/components/SettingsPageContainer';
+import { SettingsSectionSkeletonLoader } from '@/settings/components/SettingsSectionSkeletonLoader';
+import { ConfirmationDialog } from '@/ui/layout/dialog/components/ConfirmationDialog';
+import { useDialog } from '@/ui/layout/dialog/hooks/useDialog';
+import { SettingsPageLayout } from '@/settings/components/layout/SettingsPageLayout';
+import { Table } from '@/ui/layout/table/components/Table';
+import { TableCell } from '@/ui/layout/table/components/TableCell';
+import { TableHeader } from '@/ui/layout/table/components/TableHeader';
+import { TableRow } from '@/ui/layout/table/components/TableRow';
+import { TableSection } from '@/ui/layout/table/components/TableSection';
+import {
+  ApplicationConnectedAccountsDocument,
+  DeleteConnectedAccountDocument,
+  FindOneApplicationDocument,
+} from '~/generated-metadata/graphql';
+import { useNavigateSettings } from '~/hooks/useNavigateSettings';
+import { SettingsApplicationConnectionMessageFolders } from '~/pages/settings/applications/components/SettingsApplicationConnectionMessageFolders';
+import { useFindApplicationConnectionProviders } from '~/pages/settings/applications/hooks/useFindApplicationConnectionProviders';
+import {
+  type ApplicationConnectedAccount,
+  useApplicationConnectedAccounts,
+} from '~/pages/settings/applications/hooks/useApplicationConnectedAccounts';
+import { useTriggerAppOAuth } from '@/settings/applications/hooks/useTriggerAppOAuth';
+import { type FrontendApplicationConnectionProvider } from '~/pages/settings/applications/types/FrontendApplicationConnectionProvider';
+
+const DETAIL_GRID_TEMPLATE = '220px 1fr';
+
+const StyledActions = styled.div`
+  display: flex;
+  gap: ${themeCssVariables.spacing[2]};
+  margin-top: ${themeCssVariables.spacing[3]};
+`;
+
+const StyledMonoText = styled.span`
+  color: ${themeCssVariables.font.color.primary};
+  font-family: ${themeCssVariables.code.font.family}, monospace;
+  font-size: ${themeCssVariables.font.size.sm};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const StyledScopeList = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${themeCssVariables.spacing[1]};
+  min-width: 0;
+`;
+
+const formatDateTime = (isoString?: string | null): string => {
+  if (isoString === undefined || isoString === null) {
+    return '-';
+  }
+
+  const date = new Date(isoString);
+
+  if (Number.isNaN(date.getTime())) {
+    return isoString;
+  }
+
+  return date.toLocaleString();
+};
+
+export const SettingsApplicationConnectionDetail = () => {
+  const { t } = useLingui();
+  const { applicationId = '', connectedAccountId = '' } = useParams<{
+    applicationId: string;
+    connectedAccountId: string;
+  }>();
+
+  const navigate = useNavigateSettings();
+  const { openDialog } = useDialog();
+  const { triggerAppOAuth } = useTriggerAppOAuth();
+  const { connectionProviders, loading: providersLoading } =
+    useFindApplicationConnectionProviders(applicationId);
+  const { accounts: connectedAccounts, loading: accountsLoading } =
+    useApplicationConnectedAccounts(applicationId);
+
+  const { data, loading: applicationLoading } = useQuery(
+    FindOneApplicationDocument,
+    {
+      variables: { id: applicationId },
+      skip: !applicationId,
+    },
+  );
+
+  const [deleteConnectedAccount, { loading: isDeleting }] = useMutation(
+    DeleteConnectedAccountDocument,
+    {
+      refetchQueries: [
+        {
+          query: ApplicationConnectedAccountsDocument,
+          variables: { applicationId },
+        },
+        { query: GET_MY_CONNECTED_ACCOUNTS },
+      ],
+    },
+  );
+
+  const application = data?.findOneApplication;
+  const providerIds = new Set(
+    connectionProviders
+      .filter((provider) => provider.scope === 'WORKSPACE')
+      .map((provider) => provider.id),
+  );
+  const connection = connectedAccounts.find(
+    (account) =>
+      account.id === connectedAccountId &&
+      account.connectionProviderId !== null &&
+      account.connectionProviderId !== undefined &&
+      providerIds.has(account.connectionProviderId),
+  );
+  const provider = connectionProviders.find(
+    (connectionProvider) =>
+      connectionProvider.id === connection?.connectionProviderId,
+  );
+
+  const applicationName = application?.name ?? t`Application`;
+  const connectionLabel =
+    connection?.name !== null &&
+    connection?.name !== undefined &&
+    connection.name.trim() !== ''
+      ? connection.name
+      : (connection?.handle ?? t`Connection`);
+  const removeDialogId = `remove-application-connection-modal-${connectedAccountId}`;
+  const applicationSettingsPath = getSettingsPath(
+    SettingsPath.ApplicationDetail,
+    { applicationId },
+    undefined,
+    'general',
+  );
+  const detailPath = getSettingsPath(SettingsPath.ApplicationConnectionDetail, {
+    applicationId,
+    connectedAccountId,
+  });
+
+  const handleReconnect = () => {
+    if (connection === undefined || provider === undefined) {
+      return;
+    }
+
+    triggerAppOAuth({
+      applicationId,
+      providerName: provider.name,
+      reconnectingConnectedAccountId: connection.id,
+      redirectLocation: detailPath,
+    });
+  };
+
+  const handleRemove = async () => {
+    if (connection === undefined) {
+      return;
+    }
+
+    await deleteConnectedAccount({ variables: { id: connection.id } });
+
+    navigate(
+      SettingsPath.ApplicationDetail,
+      { applicationId },
+      undefined,
+      { replace: true },
+      'general',
+    );
+  };
+
+  const isLoading = providersLoading || accountsLoading || applicationLoading;
+
+  const getDetailRows = ({
+    connection,
+    provider,
+  }: {
+    connection: ApplicationConnectedAccount;
+    provider: FrontendApplicationConnectionProvider;
+  }): { key: string; label: string; value: ReactNode }[] => {
+    const scopes = connection.scopes ?? [];
+
+    return [
+      {
+        key: 'provider',
+        label: t`Provider`,
+        value: provider.displayName,
+      },
+      {
+        key: 'handle',
+        label: t`Handle`,
+        value: <StyledMonoText>{connection.handle}</StyledMonoText>,
+      },
+      {
+        key: 'status',
+        label: t`Status`,
+        value: connection.authFailedAt ? (
+          <Status color="red">{t`Reconnect needed`}</Status>
+        ) : (
+          <Status color="green">{t`Connected`}</Status>
+        ),
+      },
+      {
+        key: 'scopes',
+        label: t`Granted OAuth scopes`,
+        value:
+          scopes.length > 0 ? (
+            <StyledScopeList>
+              {scopes.map((scope) => (
+                <Tag key={scope} color="gray">
+                  {scope}
+                </Tag>
+              ))}
+            </StyledScopeList>
+          ) : (
+            '-'
+          ),
+      },
+      {
+        key: 'lastSignedInAt',
+        label: t`Last signed in`,
+        value: formatDateTime(connection.lastSignedInAt),
+      },
+      {
+        key: 'lastCredentialsRefreshedAt',
+        label: t`Last refreshed`,
+        value: formatDateTime(connection.lastCredentialsRefreshedAt),
+      },
+      {
+        key: 'authFailedAt',
+        label: t`Auth failed at`,
+        value: formatDateTime(connection.authFailedAt),
+      },
+      {
+        key: 'authFailedReason',
+        label: t`Auth failure reason`,
+        value: isNonEmptyString(connection.authFailedReason)
+          ? connection.authFailedReason
+          : '-',
+      },
+      {
+        key: 'createdAt',
+        label: t`Created`,
+        value: formatDateTime(connection.createdAt),
+      },
+      {
+        key: 'updatedAt',
+        label: t`Updated`,
+        value: formatDateTime(connection.updatedAt),
+      },
+    ];
+  };
+
+  const detailRows =
+    connection !== undefined && provider !== undefined
+      ? getDetailRows({ connection, provider })
+      : [];
+
+  return (
+    <SettingsPageLayout
+      title={connectionLabel}
+      links={[
+        {
+          children: t`Workspace`,
+          href: getSettingsPath(SettingsPath.General),
+        },
+        {
+          children: t`Applications`,
+          href: getSettingsPath(SettingsPath.Applications),
+        },
+        {
+          children: applicationName,
+          href: applicationSettingsPath,
+        },
+        { children: connectionLabel },
+      ]}
+    >
+      <SettingsPageContainer>
+        {isLoading ? (
+          <SettingsSectionSkeletonLoader />
+        ) : connection === undefined || provider === undefined ? (
+          <Section.Root>
+            <Section.Header
+              title={t`Connection not found`}
+              description={t`This connection does not exist or is not available for this application.`}
+            />
+          </Section.Root>
+        ) : (
+          <>
+            <Section.Root>
+              <Section.Header
+                title={connectionLabel}
+                description={t`Manage this application's OAuth connection.`}
+              />
+              <StyledActions>
+                {connection.authFailedAt && (
+                  <Button
+                    startIcon={<IconRefresh />}
+                    onClick={handleReconnect}
+                    variant="outline"
+                    color="accent"
+                  >{t`Reconnect`}</Button>
+                )}
+                <Button
+                  startIcon={<IconTrash />}
+                  onClick={() => openDialog(removeDialogId)}
+                  variant="outline"
+                  color="danger"
+                >{t`Remove`}</Button>
+              </StyledActions>
+            </Section.Root>
+            <Section.Root>
+              <Section.Header
+                title={t`Details`}
+                description={t`OAuth credential metadata for this application connection`}
+              />
+              <Table>
+                <TableRow gridTemplateColumns={DETAIL_GRID_TEMPLATE}>
+                  <TableHeader>{t`Property`}</TableHeader>
+                  <TableHeader>{t`Value`}</TableHeader>
+                </TableRow>
+                <TableSection title={t`Connection`}>
+                  {detailRows.map((row) => (
+                    <TableRow
+                      key={row.key}
+                      gridTemplateColumns={DETAIL_GRID_TEMPLATE}
+                    >
+                      <TableCell color={themeCssVariables.font.color.secondary}>
+                        {row.label}
+                      </TableCell>
+                      <TableCell minWidth="0" overflow="hidden">
+                        {row.value}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableSection>
+              </Table>
+            </Section.Root>
+            <SettingsApplicationConnectionMessageFolders
+              connectedAccountId={connection.id}
+            />
+            <ConfirmationDialog
+              dialogId={removeDialogId}
+              title={t`Remove connection?`}
+              subtitle={
+                <Trans>
+                  This permanently removes {connectionLabel}. The app loses
+                  access to it.
+                </Trans>
+              }
+              onConfirmClick={handleRemove}
+              confirmButtonText={t`Remove`}
+              loading={isDeleting}
+            />
+          </>
+        )}
+      </SettingsPageContainer>
+    </SettingsPageLayout>
+  );
+};

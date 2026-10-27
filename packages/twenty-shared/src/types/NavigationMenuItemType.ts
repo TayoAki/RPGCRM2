@@ -1,0 +1,9 @@
+export enum NavigationMenuItemType {
+  VIEW = 'VIEW',
+  FOLDER = 'FOLDER',
+  LINK = 'LINK',
+  OBJECT = 'OBJECT',
+  RECORD = 'RECORD',
+  PAGE_LAYOUT = 'PAGE_LAYOUT',
+  AGENT_CHAT_CHANNEL = 'AGENT_CHAT_CHANNEL',
+}

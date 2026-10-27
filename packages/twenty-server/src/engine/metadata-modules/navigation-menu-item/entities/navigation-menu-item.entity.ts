@@ -1,0 +1,167 @@
+import {
+  Check,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  type Relation,
+  UpdateDateColumn,
+} from 'typeorm';
+
+import { ADD_AGENT_CHAT_CHANNEL_NAVIGATION_MENU_ITEM_UPGRADE_COMMAND_NAME } from 'src/database/commands/upgrade-version-command/2-51/add-agent-chat-channel-navigation-menu-item-upgrade-command-name.constant';
+import { WasIntroducedInUpgrade } from 'src/engine/core-modules/upgrade/decorators/was-introduced-in-upgrade.decorator';
+import { UserWorkspaceEntity } from 'src/engine/core-modules/user-workspace/user-workspace.entity';
+import { AgentChatChannelEntity } from 'src/engine/metadata-modules/agent-chat-channel/entities/agent-chat-channel.entity';
+import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
+import { PageLayoutEntity } from 'src/engine/metadata-modules/page-layout/entities/page-layout.entity';
+import { ViewEntity } from 'src/engine/metadata-modules/view/entities/view.entity';
+import { NavigationMenuItemType } from 'src/engine/metadata-modules/navigation-menu-item/enums/navigation-menu-item-type.enum';
+import { SyncableEntity } from 'src/engine/workspace-manager/types/syncable-entity.interface';
+
+@Entity({ name: 'navigationMenuItem', schema: 'core' })
+@Index('IDX_NAVIGATION_MENU_ITEM_APPLICATION_ID', ['applicationId'])
+@Index(
+  'IDX_NAVIGATION_MENU_ITEM_TARGET_OBJECT_METADATA_ID',
+  ['targetObjectMetadataId'],
+  { where: '"targetObjectMetadataId" IS NOT NULL' },
+)
+@Index('IDX_NAVIGATION_MENU_ITEM_USER_WORKSPACE_ID_WORKSPACE_ID', [
+  'userWorkspaceId',
+  'workspaceId',
+])
+@Index('IDX_NAVIGATION_MENU_ITEM_TARGET_RECORD_OBJ_METADATA_WS_ID', [
+  'targetRecordId',
+  'targetObjectMetadataId',
+  'workspaceId',
+])
+@Index('IDX_NAVIGATION_MENU_ITEM_FOLDER_ID_WORKSPACE_ID', [
+  'folderId',
+  'workspaceId',
+])
+@Index('IDX_NAVIGATION_MENU_ITEM_VIEW_ID_WORKSPACE_ID', [
+  'viewId',
+  'workspaceId',
+])
+@Index('IDX_NAVIGATION_MENU_ITEM_PAGE_LAYOUT_ID_WORKSPACE_ID', [
+  'pageLayoutId',
+  'workspaceId',
+])
+@Index('IDX_NAVIGATION_MENU_ITEM_AGENT_CHAT_CHANNEL_ID_WORKSPACE_ID', [
+  'agentChatChannelId',
+  'workspaceId',
+])
+@Check(
+  'CHK_navigation_menu_item_type_fields',
+  `("type" = 'FOLDER')
+  OR ("type" = 'OBJECT' AND "targetObjectMetadataId" IS NOT NULL)
+  OR ("type" = 'VIEW' AND "viewId" IS NOT NULL)
+  OR ("type" = 'RECORD' AND "targetRecordId" IS NOT NULL AND "targetObjectMetadataId" IS NOT NULL)
+  OR ("type" = 'LINK' AND "link" IS NOT NULL)
+  OR ("type" = 'PAGE_LAYOUT' AND "pageLayoutId" IS NOT NULL)
+  OR ("type" = 'AGENT_CHAT_CHANNEL' AND "agentChatChannelId" IS NOT NULL)`,
+)
+export class NavigationMenuItemEntity
+  extends SyncableEntity
+  implements Required<NavigationMenuItemEntity>
+{
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @ManyToOne(() => UserWorkspaceEntity, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'userWorkspaceId' })
+  userWorkspace: Relation<UserWorkspaceEntity> | null;
+
+  @Column({ nullable: true, type: 'uuid' })
+  userWorkspaceId: string | null;
+
+  @Column({ nullable: true, type: 'uuid' })
+  targetRecordId: string | null;
+
+  @Column({ nullable: true, type: 'uuid' })
+  targetObjectMetadataId: string | null;
+
+  @Column({ nullable: true, type: 'uuid' })
+  viewId: string | null;
+
+  @ManyToOne(() => ViewEntity, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'viewId' })
+  view: Relation<ViewEntity> | null;
+
+  @ManyToOne(() => ObjectMetadataEntity, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'targetObjectMetadataId' })
+  targetObjectMetadata: Relation<ObjectMetadataEntity> | null;
+
+  @Column({
+    nullable: false,
+    type: 'enum',
+    enum: NavigationMenuItemType,
+  })
+  type: NavigationMenuItemType;
+
+  @Column({ nullable: true, type: 'text' })
+  name: string | null;
+
+  @Column({ nullable: true, type: 'text' })
+  link: string | null;
+
+  @Column({ nullable: true, type: 'text' })
+  icon: string | null;
+
+  @Column({ nullable: true, type: 'text' })
+  color: string | null;
+
+  @ManyToOne(() => NavigationMenuItemEntity, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'folderId' })
+  folder: Relation<NavigationMenuItemEntity> | null;
+
+  @Column({ nullable: true, type: 'uuid' })
+  folderId: string | null;
+
+  @ManyToOne(() => PageLayoutEntity, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'pageLayoutId' })
+  pageLayout: Relation<PageLayoutEntity> | null;
+
+  @Column({ nullable: true, type: 'uuid' })
+  pageLayoutId: string | null;
+
+  @ManyToOne(() => AgentChatChannelEntity, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'agentChatChannelId' })
+  agentChatChannel: Relation<AgentChatChannelEntity> | null;
+
+  @WasIntroducedInUpgrade({
+    upgradeCommandName:
+      ADD_AGENT_CHAT_CHANNEL_NAVIGATION_MENU_ITEM_UPGRADE_COMMAND_NAME,
+  })
+  @Column({ nullable: true, type: 'uuid' })
+  agentChatChannelId: string | null;
+
+  @Column({ nullable: false, type: 'double precision' })
+  position: number;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  updatedAt: Date;
+}

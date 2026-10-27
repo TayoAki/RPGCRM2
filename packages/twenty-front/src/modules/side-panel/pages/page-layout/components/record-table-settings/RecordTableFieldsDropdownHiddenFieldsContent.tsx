@@ -1,0 +1,114 @@
+import { ChartSettingsDropdownSection } from '@/side-panel/pages/page-layout/components/chart-settings/ChartSettingsDropdownSection';
+import { Dropdown } from 'twenty-ui/components/navigation';
+import { useActiveFieldMetadataItems } from '@/object-metadata/hooks/useActiveFieldMetadataItems';
+import { useObjectMetadataItemById } from '@/object-metadata/hooks/useObjectMetadataItemById';
+import { useUpdateRecordField } from '@/object-record/record-field/hooks/useUpdateRecordField';
+import { useUpsertRecordField } from '@/object-record/record-field/hooks/useUpsertRecordField';
+import { currentRecordFieldsComponentState } from '@/object-record/record-field/states/currentRecordFieldsComponentState';
+import { type RecordField } from '@/object-record/record-field/types/RecordField';
+import { SelectOptionIcon } from '@/ui/input/components/SelectOptionIcon';
+import { useAtomComponentStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentStateValue';
+import { t } from '@lingui/core/macro';
+import { isDefined } from 'twenty-shared/utils';
+import { LightIconButton } from 'twenty-ui/components/input';
+import { IconEye, useIcons } from 'twenty-ui/icon';
+import { ListItem } from 'twenty-ui/primitives/navigation';
+import { v4 } from 'uuid';
+import { sortByProperty } from '~/utils/array/sortByProperty';
+
+type RecordTableFieldsDropdownHiddenFieldsContentProps = {
+  objectMetadataId: string;
+  recordIndexId: string;
+  onFieldUpdated?: (
+    viewFieldId: string,
+    update: Partial<{ isVisible: boolean }>,
+  ) => void;
+  onFieldCreated?: (recordField: RecordField) => void;
+};
+
+export const RecordTableFieldsDropdownHiddenFieldsContent = ({
+  objectMetadataId,
+  recordIndexId,
+  onFieldUpdated,
+  onFieldCreated,
+}: RecordTableFieldsDropdownHiddenFieldsContentProps) => {
+  const { objectMetadataItem } = useObjectMetadataItemById({
+    objectId: objectMetadataId,
+  });
+
+  const { getIcon } = useIcons();
+
+  const { upsertRecordField } = useUpsertRecordField(recordIndexId);
+
+  const { updateRecordField } = useUpdateRecordField(recordIndexId);
+
+  const currentRecordFields = useAtomComponentStateValue(
+    currentRecordFieldsComponentState,
+  );
+
+  const { activeFieldMetadataItems } = useActiveFieldMetadataItems({
+    objectMetadataItem,
+  });
+
+  const visibleFieldMetadataItemIds = currentRecordFields
+    .filter((recordField) => recordField.isVisible)
+    .map((recordField) => recordField.fieldMetadataItemId);
+
+  const hiddenFieldMetadataItems = activeFieldMetadataItems.filter(
+    (fieldMetadataItem) =>
+      !visibleFieldMetadataItemIds.includes(fieldMetadataItem.id),
+  );
+
+  const handleShowField = (fieldMetadataId: string) => {
+    const existingRecordField = currentRecordFields.find(
+      (recordField) => recordField.fieldMetadataItemId === fieldMetadataId,
+    );
+
+    if (isDefined(existingRecordField)) {
+      updateRecordField(fieldMetadataId, { isVisible: true });
+      onFieldUpdated?.(existingRecordField.id, { isVisible: true });
+      return;
+    }
+
+    const lastPosition =
+      currentRecordFields.toSorted(sortByProperty('position', 'desc'))?.[0]
+        ?.position ?? 0;
+
+    const newRecordField: RecordField = {
+      id: v4(),
+      fieldMetadataItemId: fieldMetadataId,
+      size: 100,
+      isVisible: true,
+      position: lastPosition + 1,
+    };
+
+    upsertRecordField(newRecordField);
+    onFieldCreated?.(newRecordField);
+  };
+
+  return (
+    <>
+      <Dropdown.Back>{t`Hidden Fields`}</Dropdown.Back>
+      <ChartSettingsDropdownSection>
+        {hiddenFieldMetadataItems.map((fieldMetadataItem) => (
+          <ListItem
+            key={fieldMetadataItem.id}
+            startIcon={
+              <SelectOptionIcon Icon={getIcon(fieldMetadataItem.icon)} />
+            }
+            actions={
+              <LightIconButton
+                aria-label={t`Show ${fieldMetadataItem.label}`}
+                onClick={() => handleShowField(fieldMetadataItem.id)}
+              >
+                <IconEye />
+              </LightIconButton>
+            }
+          >
+            {fieldMetadataItem.label}
+          </ListItem>
+        ))}
+      </ChartSettingsDropdownSection>
+    </>
+  );
+};
