@@ -5,6 +5,7 @@ What you need to know to sell this CRM under your own brand. The detailed guides
 | Guide | Read it when |
 |---|---|
 | [docs/LICENSING.md](docs/LICENSING.md) | **Before your first sale.** What the licenses require of you, and the one open question to settle with Twenty. |
+| [docs/ENTERPRISE_FILES.md](docs/ENTERPRISE_FILES.md) | You need the detail behind that question: every Enterprise-licensed file, by feature, and what runs without a key. |
 | [docs/BRANDING.md](docs/BRANDING.md) | Setting your name, logo and links. |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Deploying, upgrading and backing up customer instances. |
 | [docs/UPSTREAM.md](docs/UPSTREAM.md) | Pulling in new Twenty releases. |

@@ -24,7 +24,7 @@ What the AGPL does **not** stop: charging for hosting, support, setup and custom
 
 ## Enterprise-licensed code
 
-Twenty ships 576 files under its commercial license inside the same repository. They implement SSO, row-level permissions, record sharing, validation rules, audit logs, usage metering, Stripe-based subscription billing, and parts of the workspace migration and auth code. Without an `ENTERPRISE_KEY` from Twenty, the Enterprise features stay locked. The exception is custom AI providers, which Twenty leaves free up to 25 users per instance.
+Twenty ships 576 files under its commercial license inside the same repository. They implement SSO, row-level permissions, record sharing, validation rules, audit logs, usage metering, Stripe-based subscription billing, and parts of the workspace migration and auth code. Without an `ENTERPRISE_KEY` from Twenty, the Enterprise features stay locked. The exception is custom AI providers, which Twenty leaves free up to 25 users per instance. [ENTERPRISE_FILES.md](ENTERPRISE_FILES.md) breaks the files down by feature and lists which ones run on every request even with the features off.
 
 What this fork does:
 

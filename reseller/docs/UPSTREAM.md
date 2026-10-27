@@ -34,6 +34,7 @@ Then, before pushing:
 ```bash
 yarn install
 reseller/scripts/check-license-boundary.sh   # must pass
+python3 reseller/scripts/list-enterprise-files.py   # refresh docs/ENTERPRISE_FILES.md; describe any new area
 reseller/scripts/check-branding.sh           # review new upstream branding (see below)
 npx nx run-many -t build -p twenty-shared twenty-emails twenty-ui twenty-client-sdk twenty-sdk twenty-front-component-renderer
 npx tsgo -p packages/twenty-server/tsconfig.json --noEmit

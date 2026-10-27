@@ -37,6 +37,9 @@ jobs:
       - name: Upstream branding
         run: reseller/scripts/check-branding.sh
 
+      - name: Enterprise file inventory
+        run: python3 reseller/scripts/list-enterprise-files.py --check
+
       - name: Build workspace dependencies
         run: npx nx run-many -t build -p twenty-shared twenty-emails twenty-ui twenty-client-sdk twenty-sdk twenty-front-component-renderer twenty-oxlint-rules
 
