@@ -3,7 +3,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "tenant-brand": ["./src/crm/tenant-brand-fallback.ts"]
     },
     "jsx": "react-jsx",
     "lib": ["ES2024", "DOM", "DOM.Iterable"]

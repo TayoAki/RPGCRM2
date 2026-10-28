@@ -6,6 +6,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { LISTEN_HOST_VARIABLE, listenHosts } from "@openbot/shared/listen-host";
 import { listenPort } from "@openbot/shared/listen-port";
+import { tenantBrand } from "./vite-brand";
 import { atomicCrm, sourceAlias } from "./vite-crm";
 
 /*
@@ -190,6 +191,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     atomicCrm(__dirname),
+    tenantBrand(),
   ],
   resolve: {
     alias: [sourceAlias(path.resolve(__dirname, "./src"))],

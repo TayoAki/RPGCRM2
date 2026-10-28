@@ -1,6 +1,6 @@
-# Agentic CRM
+# Magpie CRM
 
-The second product in this repository: an AI-agent-first CRM built on OpenDuet and Atomic CRM. It's separate from the Twenty-based CRM in `packages/`, and shares no code with it.
+The second product in this repository: an AI-agent-first CRM built on OpenDuet and Atomic CRM, sold as **Magpie CRM**, with an assistant called Maggie. The logo is `brand/magpie.svg`. It's separate from the Twenty-based CRM in `packages/`, and shares no code with it.
 
 | Path | What | License |
 |---|---|---|
@@ -64,6 +64,8 @@ OpenDuet's app compiles Atomic's screens into itself and serves them at `/crm`, 
 3. Write `openduet/openbot/.env`:
    - Copy `.env.example`.
    - Set `INTELLIGENCE_API_KEY`, which the server requires.
+   - For Magpie's name and logo, run `bun agentic-crm/scripts/make-tenant.ts --out agentic-crm/tenant` once, and set `TENANT_PACKAGE_DIR=../../../tenant` (git ignores `agentic-crm/tenant/`). Without it the app is OpenDuet's.
+   - Set `OPENBOT_SELF_HOST_BANNER=false`, as the deploy kit does.
    - Choose how people sign in:
      - **Quickest, for one person:** clear `OPENBOT_PUBLIC_URL`. `OPENBOT_SINGLE_USER=true` then signs you in as a local admin.
      - **Email and password, as customers use it:** set `SIGNIN_EMAIL_PASSWORD=true`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `INITIAL_ADMIN_EMAILS`, and `TRUSTED_ORIGINS` (include `http://127.0.0.1:3010`). After step 4, add the first admin from `openduet/openbot/server` with `APP_PUBLIC_URL=http://127.0.0.1:3010 bun --env-file=../.env scripts/add-person.ts <email> <name>`, and open the link it prints.
@@ -102,14 +104,17 @@ agentic-crm/deploy/up.sh acme
 
 ## Branding a deployment
 
-Each deployment carries its own name, through an OpenDuet tenant package. `scripts/make-tenant.ts` writes one from OpenDuet's own (`openduet/openbot/examples/openduet`), with the product's name everywhere in the app and the assistant's name in chat:
+Each deployment carries its name and logo in an OpenDuet tenant package. `scripts/make-tenant.ts` writes one from OpenDuet's own (`openduet/openbot/examples/openduet`). It's Magpie CRM, with Maggie and the magpie, unless you name another brand for a customer who wants their own:
 
 ```bash
-bun agentic-crm/scripts/make-tenant.ts --name "Acme CRM" --assistant "Ava" --out <dir>
+bun agentic-crm/scripts/make-tenant.ts --out <dir>                      # Magpie CRM
+bun agentic-crm/scripts/make-tenant.ts --name "Acme CRM" --assistant "Ava" --logo acme.svg --out <dir>
 ```
 
-- **Using it.** Set `TENANT_PACKAGE_DIR=<dir>` in `openduet/openbot/.env`, then build or start the app. The name is read when the app is built.
-- **The CRM.** Its header shows the product's name with a letter mark, and its setup checklist names the product. An admin can still set the CRM's own name and logos in its Settings.
+- **Using it.** Set `TENANT_PACKAGE_DIR=<dir>` in `openduet/openbot/.env`, then build or start the app. The name and logo are read when the app is built. `deploy/new-customer.ts` takes the same options.
+- **Where it shows.** The browser tab and its icon, the sign-in and set-password pages, OpenDuet's own screens, and the CRM's header and setup checklist (`app/vite-brand.ts`, `app/src/crm/brand.ts`). The assistant keeps OpenDuet's orb as its face in chat.
+- **The logo** is a square SVG. Without one, the CRM shows the name's first letter, and the sign-in pages show the assistant's orb.
+- **An admin** can still set the CRM's own name and logos in its Settings.
 - **After a vendor sync,** run the script again with `--force`, so OpenDuet's changes to its package come through. It stops if a line it rewrites has moved.
 - **Still OpenDuet's or CopilotKit's,** until the paid plans are in place:
   - The "Self-host OpenDuet" banner shows until the deployment's CopilotKit Intelligence plan is a paid one.

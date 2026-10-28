@@ -3,10 +3,10 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { ProviderLogo } from "@/components/auth/provider-logo";
-import { MicOrb } from "@/components/duet/mic-orb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { BrandMark } from "@/crm/brand-mark";
 import {
   providerName,
   signInWith,
@@ -254,7 +254,7 @@ function SignScreen() {
           variants={{ hidden, shown }}
           className="flex items-center justify-center"
         >
-          <MicOrb size={56} />
+          <BrandMark size={56} />
         </motion.div>
         <motion.h1
           className="text-2xl font-medium tracking-tight text-center mt-8"

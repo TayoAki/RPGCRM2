@@ -8,8 +8,10 @@ import { parseArgs } from "node:util";
  * Writes one customer's deployment settings: customers/<customer>/.env, with fresh secrets, and the
  * branded tenant package beside it. Then fill in the keys it lists and run ./up.sh <customer>.
  *
- *   bun agentic-crm/deploy/new-customer.ts --customer acme --name "Acme CRM" \
- *     --domain crm.acme.com --admin owner@acme.com [--assistant "Ava"]
+ *   bun agentic-crm/deploy/new-customer.ts --customer acme --domain crm.acme.com \
+ *     --admin owner@acme.com [--name "Acme CRM"] [--assistant "Ava"] [--logo acme.svg]
+ *
+ * Without --name the deployment is Magpie CRM, with its magpie and Maggie.
  */
 
 const { values } = parseArgs({
@@ -17,6 +19,7 @@ const { values } = parseArgs({
     customer: { type: "string" },
     name: { type: "string" },
     assistant: { type: "string" },
+    logo: { type: "string" },
     domain: { type: "string" },
     admin: { type: "string" },
   },
@@ -41,8 +44,6 @@ if (
 const admin = values.admin?.trim().toLowerCase() ?? "";
 if (!/^[^\s@]+@[^\s@]+$/.test(admin))
   fail("--admin is the first admin's email.");
-if (!values.name?.trim())
-  fail('--name is the product\'s name, such as "Acme CRM".');
 
 const folder = resolve(import.meta.dir, "customers", customer);
 if (existsSync(folder)) fail(`${folder} exists already.`);
@@ -54,7 +55,7 @@ const url = `https://${domain}`;
 
 writeFileSync(
   join(folder, ".env"),
-  `# ${values.name.trim()}: settings for this deployment. Secrets were generated; keep this file private.
+  `# ${values.name?.trim() || "Magpie CRM"}: settings for this deployment. Secrets were generated; keep this file private.
 CUSTOMER=${customer}
 DOMAIN=${domain}
 POSTGRES_PASSWORD=${hex(24)}
@@ -85,9 +86,9 @@ const tenant = Bun.spawnSync(
   [
     "bun",
     resolve(import.meta.dir, "../scripts/make-tenant.ts"),
-    "--name",
-    values.name,
+    ...(values.name ? ["--name", values.name] : []),
     ...(values.assistant ? ["--assistant", values.assistant] : []),
+    ...(values.logo ? ["--logo", resolve(values.logo)] : []),
     "--out",
     join(folder, "tenant"),
   ],

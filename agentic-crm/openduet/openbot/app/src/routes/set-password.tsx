@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { MicOrb } from "@/components/duet/mic-orb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BrandMark } from "@/crm/brand-mark";
 import { setPasswordWithToken } from "@/lib/auth/client";
 import { appConfig } from "@/lib/generated/application-config";
 import { searchTextEntry } from "@/lib/search-text";
@@ -50,7 +50,7 @@ function SetPasswordScreen() {
   return (
     <div className="flex h-dvh w-full flex-col items-center justify-center p-4">
       <div className="flex w-full max-w-82 flex-col items-center">
-        <MicOrb size={56} />
+        <BrandMark size={56} />
         <h1 className="mt-8 text-center font-medium text-2xl tracking-tight">
           {done ? "Your password is set" : "Set your password"}
         </h1>

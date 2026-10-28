@@ -48,7 +48,7 @@ The estimates are rough, for one senior engineer working with agent teams. A sec
 
 ### Phase 0: groundwork (about 1 week)
 
-- **Decisions:** product name, first target customers, open or closed source. See the end of this document.
+- **Decisions:** first target customers, open or closed source. See the end of this document. The product name is decided: Magpie CRM.
 - **Repository: done.** The product lives in `agentic-crm/` in this repository. OpenDuet (`openduet/`, at `60fd4c7`) and Atomic CRM (`atomic-crm/`, at `1d96561`) are imported as pinned vendor snapshots, synced with [scripts/sync-vendor.sh](scripts/sync-vendor.sh). See [README.md](README.md).
 - **CopilotKit account:** choose the plan (Pay as you go, $49/month with 10,000 interactions included, at the time of writing).
 - **Spike: done.** Atomic's UI runs at `/crm` inside OpenDuet's app, so the second-bundle fallback isn't needed. See README.md, "How the CRM runs inside OpenDuet".
@@ -154,7 +154,7 @@ Prioritized by what pilot customers ask for.
 
 ## Decisions needed from you
 
-1. **Product name**, for the repository, the branding defaults and Google's verification.
+1. ~~**Product name.**~~ Decided: **Magpie CRM**, with an assistant called Maggie. Check the trademark before the first sale, and use the name for Google's verification.
 2. ~~**Repository.**~~ Decided: a new folder, `agentic-crm/`, in this repository.
 3. **First target customers**, which decides which P2 items move up.
 4. **Open or closed source.** MIT allows either. Closed source protects your work; open source helps trust and adoption.
