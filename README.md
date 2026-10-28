@@ -18,6 +18,8 @@ This repository is a fork of [Twenty](https://github.com/twentyhq/twenty), the o
 
 Start with [reseller/README.md](reseller/README.md), the reseller playbook.
 
+> **Second product:** [`agentic-crm/`](agentic-crm/README.md) holds an AI-agent-first CRM built on OpenDuet and Atomic CRM (both MIT). It shares no code with the Twenty-based CRM in `packages/`, and the AGPL `LICENSE` at the root doesn't apply to it.
+
 ## Quick start: one customer instance
 
 ```bash
