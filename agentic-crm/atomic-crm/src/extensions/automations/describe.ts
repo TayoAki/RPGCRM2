@@ -190,6 +190,62 @@ export const STEP_TYPES: StepType[] = [
     }),
   },
   {
+    type: "find_record",
+    label: "Find a record",
+    hint: "The first record that matches, for later steps to use.",
+    make: () => ({
+      type: "find_record",
+      object: "deals",
+      filter: {},
+      order: "DESC",
+    }),
+  },
+  {
+    type: "for_each",
+    label: "For each record",
+    hint: "Do one thing for every record that matches.",
+    make: () => ({
+      type: "for_each",
+      object: "contacts",
+      filter: {},
+      limit: 25,
+      do: { id: "each", type: "add_note", target: "contact", text: "" },
+    }),
+  },
+  {
+    type: "wait_until",
+    label: "Wait until",
+    hint: "Hold until a condition is true, checking now and then.",
+    make: () => ({
+      type: "wait_until",
+      when: { match: "all", conditions: [] },
+      check_every_hours: 1,
+      timeout_days: 7,
+      on_timeout: "stop",
+    }),
+  },
+  {
+    type: "classify",
+    label: "Sort with AI",
+    hint: "Pick one of your labels for some text, and keep it on a record.",
+    make: () => ({
+      type: "classify",
+      text: "",
+      labels: ["Interested", "Not interested"],
+    }),
+  },
+  {
+    type: "create_meeting",
+    label: "Book a meeting",
+    hint: "A meeting on the calendar for the contact and deal.",
+    make: () => ({
+      type: "create_meeting",
+      title: "Follow-up with {{contact.first_name}}",
+      start: "{{now | add_days:7}}",
+      duration_minutes: 30,
+    }),
+  },
+  {
     type: "delete_record",
     label: "Delete a record",
     hint: "Careful: it can't be undone.",
@@ -201,6 +257,16 @@ export const STEP_TYPES: StepType[] = [
     hint: "End the automation here.",
     make: () => ({ type: "stop" }),
   },
+];
+
+/** What a for_each step can do to each record. */
+export const EACH_ACTIONS = [
+  "add_note",
+  "update_record",
+  "create_task",
+  "send_email",
+  "ai_agent",
+  "http_request",
 ];
 
 export const stepLabel = (type: string) =>
@@ -232,6 +298,8 @@ export const PLACEHOLDERS = [
   ["{{record.<field>}}", "Any field of the record"],
   ["{{trigger.payload.<field>}}", "A field another app sent"],
   ["{{steps.<id>.text}}", "Text an AI step wrote"],
+  ["{{steps.<id>.record.<field>}}", "A record a find step found"],
+  ["{{steps.<id>.label}}", "The label AI sorted it into"],
   ["| date, | time, | datetime", "Format a date"],
   ["| add_days:2, | add_hours:-1", "Move a date"],
   ['| default:"there"', "Used when the field is empty"],
@@ -245,6 +313,7 @@ export function newStepId(type: string, steps: Step[]): string {
       taken.add(step.id);
       if (Array.isArray(step.if_true)) visit(step.if_true as Step[]);
       if (Array.isArray(step.if_false)) visit(step.if_false as Step[]);
+      if (step.do) visit([step.do as Step]);
     }
   };
   visit(steps);

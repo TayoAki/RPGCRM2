@@ -5,7 +5,7 @@ import { callTool, listTools, useCrmTools } from "../src/crm/agent-tools";
 import { installCrmTools } from "../src/crm/install";
 import { installs } from "../src/crm/schema";
 import { createDatabase } from "../src/db/client";
-import { agents, approvalTeamRules, users } from "../src/db/schema";
+import { agents, approvalTeamRules, mcpServers, users } from "../src/db/schema";
 import { TEST_POOL, testDatabaseUrl } from "./support/database";
 
 const database = createDatabase(testDatabaseUrl(), TEST_POOL);
@@ -166,4 +166,114 @@ test("the first boot grants the tools to every Bot and makes CRM writes ask; lat
       rules.map((rule) => rule.id),
     ),
   );
+});
+
+test("a deployment installed before the report tools gets them granted once on its next boot", async () => {
+  const granted: string[] = [];
+  const pluginStore = {
+    addServer: async () => ({}) as never,
+    grant: async (_kind: string, ref: string) => {
+      granted.push(ref);
+    },
+    refreshTools: async () => ({ tools: 0 }),
+  };
+  const deps = {
+    database,
+    pluginStore,
+    audit: createAuditStore(database),
+    roleOf: async () => "user" as const,
+  };
+  await database.delete(installs);
+  await database.insert(installs).values({ name: "agent-tools" });
+  await database
+    .insert(mcpServers)
+    .values({
+      id: "crm",
+      title: "CRM",
+      vendor: "Built in",
+      url: "builtin://crm/",
+    })
+    .onConflictDoNothing();
+  const bots = await database.select({ id: agents.id }).from(agents);
+
+  await installCrmTools(deps);
+  const firstBoot = [...granted];
+  granted.length = 0;
+  await installCrmTools(deps);
+
+  expect(new Set(firstBoot)).toEqual(
+    new Set(
+      bots.length
+        ? ["crm/run_report", "crm/list_reports", "crm/make_chart"]
+        : [],
+    ),
+  );
+  expect(firstBoot).toHaveLength(bots.length * 3);
+  expect(granted).toEqual([]);
+  await database.delete(installs);
+});
+
+test("the agent answers with a report, then makes it a chart the person can open", async () => {
+  for (const [name, stage, amount] of [
+    ["One", "won", 3000],
+    ["Two", "won", 2000],
+    ["Three", "lost", 500],
+  ] as const) {
+    await call("create_record", {
+      resource: "deals",
+      values: { name: `${name} report ${run}`, stage, amount },
+    });
+  }
+  const filter = { "name@ilike": `report ${run}` };
+
+  const { json: report } = await call("run_report", {
+    object: "deals",
+    fn: "sum",
+    field: "amount",
+    group_by: "stage",
+    filter,
+  });
+  const { json: made } = await call("make_chart", {
+    title: "Won and lost",
+    type: "bar",
+    object: "deals",
+    fn: "sum",
+    field: "amount",
+    group_by: "stage",
+    filter,
+    report_name: `Agent report ${run}`,
+  });
+  const { json: added } = await call("make_chart", {
+    title: "How many",
+    type: "number",
+    object: "deals",
+    filter,
+    report_id: (made as Json).report_id,
+  });
+  const { json: reports } = await call("list_reports", {});
+  const broken = await call("make_chart", {
+    title: "Broken",
+    type: "bar",
+    object: "deals",
+    group_by: "no_such_field",
+    report_id: (made as Json).report_id,
+  });
+
+  expect((report as Json).groups).toEqual([
+    { key: "won", value: 5000 },
+    { key: "lost", value: 500 },
+  ]);
+  expect((made as Json).url).toBe(`/crm/reports/${(made as Json).report_id}`);
+  expect((added as Json).report_id).toBe((made as Json).report_id);
+  expect(
+    (reports as unknown as Json[]).find(
+      (each) => each.id === (made as Json).report_id,
+    ),
+  ).toMatchObject({
+    name: `Agent report ${run}`,
+    yours: true,
+    charts: ["Won and lost", "How many"],
+  });
+  expect(broken.isError).toBe(true);
+  expect(broken.text).toContain("no_such_field");
 });

@@ -117,14 +117,68 @@ const stepId = z
   .regex(/^[a-z0-9_]{1,40}$/, "Step ids are lowercase letters, digits and _.");
 
 const values = z.record(z.string().regex(/^[a-z_]+$/), z.unknown());
+// A standard object or a custom one's name; an unknown one fails when the step runs.
+const anyObject = z.string().regex(/^[a-z][a-z0-9_]{1,40}$/);
+// The CRM's filter language, each value a template.
+const recordFilter = z.record(z.string().max(120), z.unknown()).default({});
+
+const updateRecord = z.object({
+  id: stepId,
+  type: z.literal("update_record"),
+  target: z.enum(TARGETS),
+  values,
+});
+const createTask = z.object({
+  id: stepId,
+  type: z.literal("create_task"),
+  text: template,
+  task_type: z.string().max(40).optional(),
+  due_in_days: z.number().min(0).max(365).default(0),
+});
+const addNote = z.object({
+  id: stepId,
+  type: z.literal("add_note"),
+  target: z.enum(["contact", "deal"]),
+  text: template,
+});
+const sendEmail = z.object({
+  id: stepId,
+  type: z.literal("send_email"),
+  to: template.default("{{contact.email}}"),
+  subject: template,
+  body: template,
+  // The model writes the body from these, with the body above as its starting point.
+  ai_instructions: template.optional(),
+  // Kept as a draft, with a task for the owner to read and send it.
+  review_first: z.boolean().default(false),
+});
+const aiAgent = z.object({
+  id: stepId,
+  type: z.literal("ai_agent"),
+  instructions: template,
+});
+const httpRequest = z.object({
+  id: stepId,
+  type: z.literal("http_request"),
+  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).default("POST"),
+  url: template,
+  headers: z.record(z.string(), template).default({}),
+  body: template.optional(),
+});
+
+/** What a for_each step can do to each record it finds; "record" is that record. */
+const eachAction = z.discriminatedUnion("type", [
+  updateRecord,
+  createTask,
+  addNote,
+  sendEmail,
+  aiAgent,
+  httpRequest,
+]);
+export type EachAction = z.infer<typeof eachAction>;
 
 const leaf = z.discriminatedUnion("type", [
-  z.object({
-    id: stepId,
-    type: z.literal("update_record"),
-    target: z.enum(TARGETS),
-    values,
-  }),
+  updateRecord,
   z.object({
     id: stepId,
     type: z.literal("create_record"),
@@ -147,40 +201,15 @@ const leaf = z.discriminatedUnion("type", [
     lead_source: template.optional(),
     lead_source_detail: template.optional(),
   }),
-  z.object({
-    id: stepId,
-    type: z.literal("create_task"),
-    text: template,
-    task_type: z.string().max(40).optional(),
-    due_in_days: z.number().min(0).max(365).default(0),
-  }),
-  z.object({
-    id: stepId,
-    type: z.literal("add_note"),
-    target: z.enum(["contact", "deal"]),
-    text: template,
-  }),
-  z.object({
-    id: stepId,
-    type: z.literal("send_email"),
-    to: template.default("{{contact.email}}"),
-    subject: template,
-    body: template,
-    // The model writes the body from these, with the body above as its starting point.
-    ai_instructions: template.optional(),
-    // Kept as a draft, with a task for the owner to read and send it.
-    review_first: z.boolean().default(false),
-  }),
+  createTask,
+  addNote,
+  sendEmail,
   z.object({
     id: stepId,
     type: z.literal("ai_write"),
     prompt: template,
   }),
-  z.object({
-    id: stepId,
-    type: z.literal("ai_agent"),
-    instructions: template,
-  }),
+  aiAgent,
   z.object({
     id: stepId,
     type: z.literal("generate_proposal"),
@@ -204,13 +233,51 @@ const leaf = z.discriminatedUnion("type", [
     id: stepId,
     type: z.literal("stop"),
   }),
+  httpRequest,
   z.object({
     id: stepId,
-    type: z.literal("http_request"),
-    method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).default("POST"),
-    url: template,
-    headers: z.record(z.string(), template).default({}),
-    body: template.optional(),
+    type: z.literal("find_record"),
+    object: anyObject,
+    filter: recordFilter,
+    sort: z.string().max(120).optional(),
+    order: z.enum(["ASC", "DESC"]).default("DESC"),
+  }),
+  z.object({
+    id: stepId,
+    type: z.literal("for_each"),
+    object: anyObject,
+    filter: recordFilter,
+    limit: z.number().int().min(1).max(100).default(25),
+    do: eachAction,
+  }),
+  z.object({
+    id: stepId,
+    type: z.literal("wait_until"),
+    when: conditionGroup,
+    check_every_hours: z.number().min(0.25).max(168).default(1),
+    timeout_days: z.number().min(0).max(365).default(7),
+    on_timeout: z.enum(["continue", "stop"]).default("stop"),
+  }),
+  z.object({
+    id: stepId,
+    type: z.literal("classify"),
+    text: template,
+    labels: z.array(z.string().trim().min(1).max(60)).min(2).max(20),
+    instructions: template.optional(),
+    // Where the label is kept, if anywhere: a field of one of the run's records.
+    target: z.enum(TARGETS).optional(),
+    field: z
+      .string()
+      .regex(/^[a-z_]+(\.[a-z0-9_]+)?$/)
+      .optional(),
+  }),
+  z.object({
+    id: stepId,
+    type: z.literal("create_meeting"),
+    title: template,
+    start: template,
+    duration_minutes: z.number().int().min(5).max(1440).default(30),
+    location: template.optional(),
   }),
 ]);
 

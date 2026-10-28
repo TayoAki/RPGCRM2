@@ -46,7 +46,10 @@ export async function installCrmTools(deps: {
       .select({ id: mcpServers.id })
       .from(mcpServers)
       .where(eq(mcpServers.id, CRM_SERVER));
-    if (server) await pluginStore.refreshTools(CRM_SERVER);
+    if (server) {
+      await pluginStore.refreshTools(CRM_SERVER);
+      await grantLaterTools(database, pluginStore);
+    }
     return;
   }
 
@@ -93,6 +96,46 @@ export async function installCrmTools(deps: {
 
   await database
     .insert(installs)
-    .values({ name: INSTALL_STEP })
+    .values([
+      { name: INSTALL_STEP },
+      ...LATER_TOOLS.map(({ step }) => ({ name: step })),
+    ])
     .onConflictDoNothing();
+}
+
+// Tools added after a deployment first installed the CRM's: granted to every Bot once, as those were.
+const LATER_TOOLS = [
+  {
+    step: "agent-tools-reports",
+    tools: ["run_report", "list_reports", "make_chart"],
+  },
+];
+
+async function grantLaterTools(
+  database: Database,
+  pluginStore: Pick<PluginStore, "grant">,
+) {
+  const done = new Set(
+    (await database.select({ name: installs.name }).from(installs)).map(
+      (row) => row.name,
+    ),
+  );
+  for (const { step, tools } of LATER_TOOLS) {
+    if (done.has(step)) continue;
+    const bots = await database.select({ id: agents.id }).from(agents);
+    for (const bot of bots) {
+      for (const tool of tools) {
+        await pluginStore.grant(
+          "mcp",
+          `${CRM_SERVER}/${tool}`,
+          bot.id,
+          INSTALLED_BY,
+        );
+      }
+    }
+    await database
+      .insert(installs)
+      .values({ name: step })
+      .onConflictDoNothing();
+  }
 }

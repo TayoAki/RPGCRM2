@@ -31,7 +31,7 @@ export const reportInput = z.object({
   field: z.string().max(80).optional(),
 });
 
-const widget = reportInput.extend({
+export const chartInput = reportInput.extend({
   id: z.string().min(1).max(40),
   title: z.string().trim().max(80).default(""),
   type: z.enum(["number", "bar", "line", "pie", "list"]),
@@ -41,7 +41,7 @@ const widget = reportInput.extend({
 const dashboardInput = z.object({
   name: z.string().trim().min(1).max(80),
   shared: z.boolean().default(false),
-  widgets: z.array(widget).max(40).default([]),
+  widgets: z.array(chartInput).max(40).default([]),
 });
 
 /** A report over an object of the data model, through the person's own access. */

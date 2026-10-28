@@ -504,13 +504,13 @@ const REVIEWED: readonly CatalogueEntry[] = Object.freeze([
     title: "CRM",
     vendor: "Built in",
     summary:
-      "Contacts, companies, deals, tasks and notes in this deployment's CRM. Changes ask the person first.",
+      "Contacts, companies, deals, tasks, notes and reports in this deployment's CRM. Changes ask the person first.",
     // In-process like Routines: the CRM's own tables, as the person whose turn it is (crm/agent-tools.ts).
     host: "builtin://crm",
     path: "/",
     transport: "builtin-crm",
     auth: Object.freeze({ kind: "builtin" }),
-    writeTools: Object.freeze(["create_record", "update_record"]),
+    writeTools: Object.freeze(["create_record", "update_record", "make_chart"]),
     docsUrl:
       "https://github.com/TayoAki/RPGCRM2/blob/main/agentic-crm/README.md",
   },

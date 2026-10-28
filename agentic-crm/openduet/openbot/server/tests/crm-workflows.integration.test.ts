@@ -25,6 +25,8 @@ const encryptionKey = Buffer.from(
 let sent: OutgoingMessage[] = [];
 let refuse: string | null = null;
 let written: { system: string; prompt: string }[] = [];
+// What the model says next, when a test needs something other than the default.
+let replies: string[] = [];
 let agentTasks: { ownerUserId: string; title: string; instruction: string }[] =
   [];
 
@@ -35,7 +37,7 @@ const services = createCrmServices({
   apiUrl: "https://api.test",
   writeText: async (input) => {
     written.push(input);
-    return "Written by the model.";
+    return replies.shift() ?? "Written by the model.";
   },
   hasModel: async () => true,
   startAgentTask: async (ownerUserId, task) => {
@@ -822,4 +824,169 @@ test("changing an automation's steps makes a new version; a run underway keeps i
   const [first] = await runsOf(workflow);
   expect(first).toMatchObject({ workflow_version: 1, status: "completed" });
   expect(sent.map((message) => message.subject)).toEqual(["Your proposal: V1"]);
+});
+
+test("find a record, then do something for each of a company's contacts", async () => {
+  const company = await create("companies", { name: `Eachco ${run}` });
+  const ann = await contactWith("Ann", { company_id: company.id });
+  const bob = await contactWith("Bob", { company_id: company.id });
+  await contactWith("Cat");
+  const workflow = await automation("won-deal-to-clients", {
+    trigger: { type: "manual", object: "companies" },
+    steps: [
+      {
+        id: "biggest_deal",
+        type: "find_record",
+        object: "deals",
+        filter: { company_id: "{{record.id}}" },
+        sort: "amount",
+        order: "DESC",
+      },
+      {
+        id: "each_contact",
+        type: "for_each",
+        object: "contacts",
+        filter: { company_id: "{{record.id}}" },
+        do: {
+          id: "note",
+          type: "add_note",
+          target: "contact",
+          text: "Hello {{contact.first_name}} at {{company.name}}",
+        },
+      },
+    ],
+  });
+  await create("deals", {
+    name: `Small ${run}`,
+    stage: "opportunity",
+    amount: 100,
+    company_id: company.id,
+  });
+  const big = await create("deals", {
+    name: `Big ${run}`,
+    stage: "opportunity",
+    amount: 9000,
+    company_id: company.id,
+  });
+
+  await call("POST", `/automation/workflows/${workflow.id}/run`, {
+    record_id: company.id,
+  });
+  await settle();
+  const [finished] = await runsOf(workflow);
+  const notesOf = async (contact: Json) =>
+    (await crm.list("contact_notes", { contact_id: contact.id })).data.map(
+      (note) => note.text,
+    );
+
+  expect(finished?.status).toBe("completed");
+  expect(
+    (finished?.context as { steps: Record<string, Json> }).steps.biggest_deal,
+  ).toMatchObject({ found: true, id: big.id });
+  expect(await notesOf(ann)).toEqual([`Hello Ann at Eachco ${run}`]);
+  expect(await notesOf(bob)).toEqual([`Hello Bob at Eachco ${run}`]);
+});
+
+test("wait until a deal is won, checking again, then carry on", async () => {
+  const workflow = await automation("won-deal-to-clients", {
+    trigger: { type: "manual", object: "deals" },
+    steps: [
+      {
+        id: "won",
+        type: "wait_until",
+        when: {
+          match: "all",
+          conditions: [{ field: "record.stage", op: "is", value: "won" }],
+        },
+        check_every_hours: 1,
+        timeout_days: 3,
+      },
+      {
+        id: "describe",
+        type: "update_record",
+        target: "record",
+        values: { description: "Won, so this ran" },
+      },
+    ],
+  });
+  const deal = await create("deals", {
+    name: `Wait ${run}`,
+    stage: "opportunity",
+  });
+
+  await call("POST", `/automation/workflows/${workflow.id}/run`, {
+    record_id: deal.id,
+  });
+  await settle();
+  const [waiting] = await runsOf(workflow);
+  await wakeAll();
+  const [stillWaiting] = await runsOf(workflow);
+  await update("deals", deal.id, { stage: "won" });
+  await wakeAll();
+  const [done] = await runsOf(workflow);
+
+  expect(waiting?.status).toBe("waiting");
+  expect(Date.parse(String(waiting?.wake_at)) - Date.now()).toBeGreaterThan(
+    50 * 60_000,
+  );
+  expect(stillWaiting?.status).toBe("waiting");
+  expect(done?.status).toBe("completed");
+  expect(
+    ((await call("GET", `/deals/${deal.id}`)).json.data as Json).description,
+  ).toBe("Won, so this ran");
+});
+
+test("sort a meeting's notes with the model, keep the label, and book the next meeting", async () => {
+  const contact = await contactWith("Sorter");
+  const workflow = await automation("won-deal-to-clients", {
+    trigger: { type: "manual", object: "meetings" },
+    steps: [
+      {
+        id: "mood",
+        type: "classify",
+        text: "{{meeting.outcome_notes}}",
+        labels: ["Interested", "Not interested", "Unsure"],
+        target: "meeting",
+        field: "outcome",
+      },
+      {
+        id: "next",
+        type: "create_meeting",
+        title: "Follow-up with {{contact.first_name}}",
+        start: "{{meeting.start_at | add_days:7}}",
+        duration_minutes: 45,
+      },
+    ],
+  });
+  const meeting = await create("meetings", {
+    title: "Intro",
+    start_at: "2026-11-02T15:00:00.000Z",
+    contact_id: contact.id,
+    outcome_notes: "They want a quote next week.",
+  });
+  replies = ["interested."];
+
+  await call("POST", `/automation/workflows/${workflow.id}/run`, {
+    record_id: meeting.id,
+  });
+  await settle();
+  const meetings = (await crm.list("meetings", { contact_id: contact.id }))
+    .data;
+  const booked = meetings.find((each) => each.id !== meeting.id);
+  const minutes =
+    (Date.parse(String(booked?.end_at)) -
+      Date.parse(String(booked?.start_at))) /
+    60_000;
+
+  expect(meetings.find((each) => each.id === meeting.id)?.outcome).toBe(
+    "Interested",
+  );
+  expect(written.at(-1)?.system).toContain(
+    "Interested, Not interested, Unsure",
+  );
+  expect(booked).toMatchObject({
+    title: "Follow-up with Sorter",
+    start_at: expect.stringMatching(/^2026-11-09T15:00:00/),
+  });
+  expect(minutes).toBe(45);
 });

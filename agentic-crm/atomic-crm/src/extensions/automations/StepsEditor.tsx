@@ -17,12 +17,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 
 import { useConfigurationContext } from "../../components/atomic-crm/root/ConfigurationContext";
 import type { ConditionGroup, Step } from "../types";
 import { ConditionsEditor } from "./ConditionsEditor";
 import { newStepId, OBJECTS, STEP_TYPES, stepLabel, TARGETS } from "./describe";
+import { MoreStepFields } from "./MoreStepFields";
+import { PickOne, TextField, text } from "./StepInputs";
 import { ValuesEditor } from "./ValuesEditor";
 
 type StepProps = {
@@ -31,70 +32,6 @@ type StepProps = {
   object?: string;
   all: Step[];
 };
-
-const text = (value: unknown) => (typeof value === "string" ? value : "");
-
-const TextField = ({
-  label,
-  value,
-  onChange,
-  multiline,
-  placeholder,
-}: {
-  label: string;
-  value: unknown;
-  onChange: (value: string) => void;
-  multiline?: boolean;
-  placeholder?: string;
-}) => (
-  <div className="flex flex-col gap-1">
-    <Label>{label}</Label>
-    {multiline ? (
-      <Textarea
-        aria-label={label}
-        rows={5}
-        value={text(value)}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    ) : (
-      <Input
-        aria-label={label}
-        value={text(value)}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    )}
-  </div>
-);
-
-const PickOne = ({
-  label,
-  value,
-  choices,
-  onChange,
-}: {
-  label: string;
-  value: unknown;
-  choices: { id: string; label: string }[];
-  onChange: (value: string) => void;
-}) => (
-  <div className="flex flex-col gap-1">
-    <Label>{label}</Label>
-    <Select value={text(value)} onValueChange={onChange}>
-      <SelectTrigger aria-label={label}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {choices.map((choice) => (
-          <SelectItem key={choice.id} value={choice.id}>
-            {choice.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
-);
 
 const objectChoices = OBJECTS.map((object) => ({
   id: object.id,
@@ -452,7 +389,21 @@ const StepFields = ({ step, onChange, object, all }: StepProps) => {
         </>
       );
     default:
-      return null;
+      return (
+        <MoreStepFields
+          step={step}
+          onChange={onChange}
+          object={object}
+          renderAction={(action, change) => (
+            <StepFields
+              step={action}
+              onChange={change}
+              object={TARGET_OBJECTS[text(step.object)] ?? text(step.object)}
+              all={all}
+            />
+          )}
+        />
+      );
   }
 };
 

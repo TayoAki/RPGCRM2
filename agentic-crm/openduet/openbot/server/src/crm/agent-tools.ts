@@ -1,11 +1,12 @@
-import { eq } from "drizzle-orm";
 import type { AuthenticatedActor } from "../auth/guards";
 import type { OpenBotRole } from "../auth/roles";
 import type { Database } from "../db/client";
 import { users } from "../db/schema";
 import type { McpCallResult, McpTool } from "../plugins/mcp";
 import { MAX_RESULT_CHARS } from "../plugins/mcp";
+import { desc, eq, or } from "drizzle-orm";
 import { CrmQueryError } from "./filters";
+import { chartInput, runReport } from "./platform-routes";
 import {
   type CrmRecords,
   CrmRefusal,
@@ -13,6 +14,7 @@ import {
   createCrmRecords,
 } from "./records";
 import { CRM_RESOURCES } from "./resources";
+import { dashboards } from "./schema";
 import { globalSearch, SEARCH_RESOURCES, type SearchResource } from "./search";
 
 /**
@@ -24,7 +26,11 @@ import { globalSearch, SEARCH_RESOURCES, type SearchResource } from "./search";
  * (records.ts).
  */
 
-export const CRM_WRITE_TOOLS = ["create_record", "update_record"] as const;
+export const CRM_WRITE_TOOLS = [
+  "create_record",
+  "update_record",
+  "make_chart",
+] as const;
 
 const READABLE = [
   "contacts",
@@ -135,6 +141,81 @@ const TOOLS: readonly McpTool[] = Object.freeze([
         id: { type: "number" },
       },
       required: ["resource", "id"],
+    },
+  },
+  {
+    name: "run_report",
+    description: [
+      "Count, add up or average CRM records, overall or per group, to answer questions such as how many deals each stage holds or how much was won each month.",
+      'Group by a field ("stage", "lead_source", "sales_id") or by a date field with a bucket (day, week, month, quarter, year).',
+      'Custom fields of contacts, companies, deals, meetings and proposals are "custom_fields.<name>"; a custom object\'s fields are their names.',
+      "The filter is the same as list_records'. Returns at most 100 groups, largest first, or by date when bucketed.",
+    ].join(" "),
+    inputSchema: {
+      type: "object",
+      properties: {
+        object: {
+          type: "string",
+          description:
+            "contacts, companies, deals, meetings, proposals, tasks, or a custom object's name.",
+        },
+        fn: { type: "string", enum: ["count", "sum", "avg", "min", "max"] },
+        field: {
+          type: "string",
+          description: "The number to add up or average. Not needed for count.",
+        },
+        group_by: { type: "string" },
+        bucket: {
+          type: "string",
+          enum: ["day", "week", "month", "quarter", "year"],
+        },
+        filter: { type: "object" },
+      },
+      required: ["object"],
+    },
+  },
+  {
+    name: "list_reports",
+    description:
+      "The person's reports (dashboards of charts) and the team's shared ones, each with its charts' titles and its address in the CRM.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "make_chart",
+    description: [
+      "Add a chart to one of the person's reports, or to a new report, in the CRM's Reports. The person approves it first.",
+      'type is "number" (one figure), "bar" (groups compared, or periods with a bucket), "line" (a value over time; group by a date field with a bucket) or "list" (groups as a table).',
+      "Check the numbers with run_report first. Returns the report's address to give the person.",
+    ].join(" "),
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        type: { type: "string", enum: ["number", "bar", "line", "list"] },
+        object: { type: "string" },
+        fn: { type: "string", enum: ["count", "sum", "avg", "min", "max"] },
+        field: { type: "string" },
+        group_by: { type: "string" },
+        bucket: {
+          type: "string",
+          enum: ["day", "week", "month", "quarter", "year"],
+        },
+        filter: { type: "object" },
+        width: {
+          type: "number",
+          description: "1 (narrow), 2 or 3 (full width).",
+        },
+        report_id: {
+          type: "number",
+          description: "An existing report to add it to.",
+        },
+        report_name: { type: "string", description: "Or a new report's name." },
+        shared: {
+          type: "boolean",
+          description: "Whether a new report is shared with the team.",
+        },
+      },
+      required: ["title", "type", "object"],
     },
   },
   {
@@ -357,6 +438,65 @@ function unknownFields(resource: string, values: Args): string | null {
     : null;
 }
 
+async function makeChart(
+  deps: CrmToolDeps,
+  records: CrmRecords,
+  actor: AuthenticatedActor,
+  args: Args,
+): Promise<McpCallResult> {
+  const parsed = chartInput.safeParse({
+    ...args,
+    id: crypto.randomUUID().slice(0, 8),
+    width: Math.min(3, Math.max(1, Number(args.width) || 1)),
+  });
+  if (!parsed.success) {
+    const [issue] = parsed.error.issues;
+    return failure(`${issue?.path.join(".") ?? "chart"}: ${issue?.message}`);
+  }
+  const chart = parsed.data;
+  // A chart that can't be drawn is refused here, with the reason, rather than saved broken.
+  await runReport(records, actor, chart);
+  const sale = await records.sale(actor);
+  if (typeof args.report_id === "number") {
+    const [report] = await deps.database
+      .select()
+      .from(dashboards)
+      .where(eq(dashboards.id, args.report_id));
+    if (!report || (report.sales_id !== sale.id && actor.role !== "admin")) {
+      return failure(
+        "That report isn't one this person can change. Name a new one with report_name.",
+      );
+    }
+    await deps.database
+      .update(dashboards)
+      .set({ widgets: [...((report.widgets as unknown[]) ?? []), chart] })
+      .where(eq(dashboards.id, report.id));
+    return asResult({
+      report_id: report.id,
+      url: `/crm/reports/${report.id}`,
+      chart,
+    });
+  }
+  const name =
+    typeof args.report_name === "string" && args.report_name.trim()
+      ? args.report_name.trim().slice(0, 80)
+      : chart.title || "Report";
+  const [report] = await deps.database
+    .insert(dashboards)
+    .values({
+      name,
+      shared: args.shared === true,
+      widgets: [chart],
+      sales_id: sale.id,
+    })
+    .returning({ id: dashboards.id });
+  return asResult({
+    report_id: report?.id,
+    url: `/crm/reports/${report?.id}`,
+    chart,
+  });
+}
+
 async function run(
   deps: CrmToolDeps,
   records: CrmRecords,
@@ -433,6 +573,37 @@ async function run(
         ? asResult({ updated: slim(row) })
         : failure(`There is no ${resource} record ${id}.`);
     }
+    case "run_report":
+      return asResult({
+        groups: await runReport(records, actor, {
+          ...args,
+          ...(isObject(args.filter) ? {} : { filter: undefined }),
+        }),
+      });
+    case "list_reports": {
+      const sale = await records.sale(actor);
+      const rows = await deps.database
+        .select()
+        .from(dashboards)
+        .where(
+          or(eq(dashboards.sales_id, sale.id), eq(dashboards.shared, true)),
+        )
+        .orderBy(desc(dashboards.id));
+      return asResult(
+        rows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          shared: row.shared,
+          yours: row.sales_id === sale.id,
+          charts: ((row.widgets as { title?: string }[] | null) ?? []).map(
+            (chart) => chart.title,
+          ),
+          url: `/crm/reports/${row.id}`,
+        })),
+      );
+    }
+    case "make_chart":
+      return makeChart(deps, records, actor, args);
     default:
       return failure(`The CRM has no tool named ${toolName}.`);
   }

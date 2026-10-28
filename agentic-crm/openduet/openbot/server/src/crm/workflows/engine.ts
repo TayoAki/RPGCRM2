@@ -468,7 +468,7 @@ export function createWorkflowEngine(
             });
             return;
           case "wait":
-            cursor = advance(steps, cursor);
+            if (!outcome.again) cursor = advance(steps, cursor);
             await save({
               status: "waiting",
               wake_at: outcome.until,

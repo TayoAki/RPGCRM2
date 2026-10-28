@@ -43,6 +43,8 @@ export type Scope = {
   meeting?: Row;
   proposal?: Row;
   task?: Row;
+  // The record a for_each step is on.
+  item?: Row;
   owner?: Row;
   trigger: { payload?: unknown; action?: string; object?: string };
   steps: Record<string, unknown>;

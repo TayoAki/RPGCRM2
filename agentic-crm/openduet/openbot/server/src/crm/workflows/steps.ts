@@ -13,7 +13,13 @@ import {
 } from "../records";
 import { companies, contacts, emails } from "../schema";
 import { groupHolds } from "./conditions";
-import type { LeafStep, Step, Target, WorkflowObject } from "./definition";
+import type {
+  EachAction,
+  LeafStep,
+  Step,
+  Target,
+  WorkflowObject,
+} from "./definition";
 import { type RenderOptions, renderText, renderValue } from "./render";
 import type { RunContext, Scope } from "./scope";
 
@@ -27,7 +33,8 @@ export type StepOutcome =
       links?: RunContext["links"];
     }
   | { kind: "skipped"; message: string }
-  | { kind: "wait"; until: string; message: string }
+  // `again`: this step runs once more when the wait is over, rather than the next one.
+  | { kind: "wait"; until: string; message: string; again?: boolean }
   | { kind: "branch"; branch: "if_true" | "if_false"; message: string }
   | { kind: "stop"; message: string };
 
@@ -213,6 +220,52 @@ async function findOrCreateCompany(
   if (found) return found.id;
   const created = await deps.records.create(actor, "companies", { name });
   return Number(created?.id);
+}
+
+const HOUR_MS = 3_600_000;
+const DAY_MS = 86_400_000;
+
+// A record found by a step, as the scope's contact, deal, company, meeting or proposal would be.
+function scopeFor(object: string, row: Row): Partial<Scope> {
+  if (object === "contacts") {
+    const email = (row.email_jsonb as Row[] | null)?.[0]?.email;
+    const phone = (row.phone_jsonb as Row[] | null)?.[0]?.number;
+    const contact = {
+      ...row,
+      name: [row.first_name, row.last_name].filter(Boolean).join(" "),
+      email,
+      phone,
+    };
+    return { contact, contacts: [contact] };
+  }
+  const key = {
+    companies: "company",
+    deals: "deal",
+    meetings: "meeting",
+    proposals: "proposal",
+    tasks: "task",
+  }[object];
+  return key ? { [key]: row } : {};
+}
+
+const titleOf = (row: Row) =>
+  String(
+    row.name ??
+      row.title ??
+      ([row.first_name, row.last_name].filter(Boolean).join(" ") ||
+        `#${row.id}`),
+  );
+
+// The model's answer as one of the labels, forgiving case, quotes and a trailing full stop.
+function labelFrom(answer: string, labels: string[]) {
+  const cleaned = answer
+    .trim()
+    .replace(/^["'`]+|["'`.]+$/g, "")
+    .toLowerCase();
+  return (
+    labels.find((label) => label.toLowerCase() === cleaned) ??
+    labels.find((label) => cleaned.startsWith(label.toLowerCase()))
+  );
 }
 
 type Executor<TStep extends LeafStep> = (
@@ -589,7 +642,200 @@ const EXECUTORS: {
       output: { status: response.status, body: text, json },
     };
   },
+
+  async find_record(
+    step: Extract<LeafStep, { type: "find_record" }>,
+    run: StepRun,
+    deps: StepDeps,
+  ): Promise<StepOutcome> {
+    const { data, total } = await deps.records.list(run.actor, step.object, {
+      filter: renderValue(step.filter, run.scope, run.options),
+      sort: step.sort ?? "id",
+      order: step.order,
+      perPage: 1,
+    });
+    const found = data[0];
+    if (!found) {
+      return {
+        kind: "done",
+        message: `Found nothing in ${step.object}.`,
+        output: { found: false, total: 0 },
+      };
+    }
+    return {
+      kind: "done",
+      message: `Found ${titleOf(found)} in ${step.object}.`,
+      output: { found: true, total, id: found.id, record: found },
+      links: linksFor(step.object, found),
+    };
+  },
+
+  async for_each(
+    step: Extract<LeafStep, { type: "for_each" }>,
+    run: StepRun,
+    deps: StepDeps,
+  ): Promise<StepOutcome> {
+    const saved = (run.previous as EachSaved | undefined) ?? {};
+    const ids = [...(saved.ids ?? [])];
+    const inner = { ...(saved.inner ?? {}) };
+    const { data } = await deps.records.list(run.actor, step.object, {
+      filter: renderValue(step.filter, run.scope, run.options),
+      sort: "id",
+      order: "ASC",
+      perPage: step.limit,
+    });
+    const execute = ITEM_EXECUTORS()[step.do.type] as Executor<EachAction>;
+    for (const item of data) {
+      const id = Number(item.id);
+      if (ids.includes(id)) continue;
+      const scope: Scope = {
+        ...run.scope,
+        ...scopeFor(step.object, item),
+        record: item,
+        item,
+        trigger: { ...run.scope.trigger, object: step.object },
+      };
+      await execute(
+        step.do,
+        {
+          ...run,
+          step: step.do,
+          scope,
+          previous: inner[id],
+          remember: async (output) => {
+            inner[id] = output;
+            await run.remember({ ids, inner });
+          },
+        },
+        deps,
+      );
+      ids.push(id);
+      await run.remember({ ids, inner });
+    }
+    return {
+      kind: "done",
+      message: data.length
+        ? `Did it for ${data.length} record${data.length === 1 ? "" : "s"} in ${step.object}.`
+        : `No records in ${step.object} matched.`,
+      output: { count: data.length, ids },
+    };
+  },
+
+  async wait_until(
+    step: Extract<LeafStep, { type: "wait_until" }>,
+    run: StepRun,
+  ): Promise<StepOutcome> {
+    const saved = run.previous as { since?: string } | undefined;
+    const since = saved?.since ?? new Date().toISOString();
+    if (!saved?.since) await run.remember({ since });
+    if (groupHolds(step.when, run.scope as unknown as Row, run.options)) {
+      return {
+        kind: "done",
+        message: "The condition holds.",
+        output: { timed_out: false },
+      };
+    }
+    if (Date.now() - Date.parse(since) >= step.timeout_days * DAY_MS) {
+      const gaveUp = `Stopped waiting after ${step.timeout_days} day${step.timeout_days === 1 ? "" : "s"}.`;
+      return step.on_timeout === "stop"
+        ? { kind: "stop", message: gaveUp }
+        : { kind: "done", message: gaveUp, output: { timed_out: true } };
+    }
+    const until = new Date(
+      Math.min(
+        Date.now() + step.check_every_hours * HOUR_MS,
+        Date.parse(since) + step.timeout_days * DAY_MS,
+      ),
+    ).toISOString();
+    return {
+      kind: "wait",
+      until,
+      again: true,
+      message: `Not yet; checking again at ${until}.`,
+    };
+  },
+
+  async classify(
+    step: Extract<LeafStep, { type: "classify" }>,
+    run: StepRun,
+    deps: StepDeps,
+  ): Promise<StepOutcome> {
+    let label = (run.previous as { label?: string } | undefined)?.label;
+    if (!label) {
+      const text = render(step.text, run).trim();
+      if (!text) return { kind: "skipped", message: "Nothing to sort." };
+      if (!deps.writeText) throw new NoModelKeyError();
+      const answer = await deps.writeText({
+        system: `You sort text for a CRM. Answer with exactly one of these labels and nothing else: ${step.labels.join(", ")}.`,
+        prompt: `${step.instructions ? `${render(step.instructions, run)}\n\n` : ""}Text:\n${text.slice(0, 10_000)}`,
+      });
+      label = labelFrom(answer, step.labels);
+      if (!label) {
+        throw new StepError(
+          `The model answered "${answer.slice(0, 80)}", which isn't one of the labels.`,
+          true,
+        );
+      }
+      await run.remember({ label });
+    }
+    if (step.target && step.field) {
+      const [column, custom] = step.field.split(".");
+      const values = custom
+        ? { [column ?? "custom_fields"]: { [custom]: label } }
+        : { [step.field]: label };
+      for (const { object, row } of targets(step.target, run.scope)) {
+        await deps.records.update(run.actor, object, Number(row.id), values);
+      }
+    }
+    return { kind: "done", message: `Sorted it as ${label}.`, output: { label } };
+  },
+
+  async create_meeting(
+    step: Extract<LeafStep, { type: "create_meeting" }>,
+    run: StepRun,
+    deps: StepDeps,
+  ): Promise<StepOutcome> {
+    const saved = run.previous as { id?: number } | undefined;
+    if (saved?.id) {
+      return { kind: "done", message: "The meeting was added.", output: saved };
+    }
+    const start = Date.parse(render(step.start, run));
+    if (Number.isNaN(start)) {
+      return { kind: "skipped", message: "The meeting's start isn't a date." };
+    }
+    const location = step.location ? render(step.location, run).trim() : "";
+    const created = await deps.records.create(run.actor, "meetings", {
+      title: render(step.title, run) || "Meeting",
+      start_at: new Date(start).toISOString(),
+      end_at: new Date(start + step.duration_minutes * 60_000).toISOString(),
+      ...(location ? { location } : {}),
+      contact_id: run.scope.contact?.id ?? null,
+      deal_id: run.scope.deal?.id ?? null,
+      company_id: run.scope.company?.id ?? null,
+      sales_id: run.scope.owner?.id ?? null,
+    });
+    const output = { id: Number(created?.id) };
+    await run.remember(output);
+    return {
+      kind: "done",
+      message: `Added the meeting "${String(created?.title)}".`,
+      output,
+    };
+  },
 };
+
+type EachSaved = { ids?: number[]; inner?: Record<string, unknown> };
+
+const ITEM_EXECUTORS = (): {
+  [TType in EachAction["type"]]: Executor<Extract<EachAction, { type: TType }>>;
+} => ({
+  update_record: EXECUTORS.update_record,
+  create_task: EXECUTORS.create_task,
+  add_note: EXECUTORS.add_note,
+  send_email: EXECUTORS.send_email,
+  ai_agent: EXECUTORS.ai_agent,
+  http_request: EXECUTORS.http_request,
+});
 
 export async function executeStep(
   run: StepRun,
