@@ -1,5 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useRecordContext, useUpdate, useNotify } from "ra-core";
+import {
+  useNotify,
+  useRecordContext,
+  useResourceContext,
+  useUpdate,
+} from "ra-core";
 import { useMemo } from "react";
 import { AutocompleteInput } from "@/components/admin/autocomplete-input";
 import { SelectInput } from "@/components/admin/select-input";
@@ -14,6 +19,11 @@ import {
 
 import { AsideSection } from "../../components/atomic-crm/misc/AsideSection";
 import { RelativeDate } from "../../components/atomic-crm/misc/RelativeDate";
+import {
+  CustomFieldInputs,
+  CustomFieldsAside,
+  HistoryButton,
+} from "../objects/CustomFields";
 import { useAutomationInfo } from "../queries";
 
 export const LIFECYCLE_STAGES = [
@@ -46,12 +56,24 @@ const LeadSourceInput = () => {
   );
 };
 
-/** Where a contact or company is in the customer lifecycle, and where they came from. */
+/** Where a contact or company is in the customer lifecycle, where they came from, and custom fields. */
 export const CustomerInputs = ({
   withDetail = false,
 }: {
   withDetail?: boolean;
-}) => (
+}) => {
+  const resource = useResourceContext();
+  return (
+    <div className="flex flex-col gap-8">
+      <CustomerBasics withDetail={withDetail} />
+      {resource === "contacts" || resource === "companies" ? (
+        <CustomFieldInputs resource={resource} />
+      ) : null}
+    </div>
+  );
+};
+
+const CustomerBasics = ({ withDetail }: { withDetail: boolean }) => (
   <div className="flex flex-col gap-4">
     <h6 className="text-lg font-semibold">Customer</h6>
     <SelectInput
@@ -127,8 +149,8 @@ const LifecycleSelector = ({
   );
 };
 
-/** The aside section on a contact or company: lifecycle, lead source, and when it last changed. */
-export const CustomerAside = ({
+/** Lifecycle, lead source, and when the record last changed. */
+const CustomerSection = ({
   resource,
 }: {
   resource: "contacts" | "companies";
@@ -146,10 +168,25 @@ export const CustomerAside = ({
         {record.lead_source_detail ? ` (${record.lead_source_detail})` : null}
       </div>
       {record.updated_at ? (
-        <div className="text-muted-foreground">
-          Updated <RelativeDate date={record.updated_at} />
+        <div className="flex items-center justify-between text-muted-foreground">
+          <span>
+            Updated <RelativeDate date={record.updated_at} />
+          </span>
+          <HistoryButton resource={resource} />
         </div>
       ) : null}
     </AsideSection>
   );
 };
+
+/** The customer section and custom fields in a contact's or company's aside. */
+export const CustomerAside = ({
+  resource,
+}: {
+  resource: "contacts" | "companies";
+}) => (
+  <>
+    <CustomerSection resource={resource} />
+    <CustomFieldsAside resource={resource} />
+  </>
+);

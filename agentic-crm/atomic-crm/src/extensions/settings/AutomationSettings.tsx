@@ -2,6 +2,7 @@
 import { useNotify } from "ra-core";
 import { Copy } from "lucide-react";
 import { useMemo } from "react";
+import { Link } from "react-router";
 import { ArrayInput } from "@/components/admin/array-input";
 import { AutocompleteInput } from "@/components/admin/autocomplete-input";
 import { SimpleFormIterator } from "@/components/admin/simple-form-iterator";
@@ -28,6 +29,7 @@ export type AutomationConfig = {
 export const AUTOMATION_SECTIONS = [
   { id: "mail", label: "Email", fallback: "Email" },
   { id: "automations", label: "Automations", fallback: "Automations" },
+  { id: "data-model", label: "Data model", fallback: "Data model" },
 ];
 
 const labels = (list: string[] | undefined) =>
@@ -103,7 +105,7 @@ const BookingAddress = () => {
   );
 };
 
-/** The Email and Automations sections of the settings page. */
+/** The Email, Data model and Automations sections of the settings page. */
 export const AutomationSettings = () => {
   const zones = useMemo(
     () =>
@@ -116,6 +118,25 @@ export const AutomationSettings = () => {
   return (
     <>
       <MailboxCard scope="shared" />
+      <Card id="data-model">
+        <CardContent className="space-y-2">
+          <h2 className="text-xl font-semibold text-muted-foreground">
+            Data model and roles
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Add fields to contacts, companies and deals, add objects of your
+            own, and choose what each person can see and change.
+          </p>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" asChild>
+              <Link to="/settings/data-model">Data model</Link>
+            </Button>
+            <Button type="button" variant="outline" asChild>
+              <Link to="/settings/roles">Roles</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
       <Card id="automations">
         <CardContent className="space-y-4">
           <h2 className="text-xl font-semibold text-muted-foreground">

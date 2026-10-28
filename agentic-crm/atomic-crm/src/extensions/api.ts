@@ -13,12 +13,12 @@ export async function crmApi<TResult = unknown>(
     headers: { "content-type": "application/json" },
     ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
   });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok || body === undefined) {
     throw new HttpError(
-      body.error ?? response.statusText,
+      body?.error ?? (response.statusText || "The CRM didn't answer."),
       response.status,
-      body,
+      body ?? {},
     );
   }
   return (body.data ?? body) as TResult;

@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import type { Contact, Deal } from "../components/atomic-crm/types";
 import { EmailsSection } from "./mail/EmailsSection";
 import { MeetingsSection } from "./meetings/MeetingsSection";
+import { CustomFieldsAside, HistoryButton } from "./objects/CustomFields";
 import { ProposalsSection } from "./proposals/ProposalsSection";
 
 const emailOf = (contact: Contact | undefined) =>
@@ -34,21 +35,27 @@ export const ContactExtras = () => {
   );
 };
 
-/** Proposals, meetings and email on a deal, above its notes. */
+/** Custom fields, proposals, meetings and email on a deal, above its notes. */
 export const DealExtras = () => {
   const deal = useRecordContext<Deal & { lead_source?: string | null }>();
   if (!deal) return null;
   const contactId = deal.contact_ids?.[0] ?? null;
   return (
     <div className="m-4 space-y-6">
-      {deal.lead_source ? (
-        <div className="flex flex-col">
-          <span className="text-xs text-muted-foreground tracking-wide">
-            Lead source
-          </span>
-          <span className="text-sm">{deal.lead_source}</span>
-        </div>
-      ) : null}
+      <div className="flex items-start justify-between gap-4">
+        {deal.lead_source ? (
+          <div className="flex flex-col">
+            <span className="text-xs text-muted-foreground tracking-wide">
+              Lead source
+            </span>
+            <span className="text-sm">{deal.lead_source}</span>
+          </div>
+        ) : (
+          <span />
+        )}
+        <HistoryButton resource="deals" />
+      </div>
+      <CustomFieldsAside resource="deals" />
       <Separator />
       <ProposalsSection dealId={deal.id} />
       <Separator />

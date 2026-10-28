@@ -157,3 +157,87 @@ export type Run = {
   workflow_version: number;
   log?: RunLogEntry[];
 };
+
+export type FieldType =
+  | "text"
+  | "long_text"
+  | "number"
+  | "currency"
+  | "date"
+  | "datetime"
+  | "boolean"
+  | "select"
+  | "multi_select"
+  | "email"
+  | "phone"
+  | "url"
+  | "rating"
+  | "relation";
+
+export type Choice = { value: string; label: string; color?: string };
+
+export type FieldDefinition = {
+  id: number;
+  object: string;
+  name: string;
+  label: string;
+  type: FieldType;
+  options: { choices?: Choice[]; target?: string; currency?: string };
+  required: boolean;
+  position: number;
+  standard: boolean;
+};
+
+export type ObjectDefinition = {
+  name: string;
+  label_singular: string;
+  label_plural: string;
+  description: string;
+  icon: string | null;
+  standard: boolean;
+  in_navigation: boolean;
+};
+
+export type Reach = "none" | "own" | "all";
+
+export type ObjectAccess = {
+  read: Reach;
+  create: boolean;
+  update: Reach;
+  delete: Reach;
+  hidden: string[];
+  read_only: string[];
+};
+
+export type SavedView = {
+  id: number;
+  object: string;
+  name: string;
+  type: "table" | "kanban" | "calendar";
+  config: {
+    filter?: Record<string, unknown>;
+    sort?: { field: string; order: "ASC" | "DESC" };
+    columns?: string[];
+    group_by?: string;
+    date_field?: string;
+  };
+  shared: boolean;
+  sales_id: number | null;
+};
+
+export type ObjectRule = {
+  read?: Reach;
+  create?: boolean;
+  update?: Reach;
+  delete?: Reach;
+};
+
+export type Role = {
+  id: number;
+  name: string;
+  description: string;
+  rules: {
+    objects: Record<string, ObjectRule>;
+    fields: Record<string, Record<string, "hidden" | "read_only">>;
+  };
+};

@@ -4,6 +4,12 @@ import { AutomationEditor } from "./automations/AutomationEditor";
 import { AutomationsPage } from "./automations/AutomationsPage";
 import { RunsPage } from "./automations/RunsPage";
 import { MeetingsPage } from "./meetings/MeetingsPage";
+import { useAccess, useMetadata } from "./objects/model";
+import { ObjectListPage } from "./objects/ObjectListPage";
+import { ObjectsIndex } from "./objects/ObjectsIndex";
+import { RecordPage } from "./objects/RecordPage";
+import { DataModelPage } from "./settings/DataModelPage";
+import { RolesPage } from "./settings/RolesPage";
 
 /** The pages this fork adds to the CRM, inside its layout. */
 export const EXTENSION_ROUTES = [
@@ -15,10 +21,41 @@ export const EXTENSION_ROUTES = [
     element={<AutomationEditor />}
   />,
   <Route key="runs" path="/automations/:id/runs" element={<RunsPage />} />,
+  <Route key="objects" path="/o" element={<ObjectsIndex />} />,
+  <Route key="object" path="/o/:object" element={<ObjectListPage />} />,
+  <Route key="record" path="/o/:object/:id" element={<RecordPage />} />,
+  <Route
+    key="data-model"
+    path="/settings/data-model"
+    element={<DataModelPage />}
+  />,
+  <Route key="roles" path="/settings/roles" element={<RolesPage />} />,
 ];
 
-/** Their tabs in the CRM's header, after Atomic's. */
-export const EXTENSION_TABS = [
+const FIXED_TABS = [
   { label: "Meetings", to: "/meetings" },
   { label: "Automations", to: "/automations" },
 ];
+
+/**
+ * Their tabs in the CRM's header, after Atomic's: custom objects shown in navigation come before
+ * "Records", whose path contains theirs, so the header highlights the more specific one.
+ */
+export const useExtensionTabs = () => {
+  const { data } = useMetadata();
+  const { data: access } = useAccess();
+  const objects = (data?.objects ?? []).filter(
+    (object) =>
+      !object.standard &&
+      object.in_navigation &&
+      access?.objects[object.name]?.read !== "none",
+  );
+  return [
+    ...FIXED_TABS,
+    ...objects.map((object) => ({
+      label: object.label_plural,
+      to: `/o/${object.name}`,
+    })),
+    { label: "Records", to: "/o" },
+  ];
+};
