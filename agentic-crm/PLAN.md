@@ -51,9 +51,30 @@ The estimates are rough, for one senior engineer working with agent teams. A sec
 - **Decisions:** product name, first target customers, open or closed source. See the end of this document.
 - **Repository: done.** The product lives in `agentic-crm/` in this repository. OpenDuet (`openduet/`, at `60fd4c7`) and Atomic CRM (`atomic-crm/`, at `1d96561`) are imported as pinned vendor snapshots, synced with [scripts/sync-vendor.sh](scripts/sync-vendor.sh). See [README.md](README.md).
 - **CopilotKit account:** choose the plan (Pay as you go, $49/month with 10,000 interactions included, at the time of writing).
-- **Spike:** mount Atomic's UI at `/crm` inside OpenDuet's app. This proves react-admin's router can live inside OpenDuet's TanStack Router. If it can't, the fallback is to serve the CRM screens as a second bundle on the same origin, sharing the login session.
+- **Spike: done.** Atomic's UI runs at `/crm` inside OpenDuet's app, so the second-bundle fallback isn't needed. See README.md, "How the CRM runs inside OpenDuet".
 
-**Exit:** both apps run as one, with one login and the CRM screens on fake data.
+**Exit: met.** Both apps run as one, with OpenDuet's login and the CRM screens on fake data.
+
+Checked in a browser:
+- OpenDuet's menu opens the CRM.
+- The CRM's tabs, records, Back, deep links and reloads all work.
+- Creating a contact works.
+- The CRM's user menu shows the OpenDuet user, and the CRM follows OpenDuet's dark mode.
+- OpenDuet's back control leaves the CRM.
+- A production build puts the CRM in its own lazily loaded chunk, with a single copy of React.
+
+### What the spike found, for Phase 1
+
+| Finding | What to do |
+|---|---|
+| OpenDuet has no email-and-password sign-in. Without Google, Microsoft or Okta, it only runs in single-user dev mode. | Enable Better Auth's email-and-password login, or require an identity provider per customer. **Decide before the first pilot.** |
+| OpenDuet's build now needs Atomic's packages, installed by `npm ci` in `atomic-crm/`. | The Docker build (A6) installs both. Later, move Atomic's dependencies into OpenDuet's bun workspace. |
+| The CRM chunk is 2.3 MB (712 kB gzipped), mostly the Supabase client and the fake-data generator. | Both go with the real data provider (A3, A4). |
+| On phones, Atomic's mobile layout (fixed header and bottom bar) collides with OpenDuet's page header. | Desktop first for the MVP. On phones, hide one of the two headers when mobile (A9) comes up. |
+| OpenDuet's self-hosting banner, CopilotKit's "Powered by CopilotKit, Get a license" badge, and the "Atomic CRM" title all show. | Part of branding (A5). The badge goes once a CopilotKit license is set. |
+| The CRM's own theme switch and Logout repeat OpenDuet's. Logout does nothing in single-user mode. | Hide both in the embedded CRM. |
+| CopilotKit's runtime sends telemetry by default. | Set `COPILOTKIT_TELEMETRY_DISABLED=true` in the deploy kit (A6). |
+| ra-core 5.15 has a TanStack Router adapter, but Atomic imports react-router directly in 51 files. | Keep react-router through the history adapter. The native P1 screens use TanStack Router directly. |
 
 ### Phase 1: MVP (about 4 to 5 weeks)
 
@@ -111,7 +132,7 @@ Prioritized by what pilot customers ask for.
 |---|---|
 | CopilotKit Intelligence is required, and its interactions cost money as usage grows | Build the interaction cost into each customer's price. Get written resale terms from CopilotKit before the first sale (research in progress). |
 | OpenDuet is in early development and changes fast | Pin a version, sync monthly through vendor snapshots, and keep fork changes in separate folders. |
-| Two routers in one app (react-admin's and TanStack's) | Phase 0 spike, with a same-origin second bundle as the fallback. Atomic's screens are temporary anyway. |
+| Two routers in one app (react-admin's and TanStack's) | Resolved by the Phase 0 spike: one shared history, covered by unit tests in `atomic-crm/src/embed/`. |
 | The metadata layer and permissions are hard to get right | One owner, built early, permission tests on every merge. |
 | Google requires verification and a yearly security assessment for apps that read Gmail | Start the verification during Phase 1. It takes weeks. |
 | Reaching "Twenty's 80%" is still about four months of work | Sell the MVP to pilots during Phases 2 and 3. The agent is the differentiator, not feature parity. |

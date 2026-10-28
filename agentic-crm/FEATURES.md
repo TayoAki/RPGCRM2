@@ -16,8 +16,8 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 
 | ID | Feature | Tier | Starts from | Status | Notes |
 |---|---|---|---|---|---|
-| A1 | One app: OpenDuet hosts the CRM area | MVP | Build | Not started | CRM screens at `/crm` inside OpenDuet's app |
-| A2 | One login for agent and CRM | MVP | OpenDuet | Not started | OpenDuet's Better Auth replaces Supabase auth |
+| A1 | One app: OpenDuet hosts the CRM area | MVP | Build | In progress | Phase 0 spike: CRM screens run at `/crm` inside OpenDuet's app, on fake data |
+| A2 | One login for agent and CRM | MVP | OpenDuet | In progress | The CRM uses OpenDuet's session. Still open: email-and-password sign-in (see PLAN.md, spike findings) |
 | A3 | One database: CRM tables in OpenDuet's Postgres | MVP | Build | Not started | Drizzle schema; Supabase removed |
 | A4 | CRM API on OpenDuet's server | MVP | Build | Not started | Hono routes behind Atomic's data provider |
 | A5 | White-label branding (name, logo, colors) | MVP | OpenDuet | Not started | OpenDuet keeps its identity in one folder |

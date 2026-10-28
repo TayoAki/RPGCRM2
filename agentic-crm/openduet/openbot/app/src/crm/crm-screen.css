@@ -1,0 +1,16 @@
+/* The CRM is laid out for a desktop pointer; below 768px it switches to its own mobile screens. */
+@media (min-width: 768px) {
+  .duet-touch
+    .crm-screen
+    :is(
+      [data-slot="button"]:not([data-variant="link"]),
+      [data-slot="select-trigger"],
+      [data-slot="input"],
+      [data-slot="input-group"]
+    ) {
+    min-height: revert-layer;
+  }
+  .duet-touch .crm-screen [data-slot="button"][data-size^="icon"] {
+    min-width: revert-layer;
+  }
+}

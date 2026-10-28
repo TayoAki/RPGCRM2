@@ -326,6 +326,16 @@ export function MenuSheet({
             ) : null}
           </div>
           <div className="mt-2 flex shrink-0 flex-col border-duet-hair border-t pt-2">
+            <Link
+              activeProps={{ className: "bg-duet-tile" }}
+              className={ROW}
+              onClick={close}
+              params={{ _splat: "" }}
+              to="/crm/$"
+            >
+              <RowIcon name="dashboard" />
+              CRM
+            </Link>
             <h2>
               <button
                 aria-controls={manage.id}

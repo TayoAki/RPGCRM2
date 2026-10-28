@@ -32,6 +32,35 @@ Each snapshot commit carries a `Vendor-Snapshot: <owner/repo>@<sha>` trailer and
 
 OpenDuet changes fast, so pin it and sync about monthly.
 
+## How the CRM runs inside OpenDuet
+
+OpenDuet's app compiles Atomic's screens into itself and serves them at `/crm`, behind OpenDuet's sign-in.
+
+| Piece | Where |
+|---|---|
+| Mount point: a `/crm/*` route, its screen, and the menu entry | `openduet/openbot/app/src/routes/_authed/_app/crm.$.tsx`, `openduet/openbot/app/src/crm/`, `menu-sheet.tsx` |
+| Build wiring: resolves Atomic's `@/` imports and packages, keeps one React | `openduet/openbot/app/vite-crm.ts`, used by `vite.config.ts` |
+| Embed entry: runs Atomic's `<CRM>` on OpenDuet's URL, user and theme | `atomic-crm/src/embed/` |
+
+- **Routing.** Atomic keeps its own react-router, which reads and writes the URL through OpenDuet's TanStack Router history (`hostHistory.ts`). Links, deep links, Back and Forward work across both routers.
+- **Sign-in.** It's OpenDuet's: the CRM identifies the signed-in user and never shows its own login (`hostAuthProvider.ts`).
+- **Theme.** OpenDuet's theme tokens style the CRM, and its light or dark mode drives the CRM's.
+- **Data.** Fake for now: Atomic's in-browser FakeRest data, with the signed-in user as the CRM user. Phase 1 replaces it with a data provider for OpenDuet's server.
+
+### Running it locally
+
+1. Install the dependencies:
+   - `npm ci` in `atomic-crm/`
+   - `bun install` in `openduet/openbot/`
+2. Set up the database: PostgreSQL with the pgvector extension, plus a database matching `DATABASE_URL`.
+3. Write `openduet/openbot/.env`:
+   - Copy `.env.example`.
+   - Set `INTELLIGENCE_API_KEY`, which the server requires.
+   - Clear `OPENBOT_PUBLIC_URL`, so `OPENBOT_SINGLE_USER=true` signs you in as a local admin without an identity provider.
+4. Start the server: in `openduet/openbot/server`, run `bun --env-file=../.env scripts/migrate.ts`, then `bun --env-file=../.env src/index.ts`.
+5. Start the app: in `openduet/openbot/app`, run `bun run dev`.
+6. Open `http://127.0.0.1:3010/crm`, after finishing OpenDuet's onboarding once.
+
 ## Kept apart from the Twenty product
 
 This folder is excluded from Twenty's Nx workspace (`.nxignore`) and from Twenty's Docker build context (`.dockerignore`). Twenty's CI and license checks only look at `packages/`.

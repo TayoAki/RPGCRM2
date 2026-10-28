@@ -6,6 +6,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { LISTEN_HOST_VARIABLE, listenHosts } from "@openbot/shared/listen-host";
 import { listenPort } from "@openbot/shared/listen-port";
+import { atomicCrm, sourceAlias } from "./vite-crm";
 
 /*
  * Announce the server's port to the two runtimes that serve the app through Vite, and to no other.
@@ -188,11 +189,10 @@ export default defineConfig({
     }),
     react(),
     tailwindcss(),
+    atomicCrm(__dirname),
   ],
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
+    alias: [sourceAlias(path.resolve(__dirname, "./src"))],
   },
   server: serving,
   preview: serving,

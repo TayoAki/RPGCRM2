@@ -59,6 +59,7 @@ import { Route as AuthedAppChannelNewRouteImport } from './routes/_authed/_app/c
 import { Route as AuthedAppChannelsChannelIdRouteImport } from './routes/_authed/_app/channels.$channelId'
 import { Route as AuthedAppConnectionsIndexRouteImport } from './routes/_authed/_app/connections.index'
 import { Route as AuthedAppConnectionsKeyRouteImport } from './routes/_authed/_app/connections.$key'
+import { Route as AuthedAppCrmSplatRouteImport } from './routes/_authed/_app/crm.$'
 import { Route as AuthedAppGroupChannelIdRouteImport } from './routes/_authed/_app/group/$channelId'
 import { Route as AuthedAppGroupNewRouteImport } from './routes/_authed/_app/group/new'
 import { Route as AuthedAppMakePageIdRouteImport } from './routes/_authed/_app/make.$pageId'
@@ -345,6 +346,11 @@ const AuthedAppConnectionsKeyRoute = AuthedAppConnectionsKeyRouteImport.update({
   path: '/connections/$key',
   getParentRoute: () => AuthedAppRoute,
 } as any)
+const AuthedAppCrmSplatRoute = AuthedAppCrmSplatRouteImport.update({
+  id: '/crm/$',
+  path: '/crm/$',
+  getParentRoute: () => AuthedAppRoute,
+} as any)
 const AuthedAppGroupChannelIdRoute = AuthedAppGroupChannelIdRouteImport.update({
   id: '/group/$channelId',
   path: '/group/$channelId',
@@ -551,6 +557,7 @@ export interface FileRoutesByFullPath {
   '/channel/new': typeof AuthedAppChannelNewRoute
   '/channels/$channelId': typeof AuthedAppChannelsChannelIdRoute
   '/connections/$key': typeof AuthedAppConnectionsKeyRoute
+  '/crm/$': typeof AuthedAppCrmSplatRoute
   '/group/$channelId': typeof AuthedAppGroupChannelIdRoute
   '/group/new': typeof AuthedAppGroupNewRoute
   '/make/$pageId': typeof AuthedAppMakePageIdRoute
@@ -626,6 +633,7 @@ export interface FileRoutesByTo {
   '/channel/new': typeof AuthedAppChannelNewRoute
   '/channels/$channelId': typeof AuthedAppChannelsChannelIdRoute
   '/connections/$key': typeof AuthedAppConnectionsKeyRoute
+  '/crm/$': typeof AuthedAppCrmSplatRoute
   '/group/$channelId': typeof AuthedAppGroupChannelIdRoute
   '/group/new': typeof AuthedAppGroupNewRoute
   '/make/$pageId': typeof AuthedAppMakePageIdRoute
@@ -707,6 +715,7 @@ export interface FileRoutesById {
   '/_authed/_app/channel/new': typeof AuthedAppChannelNewRoute
   '/_authed/_app/channels/$channelId': typeof AuthedAppChannelsChannelIdRoute
   '/_authed/_app/connections/$key': typeof AuthedAppConnectionsKeyRoute
+  '/_authed/_app/crm/$': typeof AuthedAppCrmSplatRoute
   '/_authed/_app/group/$channelId': typeof AuthedAppGroupChannelIdRoute
   '/_authed/_app/group/new': typeof AuthedAppGroupNewRoute
   '/_authed/_app/make/$pageId': typeof AuthedAppMakePageIdRoute
@@ -787,6 +796,7 @@ export interface FileRouteTypes {
     | '/channel/new'
     | '/channels/$channelId'
     | '/connections/$key'
+    | '/crm/$'
     | '/group/$channelId'
     | '/group/new'
     | '/make/$pageId'
@@ -862,6 +872,7 @@ export interface FileRouteTypes {
     | '/channel/new'
     | '/channels/$channelId'
     | '/connections/$key'
+    | '/crm/$'
     | '/group/$channelId'
     | '/group/new'
     | '/make/$pageId'
@@ -942,6 +953,7 @@ export interface FileRouteTypes {
     | '/_authed/_app/channel/new'
     | '/_authed/_app/channels/$channelId'
     | '/_authed/_app/connections/$key'
+    | '/_authed/_app/crm/$'
     | '/_authed/_app/group/$channelId'
     | '/_authed/_app/group/new'
     | '/_authed/_app/make/$pageId'
@@ -1333,6 +1345,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAppConnectionsKeyRouteImport
       parentRoute: typeof AuthedAppRoute
     }
+    '/_authed/_app/crm/$': {
+      id: '/_authed/_app/crm/$'
+      path: '/crm/$'
+      fullPath: '/crm/$'
+      preLoaderRoute: typeof AuthedAppCrmSplatRouteImport
+      parentRoute: typeof AuthedAppRoute
+    }
     '/_authed/_app/group/$channelId': {
       id: '/_authed/_app/group/$channelId'
       path: '/group/$channelId'
@@ -1678,6 +1697,7 @@ interface AuthedAppRouteChildren {
   AuthedAppChannelNewRoute: typeof AuthedAppChannelNewRoute
   AuthedAppChannelsChannelIdRoute: typeof AuthedAppChannelsChannelIdRoute
   AuthedAppConnectionsKeyRoute: typeof AuthedAppConnectionsKeyRoute
+  AuthedAppCrmSplatRoute: typeof AuthedAppCrmSplatRoute
   AuthedAppGroupChannelIdRoute: typeof AuthedAppGroupChannelIdRoute
   AuthedAppGroupNewRoute: typeof AuthedAppGroupNewRoute
   AuthedAppPagesPageIdRoute: typeof AuthedAppPagesPageIdRoute
@@ -1716,6 +1736,7 @@ const AuthedAppRouteChildren: AuthedAppRouteChildren = {
   AuthedAppChannelNewRoute: AuthedAppChannelNewRoute,
   AuthedAppChannelsChannelIdRoute: AuthedAppChannelsChannelIdRoute,
   AuthedAppConnectionsKeyRoute: AuthedAppConnectionsKeyRoute,
+  AuthedAppCrmSplatRoute: AuthedAppCrmSplatRoute,
   AuthedAppGroupChannelIdRoute: AuthedAppGroupChannelIdRoute,
   AuthedAppGroupNewRoute: AuthedAppGroupNewRoute,
   AuthedAppPagesPageIdRoute: AuthedAppPagesPageIdRoute,

@@ -425,7 +425,7 @@ function archivedToggle(dialog: HTMLElement) {
   return within(dialog).getByRole("button", { name: /^Archived/ });
 }
 
-test("the drawer reads Everything, the channels, New channel, Archived folded, then Manage and Settings", async () => {
+test("the drawer reads Everything, the channels, New channel, Archived folded, then CRM, Manage and Settings", async () => {
   serving();
   const view = draw(
     <MenuSheet onNewChannel={() => {}} onOpenChange={() => {}} open />,
@@ -439,6 +439,7 @@ test("the drawer reads Everything, the channels, New channel, Archived folded, t
     `Glazes${glazes.purpose}`,
     "New channel",
     "Archived",
+    "CRM",
     "Manage",
     "Settings",
     "Sign out",
@@ -449,6 +450,9 @@ test("the drawer reads Everything, the channels, New channel, Archived folded, t
       .getByRole("link", { name: /Everything/ })
       .getAttribute("href"),
   ).toBe("/");
+  expect(
+    within(dialog).getByRole("link", { name: "CRM" }).getAttribute("href"),
+  ).toBe("/crm");
   expect(
     within(dialog)
       .getByRole("link", { name: /Kiln move/ })
@@ -764,6 +768,7 @@ test("with no channels yet the drawer is Everything and New channel, and no Arch
   expect(menuRows(dialog)).toEqual([
     `Everything${EVERYTHING_LINE}`,
     "New channel",
+    "CRM",
     "Manage",
     "Settings",
   ]);
