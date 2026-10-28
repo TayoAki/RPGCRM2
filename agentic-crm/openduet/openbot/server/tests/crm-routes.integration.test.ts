@@ -274,9 +274,7 @@ test("a note on a contact moves the contact's last seen forward", async () => {
 
   const { json } = await call("GET", `/contacts/${contact.id}`);
 
-  expect(new Date(String((json.data as Json).last_seen)).toISOString()).toBe(
-    "2026-04-01T09:00:00.000Z",
-  );
+  expect((json.data as Json).last_seen).toBe("2026-04-01T09:00:00.000Z");
 });
 
 test("deleting a tag takes it off every contact", async () => {
@@ -462,13 +460,14 @@ test("a file over 20 MB is refused", async () => {
   expect(status).toBe(413);
 });
 
-test("a contact made through the API is first and last seen now", async () => {
+test("a contact made through the API has no tags and is first and last seen now", async () => {
   const before = Date.now();
   const contact = await create("contacts", {
     first_name: "Api",
     last_name: `Made${run}`,
   });
 
+  expect(contact.tags).toEqual([]);
   expect(new Date(String(contact.first_seen)).getTime()).toBeGreaterThanOrEqual(
     before - 5000,
   );

@@ -71,7 +71,7 @@ Checked in a browser:
 | OpenDuet's build now needs Atomic's packages, installed by `npm ci` in `atomic-crm/`. | The Docker build (A6) installs both. Later, move Atomic's dependencies into OpenDuet's bun workspace. |
 | The CRM chunk is 2.3 MB (712 kB gzipped), mostly the Supabase client and the fake-data generator. | Both go with the real data provider (A3, A4). |
 | On phones, Atomic's mobile layout (fixed header and bottom bar) collides with OpenDuet's page header. | Desktop first for the MVP. On phones, hide one of the two headers when mobile (A9) comes up. |
-| OpenDuet's self-hosting banner, CopilotKit's "Powered by CopilotKit, Get a license" badge, and the "Atomic CRM" title all show. | Part of branding (A5). The badge goes once a CopilotKit license is set. |
+| OpenDuet's self-hosting banner, CopilotKit's "Powered by CopilotKit, Get a license" badge, and the "Atomic CRM" title all show. | Part of branding (A5). The badge goes once a CopilotKit license is set. Until then, the CRM's bottom bars sit above it. |
 | The CRM's own theme switch and Logout repeat OpenDuet's. Logout does nothing in single-user mode. | Hide both in the embedded CRM. |
 | CopilotKit's runtime sends telemetry by default. | Set `COPILOTKIT_TELEMETRY_DISABLED=true` in the deploy kit (A6). |
 | ra-core 5.15 has a TanStack Router adapter, but Atomic imports react-router directly in 51 files. | Keep react-router through the history adapter. The native P1 screens use TanStack Router directly. |
@@ -95,10 +95,11 @@ Covers A1 to A6, A8, B1 to B7, C1 to C5, G6 and H4.
   - Email and password sign-in (A2).
   - The CRM's records in OpenDuet's Postgres (A3) and the CRM API (A4).
   - Companies, contacts, deals, tasks and notes on real data (B1, B2), global search (B4) and the activity log (B6).
+  - Attachments (B7), tags and bulk tagging (B3), CSV import and export (B5).
   - Checked in a browser with two people.
 - **Next, in this order:**
   1. ~~File storage for attachments (B7).~~ Done.
-  2. Check CSV import and export (B5) and bulk tagging (B3) against the real API.
+  2. ~~Check CSV import and export (B5) and bulk tagging (B3) against the real API.~~ Done.
   3. Remove Supabase and the fake-data generator from the CRM's bundle, and hide the CRM's own theme switch and Logout.
   4. The agent work (C1 to C5).
   5. Branding (A5), the deploy kit (A6) and languages (A8).

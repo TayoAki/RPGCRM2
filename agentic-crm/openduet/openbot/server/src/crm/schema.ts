@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -8,7 +9,6 @@ import {
   pgSchema,
   smallint,
   text,
-  timestamp,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -36,8 +36,14 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 const id = () =>
   bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity();
 const reference = () => bigint({ mode: "number" });
-const moment = () => timestamp({ withTimezone: true, mode: "string" });
-const createdAt = () => moment().notNull().defaultNow();
+// ISO 8601 out, as PostgREST answered the screens. Drizzle's string mode gives "2026-01-15 00:00:00+00",
+// a format browsers aren't required to parse.
+const moment = customType<{ data: string; driverData: Date | string }>({
+  dataType: () => "timestamp with time zone",
+  fromDriver: (value) => new Date(value).toISOString(),
+});
+const now = sql`now()`;
+const createdAt = () => moment().notNull().default(now);
 const cascade = { onDelete: "cascade", onUpdate: "cascade" } as const;
 
 export const sales = crm.table(
@@ -89,11 +95,12 @@ export const contacts = crm.table(
     background: text(),
     avatar: json(),
     // Defaults for contacts made outside the form (the API, the agent); the form sets both.
-    first_seen: moment().defaultNow(),
-    last_seen: moment().defaultNow(),
+    first_seen: moment().default(now),
+    last_seen: moment().default(now),
     has_newsletter: boolean(),
     status: text(),
-    tags: bigint({ mode: "number" }).array(),
+    // The tag screens and the export read it as an array.
+    tags: bigint({ mode: "number" }).array().notNull().default(sql`'{}'`),
     company_id: reference().references(() => companies.id, cascade),
     sales_id: reference().references(() => sales.id),
     linkedin_url: text(),
@@ -111,7 +118,7 @@ export const contactNotes = crm.table(
       .notNull()
       .references(() => contacts.id, cascade),
     text: text(),
-    date: moment().defaultNow(),
+    date: moment().default(now),
     sales_id: reference().references(() => sales.id),
     status: text(),
     attachments: json(),
@@ -149,7 +156,7 @@ export const dealNotes = crm.table(
       .references(() => deals.id, cascade),
     type: text(),
     text: text(),
-    date: moment().defaultNow(),
+    date: moment().default(now),
     sales_id: reference().references(() => sales.id),
     attachments: json(),
   },

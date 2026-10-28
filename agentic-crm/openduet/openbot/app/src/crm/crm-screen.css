@@ -14,3 +14,11 @@
     min-width: revert-layer;
   }
 }
+
+/* Keep the CRM's bottom bars above CopilotKit's license banner, which publishes its height. */
+.crm-screen .fixed.bottom-0 {
+  bottom: var(--copilotkit-license-banner-offset, 0px);
+}
+.crm-screen .fixed.bottom-2 {
+  bottom: calc(0.5rem + var(--copilotkit-license-banner-offset, 0px));
+}

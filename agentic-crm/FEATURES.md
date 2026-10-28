@@ -32,9 +32,9 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 |---|---|---|---|---|---|
 | B1 | Companies, contacts, deals, tasks, notes | MVP | Atomic | Done | On real data, checked in a browser |
 | B2 | Deals pipeline kanban, configurable stages | MVP | Atomic | Done | |
-| B3 | Tags and bulk tagging | MVP | Atomic | In progress | API done and tested; check the screens |
+| B3 | Tags and bulk tagging | MVP | Atomic | Done | Checked in a browser, including contacts the API made without tags |
 | B4 | Global search | MVP | Atomic | Done | Postgres full-text search, prefix matching. Add indexes when data grows |
-| B5 | CSV import and export | MVP | Atomic | In progress | Check against the real API |
+| B5 | CSV import and export | MVP | Atomic | Done | Contacts, companies and deals, checked in a browser |
 | B6 | Activity log | MVP | Atomic | Done | |
 | B7 | Attachments on notes | MVP | Atomic | Done | Stored in Postgres (`crm.files`), up to 20 MB each, downloads need sign-in; also company logos and avatars |
 | B8 | Merge duplicate contacts | P1 | Atomic | Not started | The merge button says it isn't available yet |
