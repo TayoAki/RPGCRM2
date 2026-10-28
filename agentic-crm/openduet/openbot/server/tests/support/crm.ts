@@ -12,7 +12,13 @@ export type As = "admin" | "member";
  * The CRM API as an admin and a member signed in, over a test database. `setUp` adds the two people,
  * `tearDown` removes them; records they made stay, named with `run` so tests never collide.
  */
-export function crmTestClient(database: Database) {
+export function crmTestClient(
+  database: Database,
+  services: Omit<
+    Parameters<typeof createCrmRoutes>[0],
+    "requireUser" | "database"
+  > = {},
+) {
   const run = crypto.randomUUID().slice(0, 8);
   const people = {
     admin: {
@@ -37,7 +43,7 @@ export function crmTestClient(database: Database) {
     });
     await next();
   };
-  const routes = createCrmRoutes({ requireUser, database });
+  const routes = createCrmRoutes({ requireUser, database, ...services });
 
   async function call(
     method: string,

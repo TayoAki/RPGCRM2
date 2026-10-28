@@ -280,12 +280,14 @@ export const proposals = crm.table(
   ],
 );
 
-// Mail the CRM sent, or will send, and what happened to it.
+// Mail the CRM sent or will send, and mail from contacts it read from a mailbox.
 export const emails = crm.table(
   "emails",
   {
     id: id(),
-    // draft, scheduled, sending, sent, failed
+    // out or in
+    direction: text().notNull().default("out"),
+    // draft, scheduled, sending, sent, failed; received for mail in
     status: text().notNull().default("draft"),
     from_address: text(),
     to_address: text().notNull(),
@@ -300,6 +302,7 @@ export const emails = crm.table(
     send_at: moment(),
     sent_at: moment(),
     message_id: text(),
+    in_reply_to: text(),
     error: text(),
     sales_id: reference().references(() => sales.id),
     created_at: createdAt(),
@@ -309,6 +312,49 @@ export const emails = crm.table(
     index("emails_contact_id_idx").on(table.contact_id),
     index("emails_deal_id_idx").on(table.deal_id),
     index("emails_status_send_at_idx").on(table.status, table.send_at),
+    uniqueIndex("emails_received_message_id_idx")
+      .on(table.message_id)
+      .where(sql`${table.direction} = 'in'`),
+  ],
+);
+
+/*
+ * Where the CRM sends from and reads mail: one mailbox per person, and a shared one (no sales_id)
+ * for everybody without their own. SMTP and IMAP with an app password work with Gmail, Outlook and
+ * most hosts. Passwords are encrypted with the deployment's KEY_ENCRYPTION_KEY.
+ */
+export const mailboxes = crm.table(
+  "mailboxes",
+  {
+    id: id(),
+    sales_id: reference().references(() => sales.id, cascade),
+    from_name: text(),
+    from_address: text().notNull(),
+    smtp_host: text().notNull(),
+    smtp_port: integer().notNull().default(587),
+    // True for TLS from the start (port 465), false for STARTTLS.
+    smtp_secure: boolean().notNull().default(false),
+    smtp_user: text().notNull(),
+    smtp_password: text().notNull(),
+    imap_host: text(),
+    imap_port: integer().notNull().default(993),
+    imap_user: text(),
+    imap_password: text(),
+    // The highest message uid read, per mailbox folder validity.
+    imap_uid_validity: text(),
+    imap_last_uid: bigint({ mode: "number" }),
+    imap_checked_at: moment(),
+    imap_error: text(),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("mailboxes_sales_id_idx")
+      .on(table.sales_id)
+      .where(sql`${table.sales_id} is not null`),
+    uniqueIndex("mailboxes_shared_idx")
+      .on(sql`(true)`)
+      .where(sql`${table.sales_id} is null`),
   ],
 );
 

@@ -60,6 +60,7 @@ import { signallingBusy } from "./approvals/busy-runner";
 import { createApprovalResumeTick } from "./approvals/resume-sweep";
 import { createApprovalStore } from "./approvals/store";
 import { installCrmTools } from "./crm/install";
+import { createCrmServices } from "./crm/services";
 import { ApprovalRefusedError } from "./approvals/types";
 import { createServerApprovalService } from "./approvals/wiring";
 import {
@@ -2571,6 +2572,12 @@ const identityGithubCallback =
       })
     : undefined;
 
+// The CRM's mail and automations, run beside the API like the sweeps above.
+const crmServices = createCrmServices({
+  database,
+  encryptionKey: config.keyEncryptionKey,
+});
+crmServices.start();
 const app = createApp(
   config,
   auth,
@@ -2802,6 +2809,7 @@ const app = createApp(
   identityGithubCallback,
   createExtraRoutes({
     database,
+    crm: crmServices,
     ...(ownAuth && config.auth?.emailPassword
       ? { passwordPeople: createPasswordPeople(ownAuth) }
       : {}),

@@ -3,6 +3,7 @@ import type { AuditStore } from "./audit";
 import type { PasswordPeople } from "./auth/email-password";
 import type { AppVariables } from "./auth/guards";
 import { createCrmRoutes } from "./crm/routes";
+import type { CrmServices } from "./crm/services";
 import type { Database } from "./db/client";
 import { createPasswordPeopleRoutes } from "./people/password-routes";
 import type { PeopleStore } from "./people/store";
@@ -15,11 +16,19 @@ export function createExtraRoutes(deps: {
   passwordPeople?: PasswordPeople;
   peopleStore: PeopleStore;
   auditStore?: AuditStore;
+  crm?: CrmServices;
 }) {
   return (
     requireUser: MiddlewareHandler<Variables>,
   ): [string, Hono<Variables>][] => [
-    ["/api/crm", createCrmRoutes({ requireUser, database: deps.database })],
+    [
+      "/api/crm",
+      createCrmRoutes({
+        requireUser,
+        database: deps.database,
+        ...(deps.crm ? { mail: deps.crm.mail } : {}),
+      }),
+    ],
     ...(deps.passwordPeople
       ? ([
           [

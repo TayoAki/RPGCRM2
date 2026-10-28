@@ -64,6 +64,13 @@
       "when": 1793213349123,
       "tag": "0008_foundations",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793213697019,
+      "tag": "0009_mailboxes",
+      "breakpoints": true
     }
   ]
 }

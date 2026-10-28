@@ -1,9 +1,12 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { ZodError } from "zod";
 import type { AppVariables } from "../auth/guards";
 import type { Database } from "../db/client";
 import { fileResponse, MAX_CRM_FILE_BYTES, storeFile } from "./files";
 import { CrmQueryError, listParamsFrom } from "./filters";
+import type { CrmMail } from "./mail";
+import { createMailRoutes } from "./mail-routes";
 import { CrmRefusal, createCrmRecords } from "./records";
 import { globalSearch, SEARCH_RESOURCES, type SearchResource } from "./search";
 
@@ -32,6 +35,7 @@ function parseIds(raw: string | undefined): number[] {
 export function createCrmRoutes(deps: {
   requireUser: MiddlewareHandler<Variables>;
   database: Database;
+  mail?: CrmMail;
 }) {
   const { database } = deps;
   const routes = new Hono<Variables>();
@@ -55,6 +59,10 @@ export function createCrmRoutes(deps: {
 
   const records = createCrmRecords(database);
   const notFound = { error: "Not found." };
+
+  if (deps.mail) {
+    routes.route("/mail", createMailRoutes({ mail: deps.mail, records }));
+  }
 
   routes.get("/me", async (context) =>
     context.json({ data: await records.sale(context.var.actor) }),
@@ -173,6 +181,18 @@ export function createCrmRoutes(deps: {
     }
     if (error instanceof CrmQueryError) {
       return context.json({ error: error.message }, 400);
+    }
+    if (error instanceof ZodError) {
+      const [issue] = error.issues;
+      const field = issue?.path.join(".");
+      return context.json(
+        {
+          error: issue
+            ? `${field ? `${field}: ` : ""}${issue.message}`
+            : "Check the form.",
+        },
+        400,
+      );
     }
     const cause = (error as { cause?: Record<string, unknown> }).cause;
     const postgresCode = String(cause?.errno ?? cause?.code ?? "");
