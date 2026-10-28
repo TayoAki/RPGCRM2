@@ -33,17 +33,41 @@ function productName(): string | null {
 const escapeHtml = (text: string) =>
   text.replace(/[&<>"]/g, (char) => `&#${char.charCodeAt(0)};`);
 
+/*
+ * The package's theme.css (validated when the app config is generated: only :root and .dark blocks of
+ * approved variables) as one style. Light first, then dark, each one class stronger than the app's own
+ * stylesheets so it wins whichever loads last.
+ */
+function themeStyle(directory: string): string | null {
+  const file = path.join(directory, "theme.css");
+  if (!existsSync(file)) return null;
+  const css = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, " ");
+  const blocks = [...css.matchAll(/(:root|\.dark)\s*\{([^{}<]*)\}/g)];
+  const rules = (selector: string, strong: string) =>
+    blocks
+      .filter(([, found]) => found === selector)
+      .map(([, , body]) => `${strong} {${body}}`);
+  const style = [
+    ...rules(":root", ":root:root"),
+    ...rules(".dark", ":root.dark"),
+  ].join("\n");
+  return style || null;
+}
+
 /**
- * The deployment's name and logo, from its tenant package: the page's title and favicon, which
- * index.html leaves as OpenDuet's, and the logo the CRM shows (`import logo from "tenant-brand"`,
- * null when the package has no logo.svg).
+ * The deployment's name, logo and colors, from its tenant package: the page's title and favicon, which
+ * index.html leaves as OpenDuet's, its theme.css, and the logo the CRM shows (`import logo from
+ * "tenant-brand"`, null when the package has no logo.svg).
  */
 export function tenantBrand(): Plugin {
   let logo: string | null = null;
+  let theme: string | null = null;
   return {
     name: "tenant-brand",
     configResolved(config) {
-      const file = path.join(tenantDirectory(config.mode), "logo.svg");
+      const directory = tenantDirectory(config.mode);
+      theme = themeStyle(directory);
+      const file = path.join(directory, "logo.svg");
       logo = existsSync(file)
         ? `data:image/svg+xml,${encodeURIComponent(readFileSync(file, "utf8"))}`
         : null;
@@ -62,11 +86,14 @@ export function tenantBrand(): Plugin {
             `<title>${escapeHtml(name)}</title>`,
           )
         : html;
-      return logo
-        ? titled.replace(
-            "</head>",
-            `  <link rel="icon" type="image/svg+xml" href="${logo}" />\n  </head>`,
-          )
+      const head = [
+        ...(logo
+          ? [`<link rel="icon" type="image/svg+xml" href="${logo}" />`]
+          : []),
+        ...(theme ? [`<style id="tenant-theme">\n${theme}\n</style>`] : []),
+      ];
+      return head.length
+        ? titled.replace("</head>", `  ${head.join("\n  ")}\n  </head>`)
         : titled;
     },
   };

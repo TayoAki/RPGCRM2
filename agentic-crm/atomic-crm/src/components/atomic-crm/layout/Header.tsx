@@ -47,7 +47,7 @@ const Header = () => {
             <div className="flex justify-between items-center flex-1">
               <Link
                 to="/"
-                className="flex items-center gap-2 text-secondary-foreground no-underline"
+                className="flex shrink-0 items-center gap-2 mr-4 text-secondary-foreground no-underline"
               >
                 <img
                   className="[.light_&]:hidden h-6"
@@ -59,9 +59,11 @@ const Header = () => {
                   src={lightModeLogo}
                   alt={title}
                 />
-                <h1 className="text-xl font-semibold">{title}</h1>
+                <h1 className="text-xl font-semibold whitespace-nowrap">
+                  {title}
+                </h1>
               </Link>
-              <div>
+              <div className="min-w-0 overflow-x-auto">
                 <nav className="flex">
                   <NavigationTab
                     label={translate("ra.page.dashboard")}

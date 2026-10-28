@@ -9,7 +9,8 @@ import { parseArgs } from "node:util";
  * branded tenant package beside it. Then fill in the keys it lists and run ./up.sh <customer>.
  *
  *   bun agentic-crm/deploy/new-customer.ts --customer acme --domain crm.acme.com \
- *     --admin owner@acme.com [--name "Acme CRM"] [--assistant "Ava"] [--logo acme.svg]
+ *     --admin owner@acme.com [--name "Acme CRM"] [--assistant "Ava"] [--logo acme.svg] \
+ *     [--color "#4f46e5"]
  *
  * Without --name the deployment is Magpie CRM, with its magpie and Maggie.
  */
@@ -20,6 +21,7 @@ const { values } = parseArgs({
     name: { type: "string" },
     assistant: { type: "string" },
     logo: { type: "string" },
+    color: { type: "string" },
     domain: { type: "string" },
     admin: { type: "string" },
   },
@@ -89,6 +91,7 @@ const tenant = Bun.spawnSync(
     ...(values.name ? ["--name", values.name] : []),
     ...(values.assistant ? ["--assistant", values.assistant] : []),
     ...(values.logo ? ["--logo", resolve(values.logo)] : []),
+    ...(values.color ? ["--color", values.color] : []),
     "--out",
     join(folder, "tenant"),
   ],

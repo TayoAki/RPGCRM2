@@ -104,15 +104,16 @@ agentic-crm/deploy/up.sh acme
 
 ## Branding a deployment
 
-Each deployment carries its name and logo in an OpenDuet tenant package. `scripts/make-tenant.ts` writes one from OpenDuet's own (`openduet/openbot/examples/openduet`). It's Magpie CRM, with Maggie and the magpie, unless you name another brand for a customer who wants their own:
+Each deployment carries its name, logo and brand color in an OpenDuet tenant package. `scripts/make-tenant.ts` writes one from OpenDuet's own (`openduet/openbot/examples/openduet`). It's Magpie CRM, with Maggie and the magpie, unless you name another brand for a customer who wants their own:
 
 ```bash
 bun agentic-crm/scripts/make-tenant.ts --out <dir>                      # Magpie CRM
-bun agentic-crm/scripts/make-tenant.ts --name "Acme CRM" --assistant "Ava" --logo acme.svg --out <dir>
+bun agentic-crm/scripts/make-tenant.ts --name "Acme CRM" --assistant "Ava" --logo acme.svg --color "#4f46e5" --out <dir>
 ```
 
 - **Using it.** Set `TENANT_PACKAGE_DIR=<dir>` in `openduet/openbot/.env`, then build or start the app. The name and logo are read when the app is built. `deploy/new-customer.ts` takes the same options.
 - **Where it shows.** The browser tab and its icon, the sign-in and set-password pages, OpenDuet's own screens, and the CRM's header and setup checklist (`app/vite-brand.ts`, `app/src/crm/brand.ts`). The assistant keeps OpenDuet's orb as its face in chat.
+- **The color** (`--color`) becomes the package's `theme.css`: buttons, links and focus rings in OpenDuet and the CRM, lifted for dark mode when it would be too dark to see. Leave it out to keep the default theme; edit `theme.css` by hand for more (any approved shadcn variable).
 - **The logo** is a square SVG. Without one, the CRM shows the name's first letter, and the sign-in pages show the assistant's orb.
 - **An admin** can still set the CRM's own name and logos in its Settings.
 - **After a vendor sync,** run the script again with `--force`, so OpenDuet's changes to its package come through. It stops if a line it rewrites has moved.

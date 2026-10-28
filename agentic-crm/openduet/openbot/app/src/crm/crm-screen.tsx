@@ -5,6 +5,7 @@ import { lazy, Suspense, useCallback, useState } from "react";
 import { NewTaskSheet } from "@/components/shell/new-task-sheet";
 import { usePageChrome } from "@/components/shell/page-chrome";
 import { useTheme } from "@/components/theme-provider";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { primaryBot } from "@/lib/agents/primary-bot";
 import { agentListQueryOptions } from "@/lib/agents/queries";
 import { signOutMutationOptions } from "@/lib/auth/mutations";
@@ -28,7 +29,8 @@ const CRM_BRAND = crmBrand();
  * header, as PageShell's does.
  */
 export function CrmScreen() {
-  usePageChrome({ title: "CRM" });
+  // On a phone the CRM's own header names the page, beside the back disc (crm-screen.css).
+  usePageChrome({ title: useIsMobile() ? null : "CRM" });
   const { history } = useRouter();
   const { resolved } = useTheme();
   const navigate = useNavigate();

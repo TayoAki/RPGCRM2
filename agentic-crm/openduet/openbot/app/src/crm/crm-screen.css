@@ -23,9 +23,24 @@
   bottom: calc(0.5rem + var(--copilotkit-license-banner-offset, 0px));
 }
 
-/* Below 768px the CRM uses its own mobile screens, whose fixed header goes under OpenDuet's. */
+/*
+ * Below 768px the CRM uses its own mobile screens. Their header becomes the page's only bar: a pill
+ * beside OpenDuet's back disc, in the chrome's row, so the page has one header rather than two.
+ */
 @media (max-width: 767px) {
   .crm-screen header.fixed.top-0 {
-    top: 92px;
+    top: 12px;
+    left: 70px;
+    right: 12px;
+    width: auto;
+    height: 46px;
+    z-index: 30;
+    border-radius: 9999px;
+  }
+  div.crm-screen {
+    padding-top: 64px;
+  }
+  .crm-screen #main-content {
+    padding-top: 0.5rem;
   }
 }
