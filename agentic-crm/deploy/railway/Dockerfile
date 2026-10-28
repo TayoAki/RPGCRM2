@@ -24,11 +24,11 @@ FROM oven/bun:1.4.3@sha256:ec06c3b6cea04192ae6770c434f668ca41d343ad19fa6472216c7
 # The tenant package the product is named from. A deployment passes its own with
 # `--build-context tenant=<dir>`; agentic-crm/scripts/make-tenant.ts writes one.
 FROM scratch AS tenant
-COPY tenant /
+COPY agentic-crm/tenant /
 
 FROM scratch AS atomic-crm
-COPY atomic-crm/package.json atomic-crm/package-lock.json atomic-crm/.npmrc /
-COPY atomic-crm/src /src
+COPY agentic-crm/atomic-crm/package.json agentic-crm/atomic-crm/package-lock.json agentic-crm/atomic-crm/.npmrc /
+COPY agentic-crm/atomic-crm/src /src
 
 FROM ubuntu:24.04 AS base
 
@@ -60,21 +60,21 @@ FROM base AS deps
 WORKDIR /src
 
 # Manifests first, so editing a source file does not reinstall the world.
-COPY openduet/openbot/package.json openduet/openbot/bun.lock ./
-COPY openduet/openbot/tsconfig.base.json openduet/openbot/bunfig.toml ./
-COPY openduet/openbot/app/package.json app/package.json
-COPY openduet/openbot/server/package.json server/package.json
-COPY openduet/openbot/worker/package.json worker/package.json
-COPY openduet/openbot/shared/package.json shared/package.json
-COPY openduet/openbot/toolkit/package.json toolkit/package.json
+COPY agentic-crm/openduet/openbot/package.json agentic-crm/openduet/openbot/bun.lock ./
+COPY agentic-crm/openduet/openbot/tsconfig.base.json agentic-crm/openduet/openbot/bunfig.toml ./
+COPY agentic-crm/openduet/openbot/app/package.json app/package.json
+COPY agentic-crm/openduet/openbot/server/package.json server/package.json
+COPY agentic-crm/openduet/openbot/worker/package.json worker/package.json
+COPY agentic-crm/openduet/openbot/shared/package.json shared/package.json
+COPY agentic-crm/openduet/openbot/toolkit/package.json toolkit/package.json
 RUN bun install --frozen-lockfile
 
 # The lockfile travels with the manifest, because `--frozen-lockfile` with no lockfile in the context
 # is not an error: bun resolves afresh, succeeds, and the flag has decorated nothing. With both files
 # here, the tree in the image is the tree this repository resolved and committed. Bun is already
 # pinned twenty-odd lines above for the same reason; this is the install below it.
-COPY openduet/openbot/agent-computer/package.json agent-computer/package.json
-COPY openduet/openbot/agent-computer/bun.lock agent-computer/bun.lock
+COPY agentic-crm/openduet/openbot/agent-computer/package.json agent-computer/package.json
+COPY agentic-crm/openduet/openbot/agent-computer/bun.lock agent-computer/bun.lock
 RUN cd agent-computer && bun install --frozen-lockfile
 
 # A second tree with the build-time dependencies left out, for the runtime stage to take. Vite,
@@ -91,14 +91,14 @@ RUN mkdir -p /prod && cp package.json bun.lock /prod/ \
 
 FROM deps AS app-build
 
-COPY openduet/openbot/app app
-COPY openduet/openbot/scripts scripts
-COPY openduet/openbot/shared shared
-COPY openduet/openbot/toolkit toolkit
+COPY agentic-crm/openduet/openbot/app app
+COPY agentic-crm/openduet/openbot/scripts scripts
+COPY agentic-crm/openduet/openbot/shared shared
+COPY agentic-crm/openduet/openbot/toolkit toolkit
 # The server's source as well: the app's prebuild step reads the tenant package through
 # `server/src/tenant-package`, so the app cannot be built without it.
-COPY openduet/openbot/server server
-COPY openduet/openbot/examples examples
+COPY agentic-crm/openduet/openbot/server server
+COPY agentic-crm/openduet/openbot/examples examples
 # The CRM's screens are Atomic CRM's, compiled into the app from beside this folder (app/vite-crm.ts),
 # so the build needs `--build-context atomic-crm=../../atomic-crm`.
 COPY --from=atomic-crm package.json package-lock.json .npmrc /atomic-crm/
@@ -150,14 +150,14 @@ COPY --from=deps /src/bun.lock bun.lock
 # Pruning it would mean a second `--production` install in the stage above.
 COPY --from=deps /src/agent-computer/node_modules agent-computer/node_modules
 
-COPY openduet/openbot/server server
-COPY openduet/openbot/shared shared
-COPY openduet/openbot/toolkit toolkit
-COPY openduet/openbot/examples examples
+COPY agentic-crm/openduet/openbot/server server
+COPY agentic-crm/openduet/openbot/shared shared
+COPY agentic-crm/openduet/openbot/toolkit toolkit
+COPY agentic-crm/openduet/openbot/examples examples
 COPY --from=tenant / /tenant/
 ENV TENANT_PACKAGE_DIR=/tenant
-COPY openduet/openbot/agent-computer/src agent-computer/src
-COPY openduet/openbot/agent-computer/package.json agent-computer/package.json
+COPY agentic-crm/openduet/openbot/agent-computer/src agent-computer/src
+COPY agentic-crm/openduet/openbot/agent-computer/package.json agent-computer/package.json
 
 # `bun run composio:smoke`, because the manifest copied above carries that entry and the question it
 # answers belongs here rather than on a laptop: it asks what THIS deployment's Composio key can see,
@@ -170,14 +170,14 @@ COPY openduet/openbot/agent-computer/package.json agent-computer/package.json
 # is not in the image; `generate:app-config` writes a file the build has already baked into
 # `app/dist`. Copying the directory ships four more entries with nothing to do here, to fix one that
 # has something to do.
-COPY openduet/openbot/scripts/composio-smoke.ts scripts/composio-smoke.ts
+COPY agentic-crm/openduet/openbot/scripts/composio-smoke.ts scripts/composio-smoke.ts
 
 # The built app, served by the API on the same origin. There is no CORS in this server, so this is
 # not a convenience: two origins would simply fail.
 COPY --from=app-build /src/app/dist app/dist
 ENV APP_DIST_DIR=/app/app/dist
 
-COPY openduet/openbot/docker/s6 /etc/s6-overlay
+COPY agentic-crm/openduet/openbot/docker/s6 /etc/s6-overlay
 
 # PostgreSQL, for the deployment that wants one thing to run rather than two.
 #
@@ -282,5 +282,5 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
 ENTRYPOINT ["/init"]
 
 
-COPY deploy/railway/migrate.sh /etc/s6-overlay/scripts/migrate.sh
-COPY deploy/railway/first-admin.ts /app/server/scripts/first-admin.ts
+COPY agentic-crm/deploy/railway/migrate.sh /etc/s6-overlay/scripts/migrate.sh
+COPY agentic-crm/deploy/railway/first-admin.ts /app/server/scripts/first-admin.ts
