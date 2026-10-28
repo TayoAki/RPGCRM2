@@ -39,14 +39,15 @@ OpenDuet's app compiles Atomic's screens into itself and serves them at `/crm`, 
 | Piece | Where |
 |---|---|
 | Mount point: a `/crm/*` route, its screen, and the menu entry | `openduet/openbot/app/src/routes/_authed/_app/crm.$.tsx`, `openduet/openbot/app/src/crm/`, `menu-sheet.tsx` |
-| Build wiring: resolves Atomic's `@/` imports and packages, keeps one React | `openduet/openbot/app/vite-crm.ts`, used by `vite.config.ts` |
+| Build wiring: resolves Atomic's `@/` imports and packages, keeps one React, swaps out what the host replaces | `openduet/openbot/app/vite-crm.ts`, used by `vite.config.ts` |
 | Embed entry: runs Atomic's `<CRM>` on OpenDuet's URL, user, theme and data | `atomic-crm/src/embed/` |
 | CRM data: tables, views, API, search | `openduet/openbot/server/src/crm/`, migrations in `openduet/openbot/server/drizzle-crm/` |
 | Routes this product adds to OpenDuet's server | `openduet/openbot/server/src/extra-routes.ts` |
 
 - **Routing.** Atomic keeps its own react-router, which reads and writes the URL through OpenDuet's TanStack Router history (`hostHistory.ts`). Links, deep links, Back and Forward work across both routers.
-- **Sign-in.** It's OpenDuet's: the CRM identifies the signed-in user and never shows its own login (`hostAuthProvider.ts`).
-- **Theme.** OpenDuet's theme tokens style the CRM, and its light or dark mode drives the CRM's.
+- **Sign-in.** It's OpenDuet's: the CRM identifies the signed-in user and never shows its own login (`hostAuthProvider.ts`). The CRM's Log out signs out of OpenDuet.
+- **Theme.** OpenDuet's theme tokens style the CRM, and its light or dark mode drives the CRM's. The CRM's own theme switch is hidden.
+- **What's left out.** OpenDuet's build serves Atomic's Supabase sign-in, data provider and pages, and its theme switch, as `embed/standIns.tsx`, so Supabase's client isn't bundled. A test fails if an Atomic update changes what those modules export.
 - **Data.** In OpenDuet's Postgres, in a separate `crm` schema with its own migrations. OpenDuet's migrate script applies them after its own. The tables and views follow Atomic's Supabase schema, and `/api/crm` speaks the filter language Atomic's screens already use (`hostDataProvider.ts`). So the screens didn't change.
 - **Who sees what.** Everybody signed in reads and edits all records, as in Atomic. Only admins change the CRM's settings or other people's CRM profiles. Each person's CRM user is created on their first visit, with their OpenDuet role.
 - **Files.** Attachments, logos and avatars go to the `crm.files` table, up to 20 MB each, and records keep links to them. Only signed-in people can download them. Only PNG, JPEG, GIF and WebP pictures display in the page; other files download. A note's files are deleted with the note, or when they're taken off it.

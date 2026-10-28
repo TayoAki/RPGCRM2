@@ -1,9 +1,26 @@
 import path from "node:path";
-import { type Alias, type Plugin, searchForWorkspaceRoot } from "vite";
+import {
+  type Alias,
+  normalizePath,
+  type Plugin,
+  searchForWorkspaceRoot,
+} from "vite";
 
 const ATOMIC_CRM_ROOT = path.resolve(__dirname, "../../../atomic-crm");
 const ATOMIC_CRM_SOURCE = path.join(ATOMIC_CRM_ROOT, "src");
 const CRM_EMBED_MODULE = "atomic-crm/embed";
+const STAND_INS_MODULE = "atomic-crm/embed/stand-ins";
+
+// Atomic modules served as its embed/standIns.tsx instead, which says why.
+const REPLACED_MODULES = new Set(
+  [
+    "components/atomic-crm/providers/supabase/index.ts",
+    "components/supabase/forgot-password-page.tsx",
+    "components/supabase/oauth-consent-page.tsx",
+    "components/supabase/set-password-page.tsx",
+    "components/admin/theme-mode-toggle.tsx",
+  ].map((file) => normalizePath(path.join(ATOMIC_CRM_SOURCE, file))),
+);
 
 function isAtomicCrmSource(file: string | undefined): boolean {
   if (!file) return false;
@@ -44,8 +61,17 @@ export function atomicCrm(appRoot: string): Plugin {
       },
     }),
     resolveId(source) {
-      return source === CRM_EMBED_MODULE
-        ? path.join(ATOMIC_CRM_SOURCE, "embed", "CrmEmbed.tsx")
+      if (source === CRM_EMBED_MODULE) {
+        return path.join(ATOMIC_CRM_SOURCE, "embed", "CrmEmbed.tsx");
+      }
+      if (source === STAND_INS_MODULE) {
+        return path.join(ATOMIC_CRM_SOURCE, "embed", "standIns.tsx");
+      }
+      return null;
+    },
+    load(id) {
+      return REPLACED_MODULES.has(normalizePath(id))
+        ? `export * from ${JSON.stringify(STAND_INS_MODULE)};`
         : null;
     },
   };
