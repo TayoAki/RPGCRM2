@@ -103,6 +103,18 @@ agentic-crm/deploy/up.sh acme
 - **Backups.** The data is in the `db` volume: `docker compose -p crm-acme exec db pg_dump -U crm crm`.
 - **Building the image** needs Atomic's sources beside OpenDuet's. Compose passes them as the `atomic-crm` build context, and the customer's tenant package as `tenant`. Without a `tenant` context, OpenDuet's own package is used.
 
+### On Railway
+
+Railway builds from the repository with `agentic-crm` as the root directory and `deploy/railway/Dockerfile`, which `deploy/railway/make-dockerfile.ts` generates from OpenDuet's (rerun it after a vendor sync). It carries the default Magpie tenant in `tenant/`. Add a pgvector Postgres to the project and set on the app:
+
+- `DATABASE_URL`, the database's private URL, and `PORT=3001`.
+- `OPENBOT_PUBLIC_URL`, `BETTER_AUTH_URL` and `TRUSTED_ORIGINS`, all the service's public URL.
+- `BETTER_AUTH_SECRET`, `KEY_ENCRYPTION_KEY` and `AGENT_TOOL_TOKEN`, fresh secrets as `new-customer.ts` makes them.
+- `SIGNIN_EMAIL_PASSWORD=true`, `INITIAL_ADMIN_EMAILS` and `FIRST_ADMIN_EMAIL`, the first admin. Their set-password link is printed in the deploy logs on the first start.
+- `INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, `INTELLIGENCE_API_KEY` and a model key, as in the `.env` above.
+
+Migrations run each time the app starts. The assistant's computer runs inside the app's container, and Railway's private network reaches the database from there, so this is for testing rather than customers.
+
 ## Branding a deployment
 
 Each deployment carries its name, logo and brand color in an OpenDuet tenant package. `scripts/make-tenant.ts` writes one from OpenDuet's own (`openduet/openbot/examples/openduet`). It's Magpie CRM, with Maggie and the magpie, unless you name another brand for a customer who wants their own:
