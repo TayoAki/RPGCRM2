@@ -4,6 +4,7 @@ import { z } from "zod";
 import { useConversationSend } from "@/components/channels/conversation-send";
 import { ToolLine } from "@/components/channels/tool-line";
 import { BuildInProvider, useArrivedLive } from "@/components/duet/build-in";
+import { crmFollowUpRows, crmFollowUpsSchema } from "@/crm/brief-follow-ups";
 import {
   type BriefItem,
   MorningBriefCard,
@@ -44,6 +45,7 @@ export const briefSchema = z.object({
   couldNotCheck: z
     .array(z.object({ source: z.string(), why: z.string() }))
     .default([]),
+  crm: crmFollowUpsSchema,
 });
 export type Brief = z.infer<typeof briefSchema>;
 
@@ -84,6 +86,7 @@ export function briefCard(brief: Brief): {
   date: string;
   greeting: string;
   needsYou: BriefItem[];
+  followUp: BriefItem[];
   canWait: BriefItem[];
   today: BriefItem[];
   notes: BriefItem[];
@@ -115,6 +118,7 @@ export function briefCard(brief: Brief): {
         title: item.subject ? `${item.from} · ${item.subject}` : item.from,
         why: item.reason,
       })),
+    followUp: crmFollowUpRows(brief.crm),
     canWait: brief.canWait.length
       ? [
           {

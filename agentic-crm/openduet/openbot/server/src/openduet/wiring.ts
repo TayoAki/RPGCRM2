@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { eq } from "drizzle-orm";
 import type { AuditInitiator } from "../audit";
+import { withCrmFollowUps } from "../crm/brief";
 import type { Database } from "../db/client";
 import { users } from "../db/schema";
 import { createProactiveStore } from "../proactive/store";
@@ -189,14 +190,18 @@ export function createOpenDuetTools(deps: {
           .where(eq(users.id, actorId));
         return { name: person?.name ?? null, email: person?.email ?? null };
       },
-      build: (input) =>
-        buildMorningBrief(
-          {
-            callTool: deps.callTool,
-            complete: deps.complete,
-            model: deps.model,
-          },
-          input,
+      build: async (input) =>
+        withCrmFollowUps(
+          deps.database,
+          actorId,
+          await buildMorningBrief(
+            {
+              callTool: deps.callTool,
+              complete: deps.complete,
+              model: deps.model,
+            },
+            input,
+          ),
         ),
     }),
     ...replyTools({ initiator }),

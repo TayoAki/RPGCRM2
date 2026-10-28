@@ -46,7 +46,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 |---|---|---|---|---|---|
 | C1 | CRM tools for the agent: search, read, create, update records | MVP | Build | Not started | Generated from metadata once D1 lands |
 | C2 | Agent asks before writing to the CRM | MVP | OpenDuet | Not started | OpenDuet's approval and policy engine |
-| C3 | Morning brief includes the CRM | MVP | Build | Not started | Overdue tasks, deals that moved or stalled, hot contacts |
+| C3 | Morning brief includes the CRM | MVP | Build | In progress | A "Follow up" section: tasks overdue or due within a day, open deals unchanged for 14 days, hot contacts not seen for 7 days. Deals that moved need a stage history first |
 | C4 | Email triage linked to the CRM | MVP | Build | Not started | Match the sender to a contact or company; offer "log to CRM" or "create contact" |
 | C5 | "Ask the agent" from any record, with that record as context | MVP | Build | Not started | Draft a follow-up, summarize the history, suggest next steps |
 | C6 | Agent works under the user's CRM permissions | P1 | Build | Not started | Depends on G4 |

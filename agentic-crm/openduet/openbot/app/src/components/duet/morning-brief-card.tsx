@@ -1,3 +1,4 @@
+import { useRouter } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { Fragment, type ReactNode, useState } from "react";
 import { DURATION, EASE_OUT } from "@/lib/motion";
@@ -47,6 +48,7 @@ export function MorningBriefCard({
   date,
   greeting,
   needsYou,
+  followUp = [],
   canWait,
   today = [],
   notes = [],
@@ -56,18 +58,24 @@ export function MorningBriefCard({
   /** "Morning, Maya." */
   greeting: string;
   needsYou: BriefItem[];
+  /** The person's CRM records that ask something of them today. */
+  followUp?: BriefItem[];
   canWait: BriefItem[];
   today?: BriefItem[];
   notes?: BriefItem[];
 }) {
   const nothing =
-    needsYou.length === 0 && canWait.length === 0 && today.length === 0;
+    needsYou.length === 0 &&
+    followUp.length === 0 &&
+    canWait.length === 0 &&
+    today.length === 0;
   /*
    * Where each section starts in the order the card builds in when it arrives live (build-in.tsx):
    * the date and greeting first, then each section's label and the rows it shows, top to bottom.
    */
   const sections = [
     { items: needsYou, label: "Needs you", tone: "accent" },
+    { items: followUp, label: "Follow up", tone: "muted" },
     { items: canWait, label: "Can wait", tone: "muted" },
     { items: today, label: "Today", tone: "muted" },
     { items: notes, label: "Couldn't check", tone: "muted" },
@@ -137,6 +145,10 @@ function BriefSection({
   start: number;
 }) {
   const [open, setOpen] = useState(false);
+  // Absent where the card is drawn outside the app's router, as in tests.
+  const router = useRouter({ warn: false }) as ReturnType<
+    typeof useRouter
+  > | null;
   if (items.length === 0) return null;
   const folded = !open && items.length > SECTION_ROWS + 1;
   const shown = folded ? items.slice(0, SECTION_ROWS) : items;
@@ -178,7 +190,19 @@ function BriefSection({
               <li>
                 {piece(
                   index,
-                  item.href ? (
+                  item.href?.startsWith("/") ? (
+                    <a
+                      className="block"
+                      href={item.href}
+                      onClick={(event) => {
+                        if (!router) return;
+                        event.preventDefault();
+                        void router.navigate({ href: item.href });
+                      }}
+                    >
+                      {row}
+                    </a>
+                  ) : item.href ? (
                     <a
                       className="block"
                       href={item.href}
