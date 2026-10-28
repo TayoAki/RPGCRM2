@@ -44,8 +44,8 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 
 | ID | Feature | Tier | Starts from | Status | Notes |
 |---|---|---|---|---|---|
-| C1 | CRM tools for the agent: search, read, create, update records | MVP | Build | Not started | Generated from metadata once D1 lands |
-| C2 | Agent asks before writing to the CRM | MVP | OpenDuet | Not started | OpenDuet's approval and policy engine |
+| C1 | CRM tools for the agent: search, read, create, update records | MVP | Build | Done | The built-in "CRM" plugin: search, find a contact by email, list, read with notes and tasks, create, update. Same rules as the screens. Generated from metadata once D1 lands |
+| C2 | Agent asks before writing to the CRM | MVP | OpenDuet | Done | A team rule asks the person before every CRM write, even if they once said always allow |
 | C3 | Morning brief includes the CRM | MVP | Build | In progress | A "Follow up" section: tasks overdue or due within a day, open deals unchanged for 14 days, hot contacts not seen for 7 days. Deals that moved need a stage history first |
 | C4 | Email triage linked to the CRM | MVP | Build | Not started | Match the sender to a contact or company; offer "log to CRM" or "create contact" |
 | C5 | "Ask the agent" from any record, with that record as context | MVP | Build | Not started | Draft a follow-up, summarize the history, suggest next steps |
@@ -99,7 +99,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 | G3 | Field permissions: hidden or read-only per role | P1 | Build | Not started | |
 | G4 | One enforcement layer for the API, views, search, export, workflows and agent tools | P1 | Build | Not started | **Security-critical.** Nothing may read records around it. |
 | G5 | Owner-only visibility (row level) | P2 | Build | Not started | |
-| G6 | Audit log of agent actions | MVP | OpenDuet | Not started | Already in OpenDuet |
+| G6 | Audit log of agent actions | MVP | OpenDuet | Done | OpenDuet's audit log records each CRM tool call and each approval |
 | G7 | Audit log of user changes | P2 | Build | Not started | |
 | G8 | Two-factor authentication | Out | | Dropped | Product decision. Better Auth has a 2FA plugin if this changes. |
 

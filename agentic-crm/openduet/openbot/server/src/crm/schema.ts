@@ -197,6 +197,12 @@ export const files = crm.table("files", {
   created_at: createdAt(),
 });
 
+// One-time setup steps already done in this deployment, so they never undo an admin's later choices.
+export const installs = crm.table("installs", {
+  name: text().primaryKey(),
+  installed_at: createdAt(),
+});
+
 export const configuration = crm.table("configuration", {
   id: integer().primaryKey().default(1),
   config: json().notNull().default({}),

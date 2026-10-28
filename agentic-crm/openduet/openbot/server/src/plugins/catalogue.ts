@@ -499,6 +499,21 @@ const REVIEWED: readonly CatalogueEntry[] = Object.freeze([
     ]),
     docsUrl: "https://github.com/CopilotKit/OpenBot/blob/main/docs/routines.md",
   },
+  {
+    key: "crm",
+    title: "CRM",
+    vendor: "Built in",
+    summary:
+      "Contacts, companies, deals, tasks and notes in this deployment's CRM. Changes ask the person first.",
+    // In-process like Routines: the CRM's own tables, as the person whose turn it is (crm/agent-tools.ts).
+    host: "builtin://crm",
+    path: "/",
+    transport: "builtin-crm",
+    auth: Object.freeze({ kind: "builtin" }),
+    writeTools: Object.freeze(["create_record", "update_record"]),
+    docsUrl:
+      "https://github.com/TayoAki/RPGCRM2/blob/main/agentic-crm/README.md",
+  },
 ]);
 
 /** The environment variable that points {@link GOOGLE_WORKSPACE} at a stand-in for Google. */

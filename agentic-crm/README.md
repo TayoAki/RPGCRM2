@@ -43,6 +43,7 @@ OpenDuet's app compiles Atomic's screens into itself and serves them at `/crm`, 
 | Embed entry: runs Atomic's `<CRM>` on OpenDuet's URL, user, theme and data | `atomic-crm/src/embed/` |
 | CRM data: tables, views, API, search | `openduet/openbot/server/src/crm/`, migrations in `openduet/openbot/server/drizzle-crm/` |
 | Routes this product adds to OpenDuet's server | `openduet/openbot/server/src/extra-routes.ts` |
+| The agent's CRM tools, set up at boot | `openduet/openbot/server/src/crm/agent-tools.ts`, `crm/install.ts` |
 
 - **Routing.** Atomic keeps its own react-router, which reads and writes the URL through OpenDuet's TanStack Router history (`hostHistory.ts`). Links, deep links, Back and Forward work across both routers.
 - **Sign-in.** It's OpenDuet's: the CRM identifies the signed-in user and never shows its own login (`hostAuthProvider.ts`). The CRM's Log out signs out of OpenDuet.
@@ -51,6 +52,7 @@ OpenDuet's app compiles Atomic's screens into itself and serves them at `/crm`, 
 - **Data.** In OpenDuet's Postgres, in a separate `crm` schema with its own migrations. OpenDuet's migrate script applies them after its own. The tables and views follow Atomic's Supabase schema, and `/api/crm` speaks the filter language Atomic's screens already use (`hostDataProvider.ts`). So the screens didn't change.
 - **Who sees what.** Everybody signed in reads and edits all records, as in Atomic. Only admins change the CRM's settings or other people's CRM profiles. Each person's CRM user is created on their first visit, with their OpenDuet role.
 - **Files.** Attachments, logos and avatars go to the `crm.files` table, up to 20 MB each, and records keep links to them. Only signed-in people can download them. Only PNG, JPEG, GIF and WebP pictures display in the page; other files download. A note's files are deleted with the note, or when they're taken off it.
+- **The agent.** Bots reach the CRM through a built-in plugin, "CRM", with the same rules as the screens. The first boot adds it, grants its tools to every Bot, and adds a team approval rule so a Bot asks before any CRM write. After that, admins manage it like any plugin at `/admin/plugins`, and a Bot added later needs its tools granted there. The morning brief also lists the person's CRM follow-ups.
 - **Changing the CRM's tables.** Edit `server/src/crm/schema.ts`, then run `bunx drizzle-kit generate --config=drizzle-crm.config.ts` from `openduet/openbot/server`. Never add CRM tables to OpenDuet's own `drizzle/` folder.
 
 ### Running it locally

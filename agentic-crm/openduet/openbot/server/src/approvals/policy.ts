@@ -124,10 +124,11 @@ function flatten(value: unknown, depth = 0): string {
 /**
  * The Bot's own sandbox workspace and commands on the person's computer do not reach an account:
  * a config file that mentions a password is not a password change. Host commands are also shown
- * verbatim in the native dialog on that computer.
+ * verbatim in the native dialog on that computer. Nor do CRM records: a deal named "Billing upgrade"
+ * is a record to ask about, not a payment.
  */
 const NOT_ACCOUNT_ACTIONS =
-  /^(computer_(write_file|read_file|list_files|run_command)|host\/)/;
+  /^(computer_(write_file|read_file|list_files|run_command)|host\/|crm\/)/;
 
 export function safetyRequirement(
   candidate: ApprovalCandidate,

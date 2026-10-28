@@ -59,6 +59,7 @@ import {
 import { signallingBusy } from "./approvals/busy-runner";
 import { createApprovalResumeTick } from "./approvals/resume-sweep";
 import { createApprovalStore } from "./approvals/store";
+import { installCrmTools } from "./crm/install";
 import { ApprovalRefusedError } from "./approvals/types";
 import { createServerApprovalService } from "./approvals/wiring";
 import {
@@ -1040,6 +1041,12 @@ if (composio) {
  */
 const routineStore = createRoutineStore(database);
 useRoutineTools(routineStore);
+await installCrmTools({
+  database,
+  pluginStore,
+  audit: bootAuditStore,
+  roleOf: async (userId) => (await actorFor(userId)).role,
+});
 const responsibilityStore = createResponsibilityStore(database, {
   resolveTarget: async (ownerUserId, agentId, channelId) => {
     const actor = await actorFor(ownerUserId);

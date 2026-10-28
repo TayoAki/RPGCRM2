@@ -1,3 +1,4 @@
+import * as builtinCrm from "../crm/agent-tools";
 import * as arcade from "./arcade";
 import * as builtinRoutines from "./builtin-routines";
 import * as composio from "./composio";
@@ -125,6 +126,7 @@ export type TransportKind =
   | "google-drive-rest"
   | "google-workspace-rest"
   | "builtin-routines"
+  | "builtin-crm"
   | "composio"
   | "arcade";
 
@@ -155,6 +157,7 @@ const TRANSPORTS: Record<TransportKind, VendorTransport> = {
   "google-drive-rest": driveRest,
   "google-workspace-rest": workspaceRest,
   "builtin-routines": builtinRoutines,
+  "builtin-crm": builtinCrm,
   composio,
   arcade,
 };

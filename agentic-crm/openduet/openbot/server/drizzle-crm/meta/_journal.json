@@ -43,6 +43,13 @@
       "when": 1793203840104,
       "tag": "0005_contact_tags_not_null",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793206207942,
+      "tag": "0006_installs",
+      "breakpoints": true
     }
   ]
 }
