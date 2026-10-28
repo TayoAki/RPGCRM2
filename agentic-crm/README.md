@@ -71,6 +71,30 @@ OpenDuet's app compiles Atomic's screens into itself and serves them at `/crm`, 
 5. Start the app: in `openduet/openbot/app`, run `bun run dev`.
 6. Open `http://127.0.0.1:3010/crm`, after finishing OpenDuet's onboarding once.
 
+## Deploying for a customer
+
+One instance per customer, on a machine with Docker, from this checkout. `deploy/` holds the kit:
+
+| File | What |
+|---|---|
+| `new-customer.ts` | Writes `deploy/customers/<customer>/`: an `.env` with fresh secrets, and the customer's tenant package (see "Branding a deployment"). Git ignores the folder; keep it private and backed up. |
+| `up.sh` | Builds and starts the deployment, or updates it to this checkout. The first time, it prints the link the first admin opens to set a password. |
+| `compose.yml` | The services: Postgres with pgvector, a migration step that runs before every start, OpenDuet's image with the CRM in it, and Caddy, which gets the HTTPS certificate. |
+
+```bash
+bun agentic-crm/deploy/new-customer.ts --customer acme --name "Acme CRM" \
+  --domain crm.acme.com --admin owner@acme.com
+# Fill in INTELLIGENCE_API_KEY and a model key in deploy/customers/acme/.env, point crm.acme.com
+# at the machine, then:
+agentic-crm/deploy/up.sh acme
+```
+
+- **Sign-in** is by email and password. The first admin adds the others from Admin, People.
+- **Turned off for every customer:** OpenDuet's self-hosting banner and CopilotKit's telemetry.
+- **Ports.** Caddy takes 80 and 443. To run several customers on one machine, set `HTTP_PORT` and `HTTPS_PORT` in each `.env` and put your own proxy in front.
+- **Backups.** The data is in the `db` volume: `docker compose -p crm-acme exec db pg_dump -U crm crm`.
+- **Building the image** needs Atomic's sources beside OpenDuet's. Compose passes them as the `atomic-crm` build context, and the customer's tenant package as `tenant`. Without a `tenant` context, OpenDuet's own package is used.
+
 ## Branding a deployment
 
 Each deployment carries its own name, through an OpenDuet tenant package. `scripts/make-tenant.ts` writes one from OpenDuet's own (`openduet/openbot/examples/openduet`), with the product's name everywhere in the app and the assistant's name in chat:

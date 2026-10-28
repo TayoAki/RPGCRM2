@@ -11,7 +11,10 @@ import { parseArgs } from "node:util";
  *   bun agentic-crm/scripts/make-tenant.ts --name "Acme CRM" [--assistant "Ava"] --out <dir> [--force]
  */
 
-const SOURCE = resolve(import.meta.dir, "../openduet/openbot/examples/openduet");
+const SOURCE = resolve(
+  import.meta.dir,
+  "../openduet/openbot/examples/openduet",
+);
 const MAX_NAME = 40;
 
 const { values } = parseArgs({
@@ -52,14 +55,32 @@ function replaceOnce(file: string, from: string, to: string) {
   const text = readFileSync(path, "utf8");
   const count = text.split(from).length - 1;
   if (count !== 1) {
-    fail(`Expected "${from}" once in ${file}, found it ${count} times. OpenDuet's package changed.`);
+    fail(
+      `Expected "${from}" once in ${file}, found it ${count} times. OpenDuet's package changed.`,
+    );
   }
   writeFileSync(path, text.replace(from, to));
 }
 
 cpSync(SOURCE, out, { recursive: true, force: true });
-replaceOnce("brand.yaml", "  product_name: OpenDuet\n", `  product_name: ${quoted(product)}\n`);
-replaceOnce("agents.yaml", "    name: OpenDuet\n", `    name: ${quoted(assistant)}\n`);
-replaceOnce("agents.yaml", "You are OpenDuet, a proactive", `You are ${assistant}, a proactive`);
-replaceOnce("channels.yaml", "    name: OpenDuet\n", `    name: ${quoted(assistant)}\n`);
+replaceOnce(
+  "brand.yaml",
+  "  product_name: OpenDuet\n",
+  `  product_name: ${quoted(product)}\n`,
+);
+replaceOnce(
+  "agents.yaml",
+  "    name: OpenDuet\n",
+  `    name: ${quoted(assistant)}\n`,
+);
+replaceOnce(
+  "agents.yaml",
+  "You are OpenDuet, a proactive",
+  `You are ${assistant}, a proactive`,
+);
+replaceOnce(
+  "channels.yaml",
+  "    name: OpenDuet\n",
+  `    name: ${quoted(assistant)}\n`,
+);
 console.log(`Wrote ${out} for ${product}. Set TENANT_PACKAGE_DIR=${out}.`);

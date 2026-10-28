@@ -68,12 +68,12 @@ Checked in a browser:
 | Finding | What to do |
 |---|---|
 | OpenDuet has no email-and-password sign-in. Without Google, Microsoft or Okta, it only runs in single-user dev mode. | **Done.** `SIGNIN_EMAIL_PASSWORD=true` turns it on. Sign-up stays closed: an admin adds people and hands them a one-time link to set their password. |
-| OpenDuet's build now needs Atomic's packages, installed by `npm ci` in `atomic-crm/`. | The Docker build (A6) installs both. Later, move Atomic's dependencies into OpenDuet's bun workspace. |
+| OpenDuet's build now needs Atomic's packages, installed by `npm ci` in `atomic-crm/`. | **Done.** The Docker image takes Atomic's sources as a build context and installs its packages (A6). Later, move Atomic's dependencies into OpenDuet's bun workspace. |
 | The CRM chunk is 2.3 MB (712 kB gzipped), mostly the Supabase client and the fake-data generator. | **Done.** 1.5 MB (483 kB gzipped): the fake data went with the real data provider, and the build leaves out Atomic's Supabase modules. |
 | On phones, Atomic's mobile layout (fixed header and bottom bar) collides with OpenDuet's page header. | Desktop first for the MVP. On phones, hide one of the two headers when mobile (A9) comes up. |
 | OpenDuet's self-hosting banner, CopilotKit's "Powered by CopilotKit, Get a license" badge, and the "Atomic CRM" title all show. | The CRM now shows the deployment's name (A5). The banner goes on a paid Intelligence plan and the badge once a CopilotKit license is set; until then, the CRM's bottom bars sit above the badge. |
 | The CRM's own theme switch and Logout repeat OpenDuet's. Logout does nothing in single-user mode. | **Done.** The theme switch is hidden. Logout stays, because it signs out of OpenDuet; only the dev-only single-user mode has nothing to sign out of. |
-| CopilotKit's runtime sends telemetry by default. | Set `COPILOTKIT_TELEMETRY_DISABLED=true` in the deploy kit (A6). |
+| CopilotKit's runtime sends telemetry by default. | **Done.** The deploy kit sets `COPILOTKIT_TELEMETRY_DISABLED=true` (A6). |
 | ra-core 5.15 has a TanStack Router adapter, but Atomic imports react-router directly in 51 files. | Keep react-router through the history adapter. The native P1 screens use TanStack Router directly. |
 
 ### Phase 1: MVP (about 4 to 5 weeks)

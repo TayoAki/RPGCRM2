@@ -1,0 +1,76 @@
+# One customer's deployment: the database, its migrations, the app, and Caddy for HTTPS.
+# Run it through ./up.sh <customer>, which reads customers/<customer>/.env (written by new-customer.ts).
+
+x-app: &app
+  image: agentic-crm-${CUSTOMER:?}
+  build:
+    context: ../openduet/openbot
+    additional_contexts:
+      atomic-crm: ../atomic-crm
+      tenant: ./customers/${CUSTOMER}/tenant
+  env_file: ./customers/${CUSTOMER}/.env
+  environment:
+    DATABASE_URL: postgres://crm:${POSTGRES_PASSWORD:?}@db:5432/crm
+    SIGNIN_EMAIL_PASSWORD: "true"
+    OPENBOT_SELF_HOST_BANNER: "false"
+    COPILOTKIT_TELEMETRY_DISABLED: "true"
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: crm
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks: [data]
+
+  # A release step, before the app starts, so a failed migration stops the deploy (OpenDuet's
+  # docs/deployment.md). Bypasses the image's s6 entrypoint, which would start the app first.
+  migrate:
+    <<: *app
+    entrypoint: ["sh", "-c", "cd /app/server && exec bun scripts/migrate.ts"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks: [data]
+
+  app:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - workspace:/workspace
+      - profiles:/profiles
+    restart: unless-stopped
+    networks: [data, web]
+
+  caddy:
+    image: caddy:2.10
+    command: caddy reverse-proxy --from ${DOMAIN:?} --to app:3001
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - caddy:/data
+    restart: unless-stopped
+    networks: [web]
+
+volumes:
+  db:
+  workspace:
+  profiles:
+  caddy:
+
+networks:
+  data:
+  web:

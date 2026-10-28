@@ -20,6 +20,11 @@
 FROM node:24.18.1-bookworm-slim AS node-toolchain
 FROM oven/bun:1.4.3@sha256:ec06c3b6cea04192ae6770c434f668ca41d343ad19fa6472216c7b48be39c598 AS bun-toolchain
 
+# The tenant package the product is named from. A deployment passes its own with
+# `--build-context tenant=<dir>`; agentic-crm/scripts/make-tenant.ts writes one.
+FROM scratch AS tenant
+COPY examples/openduet /
+
 FROM ubuntu:24.04 AS base
 
 # The Bun image digest pins the amd64/arm64 release bytes, including if its tag changes.
@@ -89,7 +94,13 @@ COPY toolkit toolkit
 # `server/src/tenant-package`, so the app cannot be built without it.
 COPY server server
 COPY examples examples
-RUN bun run --cwd app build
+# The CRM's screens are Atomic CRM's, compiled into the app from beside this folder (app/vite-crm.ts),
+# so the build needs `--build-context atomic-crm=../../atomic-crm`.
+COPY --from=atomic-crm package.json package-lock.json .npmrc /atomic-crm/
+RUN cd /atomic-crm && npm ci --ignore-scripts --no-audit --no-fund
+COPY --from=atomic-crm src /atomic-crm/src
+COPY --from=tenant / /tenant/
+RUN TENANT_PACKAGE_DIR=/tenant bun run --cwd app build
 
 
 FROM base AS runtime
@@ -138,6 +149,8 @@ COPY server server
 COPY shared shared
 COPY toolkit toolkit
 COPY examples examples
+COPY --from=tenant / /tenant/
+ENV TENANT_PACKAGE_DIR=/tenant
 COPY agent-computer/src agent-computer/src
 COPY agent-computer/package.json agent-computer/package.json
 
