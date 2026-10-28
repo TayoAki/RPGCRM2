@@ -27,6 +27,13 @@ import {
   verifications,
 } from "../db/schema";
 import { DOMAIN_REFUSAL_MESSAGE, emailDomainAllowed } from "./email-domain";
+import {
+  keepSetPasswordToken,
+  MIN_PASSWORD_LENGTH,
+  passwordPeoplePlugin,
+  passwordSignInHooks,
+  SET_PASSWORD_LINK_SECONDS,
+} from "./email-password";
 import { encryptSsoConfig } from "./encrypt-sso-config";
 import { applyConfiguredAdmin, isConfiguredAdmin, seedRole } from "./roles";
 import { recordProvisioned, scimOptions } from "./scim";
@@ -257,9 +264,36 @@ export function createAuth(
         );
       },
     }),
+    ...(authConfig.emailPassword ? [passwordPeoplePlugin()] : []),
   ];
 
   return betterAuth({
+    emailAndPassword: {
+      enabled: Boolean(authConfig.emailPassword),
+      disableSignUp: true,
+      minPasswordLength: MIN_PASSWORD_LENGTH,
+      resetPasswordTokenExpiresIn: SET_PASSWORD_LINK_SECONDS,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: keepSetPasswordToken,
+    },
+    // Links are issued by an administrator, never requested by a visitor.
+    disabledPaths: ["/request-password-reset"],
+    ...(authConfig.emailPassword
+      ? {
+          hooks: passwordSignInHooks({
+            decide: (email) =>
+              decideSignInMethod({
+                method: "email-password",
+                email,
+                ssoRequired: async () =>
+                  (await enterpriseStore.settings()).ssoRequired,
+                initialAdminEmails: authConfig.initialAdminEmails,
+              }),
+            record: (event) => record(auditStore, event),
+            refusal: SSO_REQUIRED_MESSAGE,
+          }),
+        }
+      : {}),
     user: {
       additionalFields: {
         preferences: {

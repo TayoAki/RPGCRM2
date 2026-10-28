@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as SetPasswordRouteImport } from './routes/set-password'
 import { Route as SignRouteImport } from './routes/sign'
 import { Route as AuthedAppRouteImport } from './routes/_authed/_app'
 import { Route as AuthedAdminRouteRouteImport } from './routes/_authed/admin/route'
@@ -91,6 +92,11 @@ import { Route as AuthedAdminPluginsKeyToolsToolRouteImport } from './routes/_au
 
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetPasswordRoute = SetPasswordRouteImport.update({
+  id: '/set-password',
+  path: '/set-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignRoute = SignRouteImport.update({
@@ -514,6 +520,7 @@ const AuthedAdminPluginsKeyToolsToolRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedAppIndexRoute
+  '/set-password': typeof SetPasswordRoute
   '/sign': typeof SignRoute
   '/admin': typeof AuthedAdminRouteRouteWithChildren
   '/settings': typeof AuthedSettingsRouteRouteWithChildren
@@ -593,6 +600,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AuthedAppIndexRoute
+  '/set-password': typeof SetPasswordRoute
   '/sign': typeof SignRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/activity': typeof AuthedAppActivityRoute
@@ -670,6 +678,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteWithChildren
+  '/set-password': typeof SetPasswordRoute
   '/sign': typeof SignRoute
   '/_authed/admin': typeof AuthedAdminRouteRouteWithChildren
   '/_authed/settings': typeof AuthedSettingsRouteRouteWithChildren
@@ -753,6 +762,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/set-password'
     | '/sign'
     | '/admin'
     | '/settings'
@@ -832,6 +842,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/set-password'
     | '/sign'
     | '/onboarding'
     | '/activity'
@@ -908,6 +919,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authed'
+    | '/set-password'
     | '/sign'
     | '/_authed/admin'
     | '/_authed/settings'
@@ -990,6 +1002,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
+  SetPasswordRoute: typeof SetPasswordRoute
   SignRoute: typeof SignRoute
 }
 
@@ -1000,6 +1013,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/set-password': {
+      id: '/set-password'
+      path: '/set-password'
+      fullPath: '/set-password'
+      preLoaderRoute: typeof SetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign': {
@@ -1781,6 +1801,7 @@ const AuthedRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
+  SetPasswordRoute: SetPasswordRoute,
   SignRoute: SignRoute,
 }
 export const routeTree = rootRouteImport

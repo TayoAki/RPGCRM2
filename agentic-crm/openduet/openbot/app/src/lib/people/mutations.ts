@@ -43,3 +43,27 @@ export function setPersonAccessMutationOptions(queryClient: QueryClient) {
     onSuccess: () => invalidatePeople(queryClient),
   });
 }
+
+/** Adds somebody who signs in with email and password. Answers the path of their set-password link. */
+export function addPasswordPersonMutationOptions(queryClient: QueryClient) {
+  return mutationOptions({
+    mutationFn: (variables: { email: string; name: string }): Promise<string> =>
+      client("/api/admin/people", "setPasswordPath", {
+        method: "POST",
+        body: variables,
+        fallback: "Could not add that person",
+      }),
+    onSuccess: () => invalidatePeople(queryClient),
+  });
+}
+
+/** A new set-password link for somebody who signs in with a password. Answers its path. */
+export function issuePasswordLinkMutationOptions() {
+  return mutationOptions({
+    mutationFn: (userId: string): Promise<string> =>
+      client(`/api/admin/people/${userId}/password-link`, "setPasswordPath", {
+        method: "POST",
+        fallback: "Could not make a password link",
+      }),
+  });
+}

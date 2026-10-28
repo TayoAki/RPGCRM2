@@ -477,6 +477,10 @@ export function createApp(
   identity?: IdentityStore,
   /** The GitHub sign-in callback, built by the caller; mounted behind requireUser ahead of /api/identity. */
   identityGithubCallback?: Hono<{ Variables: AppVariables }>,
+  /** Further route modules, given the request guard and mounted before the app's catch-all. */
+  extraRoutes?: (
+    requireUser: MiddlewareHandler<{ Variables: AppVariables }>,
+  ) => [path: string, routes: Hono<{ Variables: AppVariables }>][],
 ) {
   const app = new Hono<{ Variables: AppVariables }>();
   /*
@@ -544,6 +548,7 @@ export function createApp(
        * build machine cannot offer a provider that machine had never heard of.
        */
       authProviders: configuredAuthProviders(config.auth),
+      ...(config.auth?.emailPassword ? { emailPassword: true } : {}),
       /*
        * Whether any enterprise identity provider has been registered.
        *
@@ -2027,6 +2032,10 @@ export function createApp(
    * Absent in development: Vite serves the app and proxies `/api` here, so `APP_DIST_DIR` is unset
    * and none of this mounts.
    */
+  for (const [path, routes] of extraRoutes?.(requireUser) ?? []) {
+    app.route(path, routes);
+  }
+
   if (config.appDistDir) {
     const root = config.appDistDir;
     app.use("/*", serveStatic({ root }));

@@ -116,6 +116,8 @@ export type AuthConfig = {
    * `auth/email-domain.ts` for why the provider's own answer is not this question.
    */
   allowedEmailDomains: string[];
+  // Email and password sign-in. Accounts are added by an administrator; nobody signs themselves up.
+  emailPassword?: boolean;
   google?: OAuthClient;
   /**
    * `tenantId` decides who may sign in at all, so it is not a detail. `common` admits any Microsoft
@@ -809,14 +811,16 @@ function authConfig(
 ): AuthConfig | undefined {
   const microsoft = microsoftAuth(environment);
   const okta = oktaAuth(environment);
+  const emailPassword =
+    optional(environment, "SIGNIN_EMAIL_PASSWORD") === "true";
 
   const secret = optional(environment, "BETTER_AUTH_SECRET");
   const baseUrl = url(environment, "BETTER_AUTH_URL");
 
-  if (!google && !microsoft && !okta) {
+  if (!google && !microsoft && !okta && !emailPassword) {
     if (secret || baseUrl) {
       throw new Error(
-        "BETTER_AUTH_SECRET or BETTER_AUTH_URL is set but no identity provider is. Configure GOOGLE_OAUTH_*, MICROSOFT_OAUTH_* or OKTA_OAUTH_*, or unset both",
+        "BETTER_AUTH_SECRET or BETTER_AUTH_URL is set but no identity provider is. Configure GOOGLE_OAUTH_*, MICROSOFT_OAUTH_* or OKTA_OAUTH_*, set SIGNIN_EMAIL_PASSWORD=true, or unset both",
       );
     }
     return undefined;
@@ -924,6 +928,7 @@ function authConfig(
         ["http://127.0.0.1:3010", "http://[::1]:3010", "http://localhost:3010"],
     initialAdminEmails,
     allowedEmailDomains,
+    ...(emailPassword ? { emailPassword } : {}),
     ...(google ? { google } : {}),
     ...(microsoft ? { microsoft } : {}),
     ...(okta ? { okta } : {}),
@@ -1429,7 +1434,11 @@ export function loadConfig(
      */
     singleUser:
       !organizationAuthUrl &&
-      singleUserAllowed(environment, configuredAuthProviders(auth).length > 0),
+      singleUserAllowed(
+        environment,
+        configuredAuthProviders(auth).length > 0 ||
+          Boolean(auth?.emailPassword),
+      ),
     accessibility: accessibilityEnabled(environment),
     generativeUi: generativeUiEnabled(environment),
     selfHostBanner: selfHostBannerEnabled(environment),

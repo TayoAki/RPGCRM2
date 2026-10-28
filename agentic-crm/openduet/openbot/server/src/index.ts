@@ -73,6 +73,7 @@ import {
 import { startRetentionSweeps } from "./audit-retention";
 import { createAuth } from "./auth";
 import { DEV_ACTOR, initializeDevActorUser } from "./auth/dev-actor";
+import { createPasswordPeople } from "./auth/email-password";
 import type { AuthService } from "./auth/guards";
 import { createRoleRepository } from "./auth/guards";
 import { createIdentityProviderStore } from "./auth/identity-provider-store";
@@ -150,6 +151,7 @@ import {
   type DeliveryScopeResolver,
 } from "./delivery/routes";
 import { createDeliveryStore } from "./delivery/store";
+import { createExtraRoutes } from "./extra-routes";
 import type { DeliveryScope } from "./delivery/types";
 import { DeliveryRefusedError } from "./delivery/types";
 import { createDemonstrationRecorder } from "./demonstrations/recording";
@@ -547,12 +549,8 @@ const identityProviderStore = createIdentityProviderStore(database);
  * store that receives those rows has to exist before anything can sign in.
  */
 const signInAuditStore = createAuditStore(database);
-const auth: AuthService | undefined = config.organizationAuthUrl
-  ? createOrganizationAuth({
-      authorityUrl: config.organizationAuthUrl,
-      materializeUser: organizationUserStore(database),
-    })
-  : config.auth
+const ownAuth =
+  !config.organizationAuthUrl && config.auth
     ? createAuth(
         config,
         database,
@@ -560,6 +558,12 @@ const auth: AuthService | undefined = config.organizationAuthUrl
         signInAuditStore,
       )
     : undefined;
+const auth: AuthService | undefined = config.organizationAuthUrl
+  ? createOrganizationAuth({
+      authorityUrl: config.organizationAuthUrl,
+      materializeUser: organizationUserStore(database),
+    })
+  : ownAuth;
 // Each computer is pushed its network policy on the way to the action that woke it, because a
 // computer refuses every connection until one arrives (see `withPolicyPushOnWake`).
 const computerProvider = config.computer
@@ -2789,6 +2793,13 @@ const app = createApp(
 
   identityStore,
   identityGithubCallback,
+  createExtraRoutes({
+    ...(ownAuth && config.auth?.emailPassword
+      ? { passwordPeople: createPasswordPeople(ownAuth) }
+      : {}),
+    peopleStore,
+    auditStore: bootAuditStore,
+  }),
 );
 
 const { addresses: listening } = startHttpServer({

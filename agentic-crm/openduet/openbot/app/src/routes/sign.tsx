@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
-import { MicOrb } from "@/components/duet/mic-orb";
 import { ProviderLogo } from "@/components/auth/provider-logo";
+import { MicOrb } from "@/components/duet/mic-orb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -11,6 +11,7 @@ import {
   providerName,
   signInWith,
   signInWithEmailDomain,
+  signInWithPassword,
 } from "@/lib/auth/client";
 import { resumeUrlFor, verifierPathFor } from "@/lib/auth/resume";
 import { appConfig } from "@/lib/generated/application-config";
@@ -77,11 +78,33 @@ function SignScreen() {
   const { flow_id: flowId } = Route.useSearch();
   // Which provider is being opened, rather than whether one is: with three buttons, a single
   // boolean would put "Opening…" on all of them.
-  const [opening, setOpening] = useState<AuthProviderId | "sso" | null>(null);
+  const [opening, setOpening] = useState<
+    AuthProviderId | "sso" | "password" | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const { data: options } = useQuery(authProvidersQueryOptions());
   const providers = options?.providers ?? [];
   const [email, setEmail] = useState("");
+  const [passwordEmail, setPasswordEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  async function handlePasswordSignIn(submission: React.FormEvent) {
+    submission.preventDefault();
+    setError(null);
+    setOpening("password");
+
+    try {
+      await signInWithPassword(passwordEmail, password);
+      window.location.assign(resumeUrlFor(window.location.origin, flowId));
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "That email and password didn't match.",
+      );
+      setOpening(null);
+    }
+  }
 
   /**
    * Sign in through whichever identity provider covers this address.
@@ -163,6 +186,48 @@ function SignScreen() {
     </div>
   );
 
+  const orSeparator = (
+    <div className="mb-3 flex items-center gap-3">
+      <Separator className="flex-1" />
+      <span className="text-muted-foreground text-xs">or</span>
+      <Separator className="flex-1" />
+    </div>
+  );
+
+  const passwordForm = (
+    <form className="flex flex-col gap-2" onSubmit={handlePasswordSignIn}>
+      <Input
+        aria-label="Email"
+        autoComplete="email"
+        onChange={(event) => setPasswordEmail(event.target.value)}
+        placeholder="you@company.com"
+        required
+        type="email"
+        value={passwordEmail}
+      />
+      <Input
+        aria-label="Password"
+        autoComplete="current-password"
+        onChange={(event) => setPassword(event.target.value)}
+        placeholder="Password"
+        required
+        type="password"
+        value={password}
+      />
+      <Button
+        className="h-10 w-full tracking-tight"
+        disabled={opening !== null || !passwordEmail.trim() || !password}
+        size="lg"
+        type="submit"
+      >
+        {opening === "password" ? "Signing in…" : "Sign in"}
+      </Button>
+      <p className="text-center text-muted-foreground text-xs">
+        Forgot your password? Ask an admin for a new link.
+      </p>
+    </form>
+  );
+
   const prefersReducedMotion = useReducedMotion();
   const hidden = {
     opacity: 0,
@@ -211,11 +276,19 @@ function SignScreen() {
           ) : null}
           {providers.length > 0 && !options?.ssoRequired ? (
             providerButtons
-          ) : options?.sso || options?.ssoRequired ? null : (
+          ) : options?.sso ||
+            options?.ssoRequired ||
+            options?.emailPassword ? null : (
             <p className="text-center text-sm text-muted-foreground">
               Sign-in isn't set up yet. An admin has to set it up first.
             </p>
           )}
+          {options?.emailPassword && !options?.ssoRequired ? (
+            <div className="mt-3">
+              {providers.length > 0 ? orSeparator : null}
+              {passwordForm}
+            </div>
+          ) : null}
           {/*
            * The way in for a company that runs its own identity provider.
            *
@@ -224,13 +297,9 @@ function SignScreen() {
            */}
           {options?.sso ? (
             <form className="mt-3" onSubmit={handleDomainSignIn}>
-              {providers.length > 0 ? (
-                <div className="mb-3 flex items-center gap-3">
-                  <Separator className="flex-1" />
-                  <span className="text-muted-foreground text-xs">or</span>
-                  <Separator className="flex-1" />
-                </div>
-              ) : null}
+              {providers.length > 0 || options?.emailPassword
+                ? orSeparator
+                : null}
               <Input
                 autoComplete="email"
                 onChange={(event) => setEmail(event.target.value)}
@@ -253,12 +322,16 @@ function SignScreen() {
             </form>
           ) : null}
           {/* The administrators' audited break-glass while SSO is required; everybody else is refused. */}
-          {options?.ssoRequired && providers.length > 0 ? (
+          {options?.ssoRequired &&
+          (providers.length > 0 || options?.emailPassword) ? (
             <details className="mt-4 text-sm">
               <summary className="cursor-pointer text-center text-muted-foreground">
                 Admin sign-in
               </summary>
-              <div className="mt-3">{providerButtons}</div>
+              <div className="mt-3 flex flex-col gap-3">
+                {providers.length > 0 ? providerButtons : null}
+                {options?.emailPassword ? passwordForm : null}
+              </div>
             </details>
           ) : null}
           {error ? (

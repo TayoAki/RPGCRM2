@@ -309,6 +309,36 @@ describe("deployment configuration", () => {
     });
   });
 
+  test("turns on email and password sign-in without an identity provider", () => {
+    const config = loadConfig({
+      ...baseEnvironment,
+      GOOGLE_OAUTH_CLIENT_ID: "",
+      GOOGLE_OAUTH_CLIENT_SECRET: "",
+      SIGNIN_EMAIL_PASSWORD: "true",
+      BETTER_AUTH_SECRET: "a-long-enough-local-development-auth-secret",
+      BETTER_AUTH_URL: "http://localhost:3001",
+      INITIAL_ADMIN_EMAILS: "owner@openbot.test",
+    });
+
+    expect(config.auth?.emailPassword).toBe(true);
+    expect(config.auth?.google).toBeUndefined();
+    expect(config.singleUser).toBe(false);
+  });
+
+  test("email and password sign-in still needs an admin named", () => {
+    expect(() =>
+      loadConfig({
+        ...baseEnvironment,
+        GOOGLE_OAUTH_CLIENT_ID: "",
+        GOOGLE_OAUTH_CLIENT_SECRET: "",
+        SIGNIN_EMAIL_PASSWORD: "true",
+        BETTER_AUTH_SECRET: "a-long-enough-local-development-auth-secret",
+        BETTER_AUTH_URL: "http://localhost:3001",
+        INITIAL_ADMIN_EMAILS: "",
+      }),
+    ).toThrow("INITIAL_ADMIN_EMAILS");
+  });
+
   test("names domains the way somebody writes them", () => {
     const config = loadConfig({
       ...baseEnvironment,

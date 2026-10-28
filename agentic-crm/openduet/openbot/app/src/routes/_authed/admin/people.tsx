@@ -9,6 +9,10 @@ import {
   PageShell,
 } from "@/components/layout/page-shell";
 import { StaggerItem } from "@/components/layout/stagger";
+import {
+  AddPersonButton,
+  PasswordLinkButton,
+} from "@/components/people/password-people";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,7 +25,10 @@ import {
 } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { currentUserQueryOptions } from "@/lib/auth/queries";
+import {
+  authProvidersQueryOptions,
+  currentUserQueryOptions,
+} from "@/lib/auth/queries";
 import { terminateMemberComputersMutationOptions } from "@/lib/enterprise/mutations";
 import {
   setPersonAccessMutationOptions,
@@ -39,6 +46,7 @@ const PROVIDER_NAMES: Record<string, string> = {
   google: "Google",
   microsoft: "Microsoft",
   okta: "Okta",
+  credential: "Password",
 };
 
 /**
@@ -78,6 +86,7 @@ function PeoplePage() {
   const people = useInfiniteQuery(peopleListQueryOptions(query));
   const rows = people.data?.pages.flatMap((page) => page.people) ?? [];
   const currentUser = useQuery(currentUserQueryOptions());
+  const passwords = useQuery(authProvidersQueryOptions()).data?.emailPassword;
   const setRole = useMutation(setPersonRoleMutationOptions(queryClient));
   const setAccess = useMutation(setPersonAccessMutationOptions(queryClient));
   // Offboarding: stops this person's Bots' computers, keeping their disks. Access is unchanged.
@@ -89,6 +98,7 @@ function PeoplePage() {
 
   return (
     <PageShell
+      action={passwords ? <AddPersonButton /> : undefined}
       description="Everybody who has signed in. Admins can open these screens. Everybody else talks to Bots."
       title="People"
     >
@@ -159,6 +169,16 @@ function PeoplePage() {
                       </ItemDescription>
                     </ItemContent>
                     <ItemActions>
+                      {passwords &&
+                      !person.revoked &&
+                      person.providers.every(
+                        (provider) => provider === "credential",
+                      ) ? (
+                        <PasswordLinkButton
+                          name={person.name ?? person.email}
+                          userId={person.id}
+                        />
+                      ) : null}
                       {/*
                        * Removing access is the louder decision, so it is a button rather than a
                        * second switch: two switches on one row invites somebody to flip the wrong

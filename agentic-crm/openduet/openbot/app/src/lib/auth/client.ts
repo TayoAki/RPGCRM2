@@ -84,3 +84,47 @@ export async function signInWithEmailDomain(
     );
   }
 }
+
+type PasswordResult = {
+  error?: { message?: string; code?: string } | null;
+};
+
+/** Sign in with the email and password of somebody an administrator added. */
+export async function signInWithPassword(
+  email: string,
+  password: string,
+  start: (input: {
+    email: string;
+    password: string;
+  }) => Promise<PasswordResult> = (input) =>
+    authClient.signIn.email(input) as Promise<PasswordResult>,
+) {
+  const result = await start({ email, password });
+  if (result.error) {
+    throw new Error(
+      result.error.code === "INVALID_EMAIL_OR_PASSWORD" || !result.error.message
+        ? "That email and password didn't match."
+        : result.error.message,
+    );
+  }
+}
+
+/** Set a password with the one-time token from an administrator's link. */
+export async function setPasswordWithToken(
+  token: string,
+  newPassword: string,
+  start: (input: {
+    token: string;
+    newPassword: string;
+  }) => Promise<PasswordResult> = (input) =>
+    authClient.resetPassword(input) as Promise<PasswordResult>,
+) {
+  const result = await start({ token, newPassword });
+  if (result.error) {
+    throw new Error(
+      result.error.code === "PASSWORD_TOO_SHORT"
+        ? "That password is too short."
+        : "That link has expired or was already used. Ask an admin for a new one.",
+    );
+  }
+}

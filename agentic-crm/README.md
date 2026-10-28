@@ -56,7 +56,9 @@ OpenDuet's app compiles Atomic's screens into itself and serves them at `/crm`, 
 3. Write `openduet/openbot/.env`:
    - Copy `.env.example`.
    - Set `INTELLIGENCE_API_KEY`, which the server requires.
-   - Clear `OPENBOT_PUBLIC_URL`, so `OPENBOT_SINGLE_USER=true` signs you in as a local admin without an identity provider.
+   - Choose how people sign in:
+     - **Quickest, for one person:** clear `OPENBOT_PUBLIC_URL`. `OPENBOT_SINGLE_USER=true` then signs you in as a local admin.
+     - **Email and password, as customers use it:** set `SIGNIN_EMAIL_PASSWORD=true`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `INITIAL_ADMIN_EMAILS`, and `TRUSTED_ORIGINS` (include `http://127.0.0.1:3010`). After step 4, add the first admin from `openduet/openbot/server` with `APP_PUBLIC_URL=http://127.0.0.1:3010 bun --env-file=../.env scripts/add-person.ts <email> <name>`, and open the link it prints.
 4. Start the server: in `openduet/openbot/server`, run `bun --env-file=../.env scripts/migrate.ts`, then `bun --env-file=../.env src/index.ts`.
 5. Start the app: in `openduet/openbot/app`, run `bun run dev`.
 6. Open `http://127.0.0.1:3010/crm`, after finishing OpenDuet's onboarding once.

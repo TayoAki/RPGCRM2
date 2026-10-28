@@ -412,6 +412,9 @@ export const auditEventTypes = [
   "person.role_changed",
   "person.access_revoked",
   "person.access_restored",
+  // Email and password sign-in: an administrator added somebody, or handed them a set-password link.
+  "person.added",
+  "person.password_link_issued",
   /*
    * An administrator took the trail out as a file. The trail is evidence, so who copied how much of
    * it, under which filter, belongs on it too.

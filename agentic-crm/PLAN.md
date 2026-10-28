@@ -67,7 +67,7 @@ Checked in a browser:
 
 | Finding | What to do |
 |---|---|
-| OpenDuet has no email-and-password sign-in. Without Google, Microsoft or Okta, it only runs in single-user dev mode. | Enable Better Auth's email-and-password login, or require an identity provider per customer. **Decide before the first pilot.** |
+| OpenDuet has no email-and-password sign-in. Without Google, Microsoft or Okta, it only runs in single-user dev mode. | **Done.** `SIGNIN_EMAIL_PASSWORD=true` turns it on. Sign-up stays closed: an admin adds people and hands them a one-time link to set their password. |
 | OpenDuet's build now needs Atomic's packages, installed by `npm ci` in `atomic-crm/`. | The Docker build (A6) installs both. Later, move Atomic's dependencies into OpenDuet's bun workspace. |
 | The CRM chunk is 2.3 MB (712 kB gzipped), mostly the Supabase client and the fake-data generator. | Both go with the real data provider (A3, A4). |
 | On phones, Atomic's mobile layout (fixed header and bottom bar) collides with OpenDuet's page header. | Desktop first for the MVP. On phones, hide one of the two headers when mobile (A9) comes up. |
