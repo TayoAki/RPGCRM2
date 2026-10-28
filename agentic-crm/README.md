@@ -71,6 +71,11 @@ OpenDuet's app compiles Atomic's screens into itself and serves them at `/crm`, 
 5. Start the app: in `openduet/openbot/app`, run `bun run dev`.
 6. Open `http://127.0.0.1:3010/crm`, after finishing OpenDuet's onboarding once.
 
+### Running the tests
+
+- **OpenDuet's tests.** Run them from `openduet/openbot` with `TEST_DATABASE_URL` set to a separate database, migrated like the main one. `bun test app` runs the app's and `bun test server` the server's. The server's agent tests also need `bun install` in `agent-bot`, `agent-langgraph` and `agent-mastra`.
+- **Atomic's tests.** In `atomic-crm`, run `npx vitest run`.
+
 ## Deploying for a customer
 
 One instance per customer, on a machine with Docker, from this checkout. `deploy/` holds the kit:

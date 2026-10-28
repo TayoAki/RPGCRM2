@@ -39,3 +39,11 @@ GlobalRegistrator.unregister();
  * drawn calls `mock.module` itself and wins, because a later registration replaces this one.
  */
 mock.module("../src/lib/marks", () => ({ markFor: () => null }));
+
+/*
+ * The tests are written against OpenDuet's own tenant package (examples/openduet), but the generated
+ * config names whichever package this checkout last generated it for, such as a deployment's own.
+ */
+mock.module("../src/lib/generated/application-config", () => ({
+  appConfig: { brand: { tenantId: "openduet", productName: "OpenDuet" } },
+}));

@@ -7,6 +7,7 @@ import {
   test,
 } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import type { UserPreferences } from "@openbot/shared/user-preferences";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
@@ -16,7 +17,7 @@ import {
 import { authKeys } from "@/lib/auth/queries";
 import { deploymentKeys } from "@/lib/deployment/queries";
 import { userPreferencesQueryOptions } from "@/lib/settings/message-list";
-import type { UserPreferences } from "@openbot/shared/user-preferences";
+import { settleReactWork } from "./settle-react-work";
 
 const originalFetch = globalThis.fetch;
 const clients: QueryClient[] = [];
@@ -50,7 +51,10 @@ afterEach(() => {
   clients.length = 0;
   globalThis.fetch = originalFetch;
 });
-afterAll(() => GlobalRegistrator.unregister());
+afterAll(async () => {
+  await settleReactWork();
+  GlobalRegistrator.unregister();
+});
 
 const banner = { name: "Self-host OpenDuet" } as const;
 
