@@ -1,9 +1,15 @@
 import type { I18nProvider } from "ra-core";
 
-// Messages that name Atomic CRM itself, said with the host product's name instead.
+// The embed's own messages, and Atomic's that name Atomic CRM itself, said with the host product's name.
 const BRANDED: Record<string, Record<string, (product: string) => string>> = {
-  en: { "crm.dashboard.stepper.install": (product) => `Set up ${product}` },
-  fr: { "crm.dashboard.stepper.install": (product) => `Configurer ${product}` },
+  en: {
+    "crm.dashboard.stepper.install": (product) => `Set up ${product}`,
+    "crm.ask_agent": () => "Ask the agent",
+  },
+  fr: {
+    "crm.dashboard.stepper.install": (product) => `Configurer ${product}`,
+    "crm.ask_agent": () => "Demander à l'agent",
+  },
 };
 
 export const brandedI18nProvider = (

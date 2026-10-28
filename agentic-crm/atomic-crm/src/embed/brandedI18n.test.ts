@@ -16,6 +16,13 @@ describe("brandedI18nProvider", () => {
     expect(french).toBe("Configurer Acme CRM");
   });
 
+  it("says the embed's own buttons in French too", async () => {
+    const branded = brandedI18nProvider(i18nProvider, "Acme CRM");
+    await branded.changeLocale("fr");
+
+    expect(branded.translate("crm.ask_agent")).toBe("Demander à l'agent");
+  });
+
   it("leaves every other message as Atomic says it", async () => {
     const branded = brandedI18nProvider(i18nProvider, "Acme CRM");
     await branded.changeLocale("en");

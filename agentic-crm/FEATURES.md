@@ -23,7 +23,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 | A5 | White-label branding (name, logo, colors) | MVP | OpenDuet | In progress | Name: `scripts/make-tenant.ts` writes a tenant package per deployment, and the CRM follows it. No Atomic name or changelog in the CRM. Open: a logo and colors (OpenDuet's tenant package has neither), and the product's own name |
 | A6 | One-command deploy per customer | MVP | OpenDuet | Not started | Extend OpenDuet's start scripts or Helm chart |
 | A7 | SSO (SAML, OIDC) and SCIM provisioning | P1 | OpenDuet | Not started | Already in OpenDuet via Better Auth plugins; verify and expose |
-| A8 | Languages: English and French | MVP | Atomic | Not started | More languages in P2 |
+| A8 | Languages: English and French | MVP | Atomic | In progress | The CRM's screens follow the browser's language, English or French, including the embed's own buttons. OpenDuet's own screens are English only: OpenDuet has no translation layer. Stages and statuses show as they're written in the CRM's settings. More languages in P2 |
 | A9 | Mobile | P2 | OpenDuet | Not started | OpenDuet has a mobile app; Atomic has PWA screens |
 
 ## B. Core CRM records
