@@ -2585,6 +2585,7 @@ const crmServices = createCrmServices({
   encryptionKey: config.keyEncryptionKey,
   appUrl: config.appUrl ?? crmApiUrl,
   apiUrl: crmApiUrl,
+  productName: tenantPackage.productName,
   writeText: createTextWriter({
     model: runtimeModel,
     resolveApiKey: resolveRuntimeModelApiKey,

@@ -13,9 +13,11 @@ import type { Database } from "../db/client";
 import { type Access, accessOf, fullAccess, rulesObject } from "./access";
 import {
   type Columns,
+  CrmQueryError,
   type ListParams,
   listQuery,
   MAX_PAGE_SIZE,
+  whereOf,
 } from "./filters";
 import {
   createMetadata,
@@ -42,6 +44,25 @@ export type ServiceActor = {
   workflow?: { id: number; runId: number };
 };
 export type CrmActor = AuthenticatedActor | ServiceActor;
+
+export const AGGREGATES = ["count", "sum", "avg", "min", "max"] as const;
+export const DATE_BUCKETS = [
+  "day",
+  "week",
+  "month",
+  "quarter",
+  "year",
+] as const;
+
+export type AggregateParams = {
+  filter?: unknown;
+  groupBy?: string;
+  bucket?: (typeof DATE_BUCKETS)[number];
+  fn: (typeof AGGREGATES)[number];
+  field?: string;
+};
+
+const MAX_GROUPS = 100;
 
 export const isService = (actor: CrmActor): actor is ServiceActor =>
   "service" in actor;
@@ -414,6 +435,67 @@ export function createCrmRecords(
             })
           : (rows as CrmRow[]).map((row) => shape(target, access, row));
       return { data, total: total?.total ?? 0 };
+    },
+
+    /** A count, sum, average, minimum or maximum over the rows a person may see, overall or per group. */
+    async aggregate(
+      actor: CrmActor,
+      name: string,
+      params: AggregateParams,
+    ): Promise<{ key: unknown; value: number }[]> {
+      const access = await accessFor(actor);
+      const target = await resolve(name);
+      const hidden = access.full ? [] : access.hidden(target.object);
+      const columns = Object.fromEntries(
+        Object.entries(target.columns).filter(
+          ([key]) => !hidden.includes(key.replace(/^custom_fields\./, "")),
+        ),
+      );
+      const column = (key: string) => {
+        const found = columns[key];
+        if (!found) throw new CrmQueryError(`Unknown field: ${key}`);
+        return found;
+      };
+      const measured = params.field ? column(params.field) : undefined;
+      const numeric = measured && sql`(${measured})::numeric`;
+      const value =
+        params.fn === "count" || !numeric
+          ? sql<number>`count(*)::float8`
+          : params.fn === "sum"
+            ? sql<number>`coalesce(sum(${numeric}), 0)::float8`
+            : params.fn === "avg"
+              ? sql<number>`coalesce(avg(${numeric}), 0)::float8`
+              : params.fn === "min"
+                ? sql<number>`coalesce(min(${numeric}), 0)::float8`
+                : sql<number>`coalesce(max(${numeric}), 0)::float8`;
+      const where = and(
+        whereOf(columns, params.filter),
+        target.custom ? eq(records.object, target.object) : undefined,
+        reachable(target, access, "read"),
+      );
+      const source = target.resource.source as PgTable | PgView;
+      if (!params.groupBy) {
+        const [row] = await database
+          .select({ value })
+          .from(source)
+          .where(where);
+        return [{ key: null, value: Number(row?.value ?? 0) }];
+      }
+      const grouped = column(params.groupBy);
+      const key = params.bucket
+        ? sql`date_trunc(${params.bucket}, ${grouped})`
+        : sql`${grouped}`;
+      const rows = await database
+        .select({ key, value })
+        .from(source)
+        .where(where)
+        .groupBy(sql`1`)
+        .orderBy(params.bucket ? sql`1` : sql`2 desc`)
+        .limit(MAX_GROUPS);
+      return rows.map((row) => ({
+        key: row.key instanceof Date ? row.key.toISOString() : row.key,
+        value: Number(row.value),
+      }));
     },
 
     /** Whether this person's role reaches a record for an action. */

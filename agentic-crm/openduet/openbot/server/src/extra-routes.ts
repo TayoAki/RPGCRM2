@@ -2,6 +2,7 @@ import type { Hono, MiddlewareHandler } from "hono";
 import type { AuditStore } from "./audit";
 import type { PasswordPeople } from "./auth/email-password";
 import type { AppVariables } from "./auth/guards";
+import { createPublicApi } from "./crm/public-api";
 import { createCrmRoutes } from "./crm/routes";
 import type { CrmServices } from "./crm/services";
 import { createCrmPublicRoutes } from "./crm/workflows/routes";
@@ -28,15 +29,19 @@ export function createExtraRoutes(deps: {
         requireUser,
         database: deps.database,
         ...(deps.crm
-          ? { mail: deps.crm.mail, automation: deps.crm.automation }
+          ? {
+              mail: deps.crm.mail,
+              automation: deps.crm.automation,
+              records: deps.crm.records,
+            }
           : {}),
       }),
     ],
     ...(deps.crm
-      ? ([["/api/crm-public", createCrmPublicRoutes(deps.crm.automation)]] as [
-          string,
-          Hono<Variables>,
-        ][])
+      ? ([
+          ["/api/crm-public", createCrmPublicRoutes(deps.crm.automation)],
+          ["/api/v1", createPublicApi(deps.crm)],
+        ] as [string, Hono<Variables>][])
       : []),
     ...(deps.passwordPeople
       ? ([

@@ -1,14 +1,15 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { ZodError } from "zod";
 import type { AppVariables } from "../auth/guards";
 import type { Database } from "../db/client";
 import { fileResponse, MAX_CRM_FILE_BYTES, storeFile } from "./files";
-import { CrmQueryError, listParamsFrom } from "./filters";
+import { crmErrorResponse } from "./errors";
+import { listParamsFrom } from "./filters";
 import type { CrmMail } from "./mail";
 import { createMailRoutes } from "./mail-routes";
 import { createModelRoutes } from "./model-routes";
-import { CrmRefusal, createCrmRecords } from "./records";
+import { createPlatformRoutes } from "./platform-routes";
+import { type CrmRecords, createCrmRecords } from "./records";
 import { globalSearch, SEARCH_RESOURCES, type SearchResource } from "./search";
 import {
   type AutomationDeps,
@@ -42,6 +43,8 @@ export function createCrmRoutes(deps: {
   database: Database;
   mail?: CrmMail;
   automation?: AutomationDeps;
+  // Shared with the CRM's services, so a change to the data model is seen by both at once.
+  records?: CrmRecords;
 }) {
   const { database } = deps;
   const routes = new Hono<Variables>();
@@ -63,7 +66,7 @@ export function createCrmRoutes(deps: {
     ),
   );
 
-  const records = createCrmRecords(database);
+  const records = deps.records ?? createCrmRecords(database);
   const notFound = { error: "Not found." };
 
   if (deps.mail) {
@@ -72,6 +75,7 @@ export function createCrmRoutes(deps: {
   if (deps.automation)
     routes.route("/", createAutomationRoutes(deps.automation));
   routes.route("/", createModelRoutes({ database, records }));
+  routes.route("/", createPlatformRoutes({ database, records }));
 
   routes.get("/me", async (context) =>
     context.json({ data: await records.sale(context.var.actor) }),
@@ -187,51 +191,7 @@ export function createCrmRoutes(deps: {
     return context.json({ data: ids });
   });
 
-  routes.onError((error, context) => {
-    if (error instanceof CrmRefusal) {
-      return context.json({ error: error.message }, error.status);
-    }
-    if (error instanceof CrmQueryError) {
-      return context.json({ error: error.message }, 400);
-    }
-    if (error instanceof ZodError) {
-      const [issue] = error.issues;
-      const field = issue?.path.join(".");
-      return context.json(
-        {
-          error: issue
-            ? `${field ? `${field}: ` : ""}${issue.message}`
-            : "Check the form.",
-        },
-        400,
-      );
-    }
-    const cause = (error as { cause?: Record<string, unknown> }).cause;
-    const postgresCode = String(cause?.errno ?? cause?.code ?? "");
-    if (postgresCode.startsWith("22") || postgresCode.startsWith("23")) {
-      console.error(
-        JSON.stringify({
-          type: "crm-write-refused",
-          path: context.req.path,
-          code: postgresCode,
-          detail: String(cause?.message ?? ""),
-        }),
-      );
-    }
-    if (postgresCode === "23503") {
-      return context.json(
-        { error: "It's linked to other records, so it can't change." },
-        409,
-      );
-    }
-    if (postgresCode.startsWith("22") || postgresCode.startsWith("23")) {
-      return context.json(
-        { error: "Some of those values don't fit. Check the form." },
-        400,
-      );
-    }
-    throw error;
-  });
+  routes.onError(crmErrorResponse);
 
   return routes;
 }

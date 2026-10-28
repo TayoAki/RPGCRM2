@@ -40,6 +40,8 @@ export function createCrmServices(deps: {
   // Where people open the app (proposal links) and where the API answers (webhooks).
   appUrl: string;
   apiUrl: string;
+  // The product's name, for the public API's description.
+  productName?: string;
   writeText?: WriteText;
   hasModel?: () => Promise<boolean>;
   startAgentTask?: AgentTaskStarter;
@@ -86,6 +88,10 @@ export function createCrmServices(deps: {
   let loops: Repeating[] = [];
 
   return {
+    database,
+    records,
+    apiUrl: deps.apiUrl,
+    productName: deps.productName ?? "CRM",
     mail,
     inbox,
     proposals,

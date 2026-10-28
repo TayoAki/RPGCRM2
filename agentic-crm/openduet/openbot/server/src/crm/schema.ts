@@ -690,3 +690,35 @@ export const views = crm.table(
   },
   (table) => [index("views_object_idx").on(table.object)],
 );
+
+// Keys for the public API (/api/v1). A key acts as the person who made it, with their role.
+export const apiKeys = crm.table(
+  "api_keys",
+  {
+    id: id(),
+    name: text().notNull(),
+    // The visible start of the key, to find it; only a hash of the whole key is kept.
+    prefix: text().notNull(),
+    hash: text().notNull(),
+    sales_id: reference()
+      .notNull()
+      .references(() => sales.id, cascade),
+    last_used_at: moment(),
+    revoked_at: moment(),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+  },
+  (table) => [uniqueIndex("api_keys_prefix_idx").on(table.prefix)],
+);
+
+// Dashboards: a grid of charts and numbers over any object, for one person or everybody.
+export const dashboards = crm.table("dashboards", {
+  id: id(),
+  name: text().notNull(),
+  widgets: json().notNull().default([]),
+  shared: boolean().notNull().default(false),
+  sales_id: reference().references(() => sales.id, cascade),
+  position: integer().notNull().default(0),
+  created_at: createdAt(),
+  updated_at: updatedAt(),
+});
