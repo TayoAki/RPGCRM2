@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import type { AppVariables } from "../src/auth/guards";
 import { createCrmRoutes } from "../src/crm/routes";
+import { sales } from "../src/crm/schema";
 import { createDatabase } from "../src/db/client";
 import { users } from "../src/db/schema";
 import { TEST_POOL, testDatabaseUrl } from "./support/database";
@@ -472,4 +473,44 @@ test("a contact made through the API has no tags and is first and last seen now"
     before - 5000,
   );
   expect(contact.last_seen).toBe(contact.first_seen);
+});
+
+test("a person whose CRM access is turned off is refused, and gets it back when it's turned on", async () => {
+  await call("GET", "/me", undefined, "member");
+  const setDisabled = (disabled: boolean) =>
+    database
+      .update(sales)
+      .set({ disabled })
+      .where(eq(sales.user_id, MEMBER.id));
+
+  await setDisabled(true);
+  const refused = await call("GET", "/contacts", undefined, "member");
+  await setDisabled(false);
+  const allowed = await call("GET", "/contacts", undefined, "member");
+
+  expect(refused.status).toBe(403);
+  expect(refused.json.error).toContain("turned off");
+  expect(allowed.status).toBe(200);
+});
+
+test("only an admin sees the sign-in setup and makes SCIM tokens, and a token is shown once", async () => {
+  const asMember = await call(
+    "POST",
+    "/sign-in/scim-tokens",
+    undefined,
+    "member",
+  );
+  const made = await call("POST", "/sign-in/scim-tokens");
+  const { json: setup } = await call("GET", "/sign-in/setup");
+  const token = made.json.data as { id: number; token: string };
+  const listed = (setup.data as { scim_tokens: Json[] }).scim_tokens;
+  const revoked = await call("DELETE", `/sign-in/scim-tokens/${token.id}`);
+
+  expect(asMember.status).toBe(403);
+  expect(made.status).toBe(201);
+  expect(token.token).toMatch(/^mgs_/);
+  expect(listed.find((each) => each.id === token.id)).not.toHaveProperty(
+    "token",
+  );
+  expect(revoked.status).toBe(200);
 });

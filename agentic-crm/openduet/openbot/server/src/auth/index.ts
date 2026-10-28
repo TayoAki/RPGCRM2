@@ -36,6 +36,8 @@ import {
 } from "./email-password";
 import { encryptSsoConfig } from "./encrypt-sso-config";
 import { applyConfiguredAdmin, isConfiguredAdmin, seedRole } from "./roles";
+import { linkExistingUser } from "../crm/sso-link";
+import { trustedOriginsWithProviders } from "../crm/sso-origins";
 import { recordProvisioned, scimOptions } from "./scim";
 
 /** What a person sees when SSO is required and they tried another way in. */
@@ -225,7 +227,7 @@ export function createAuth(
   const plugins = [
     ...(nativeApp ? [expo()] : []),
     /*
-     * SCIM 2.0 at /api/auth/scim/v2, only when SCIM_BEARER_TOKEN is set. See scim.ts.
+     * SCIM 2.0 at /api/auth/scim/v2, with SCIM_BEARER_TOKEN or a token made in the CRM. See scim.ts.
      */
     ...(scimPluginOptions ? [scim(scimPluginOptions)] : []),
     electron({ clientID: "openbot-desktop", codeExpiresIn: 120 }),
@@ -255,6 +257,7 @@ export function createAuth(
      * reads as a broken deployment rather than a first sign-in.
      */
     sso({
+      resolveUser: linkExistingUser,
       provisionUser: async ({ user }) => {
         await seedRole(
           database,
@@ -353,10 +356,10 @@ export function createAuth(
     },
     baseURL: authConfig.baseUrl,
     secret: authConfig.secret,
-    trustedOrigins: [
+    trustedOrigins: trustedOriginsWithProviders(database, [
       ...authConfig.trustedOrigins,
       ...(nativeApp ? [NATIVE_APP_ORIGIN] : []),
-    ],
+    ]),
     /*
      * Wrapped, so a company's client secret is ciphertext in the column.
      *

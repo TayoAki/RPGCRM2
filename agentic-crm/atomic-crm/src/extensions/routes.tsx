@@ -12,6 +12,7 @@ import { RecordPage } from "./objects/RecordPage";
 import { ApiKeysPage } from "./settings/ApiKeysPage";
 import { DataModelPage } from "./settings/DataModelPage";
 import { RolesPage } from "./settings/RolesPage";
+import { SignInPage } from "./settings/SignInPage";
 
 /** The pages this fork adds to the CRM, inside its layout. */
 export const EXTENSION_ROUTES = [
@@ -33,6 +34,7 @@ export const EXTENSION_ROUTES = [
   />,
   <Route key="roles" path="/settings/roles" element={<RolesPage />} />,
   <Route key="api-keys" path="/settings/api" element={<ApiKeysPage />} />,
+  <Route key="sign-in" path="/settings/sign-in" element={<SignInPage />} />,
   <Route key="reports" path="/reports" element={<DashboardsPage />} />,
   <Route key="report" path="/reports/:id" element={<DashboardPage />} />,
 ];

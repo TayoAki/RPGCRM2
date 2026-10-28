@@ -2,12 +2,18 @@ import { HttpError } from "ra-core";
 
 import { CRM_API } from "../embed/hostDataProvider";
 
+type RequestInit = { method?: string; body?: unknown };
+
 /** The CRM API's own endpoints beyond records: mail, automations and proposal actions. */
-export async function crmApi<TResult = unknown>(
+export const crmApi = <TResult = unknown>(path: string, init?: RequestInit) =>
+  appApi<TResult>(`${CRM_API}${path}`, init);
+
+/** Any of the app's own endpoints, such as OpenDuet's /api/admin and /api/auth. */
+export async function appApi<TResult = unknown>(
   path: string,
-  init: { method?: string; body?: unknown } = {},
+  init: RequestInit = {},
 ): Promise<TResult> {
-  const response = await fetch(`${CRM_API}${path}`, {
+  const response = await fetch(path, {
     method: init.method ?? "GET",
     credentials: "same-origin",
     headers: { "content-type": "application/json" },
@@ -16,7 +22,9 @@ export async function crmApi<TResult = unknown>(
   const body = await response.json().catch(() => undefined);
   if (!response.ok || body === undefined) {
     throw new HttpError(
-      body?.error ?? (response.statusText || "The CRM didn't answer."),
+      body?.error ??
+        body?.message ??
+        (response.statusText || "The CRM didn't answer."),
       response.status,
       body ?? {},
     );

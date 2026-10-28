@@ -96,7 +96,7 @@ bun agentic-crm/deploy/new-customer.ts --customer acme --name "Acme CRM" \
 agentic-crm/deploy/up.sh acme
 ```
 
-- **Sign-in** is by email and password. The first admin adds the others from Admin, People.
+- **Sign-in** is by email and password. The first admin adds the others from Admin, People, or connects the company's identity provider (OpenID Connect or SAML) and directory (SCIM) from the CRM's Settings, Sign-in. Neither needs an environment variable; `SCIM_BEARER_TOKEN` still works for a token set at deploy time.
 - **Turned off for every customer:** OpenDuet's self-hosting banner and CopilotKit's telemetry.
 - **Ports.** Caddy takes 80 and 443. To run several customers on one machine, set `HTTP_PORT` and `HTTPS_PORT` in each `.env` and put your own proxy in front.
 - **The assistant's computer** (its browser and shell, for research and anything it runs) is a container of its own on a network without the database. It reaches the internet and the app, and changes the CRM only through the CRM's tools under the person's role, never Postgres directly. All Bots of one customer share it; a computer per Bot needs OpenDuet's supervisor, which holds the Docker socket, so it is left out here.

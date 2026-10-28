@@ -42,6 +42,7 @@ type AdapterLike = {
   updateMany?: AdapterMethod;
   findOne: AdapterMethod;
   findMany: AdapterMethod;
+  transaction?: (callback: never) => Promise<unknown>;
 };
 
 /** The four methods, seen as this file needs to see them rather than as Better Auth declares them. */
@@ -115,8 +116,9 @@ function isSsoModel(data: Rowish): boolean {
  * adapter Better Auth ever builds, including the one a plugin asks for.
  *
  * The returned adapter is the same adapter with four methods replaced. Anything Better Auth or a
- * plugin reaches for that is not one of those four is passed straight through, including
- * `transaction`, so this cannot quietly disable a capability by not knowing about it.
+ * plugin reaches for that is not one of those four is passed straight through. `transaction` is
+ * passed through too, but its callback gets a wrapped adapter: the SSO plugin re-reads the provider
+ * inside a transaction, and a ciphertext row there fails its SSO_PROVIDER_CHANGED check.
  */
 export function encryptSsoConfig<Options, Adapter extends AdapterLike>(
   createAdapter: (options: Options) => Adapter,
@@ -179,6 +181,22 @@ function wrapAdapter<T extends AdapterLike>(
         update: await encryptFields(encryptionKey, data.update as Rowish),
       });
     };
+  }
+
+  const transaction = (
+    adapter as {
+      transaction?: (
+        callback: (trx: AdapterLike) => Promise<unknown>,
+      ) => Promise<unknown>;
+    }
+  ).transaction;
+  if (transaction) {
+    (wrapped as { transaction?: unknown }).transaction = (
+      callback: (trx: AdapterLike) => Promise<unknown>,
+    ) =>
+      transaction.call(adapter, (trx) =>
+        callback(wrapAdapter(trx, encryptionKey)),
+      );
   }
 
   return wrapped as unknown as T;

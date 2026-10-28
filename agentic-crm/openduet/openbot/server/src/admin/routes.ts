@@ -10,6 +10,7 @@ import { z } from "zod";
 import { recordAuditEvent } from "../audit";
 import { type AppVariables, requireAdmin } from "../auth/guards";
 import { scimStatus } from "../auth/scim";
+import { hasScimToken } from "../crm/scim-tokens";
 import {
   hasIdentityProvider,
   revokeSessionsWithoutSso,
@@ -179,7 +180,12 @@ export function createEnterpriseAdminRoutes(
       defaultDestinations: DEFAULT_EGRESS_DESTINATIONS,
       mcpServers: servers,
       builtInModel: controls.deps.builtInModel ?? null,
-      scim: scimStatus(controls.deps.env ?? process.env),
+      scim: {
+        ...scimStatus(controls.deps.env ?? process.env),
+        ...((await hasScimToken(controls.deps.database))
+          ? { configured: true }
+          : {}),
+      },
       otel: { configured: otelConfigured(controls.deps.env ?? process.env) },
       actionRecordRetentionDays: ACTION_RECORD_RETENTION_DAYS,
     });

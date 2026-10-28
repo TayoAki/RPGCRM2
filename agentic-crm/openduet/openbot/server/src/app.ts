@@ -158,6 +158,7 @@ import {
   DIRECTORY_PATH as WEB_BOT_AUTH_DIRECTORY_PATH,
   directoryResponse as webBotAuthDirectory,
 } from "./web-bot-auth";
+import { withProviderBeingRegistered } from "./crm/sso-origins";
 
 /**
  * How much of a multipart body is boundary, headers and other fields rather than file.
@@ -632,7 +633,9 @@ export function createApp(
             .catch(() => null)) as { providerId?: unknown } | null)
         : null;
 
-    const answer = await auth.handler(context.req.raw);
+    const answer = await withProviderBeingRegistered(context.req.raw, () =>
+      auth.handler(context.req.raw),
+    );
 
     if (auditStore && eventType && answer.ok) {
       const session = await auth.api.getSession({

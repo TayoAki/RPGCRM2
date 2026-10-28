@@ -3,6 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import type { AppVariables } from "../auth/guards";
 import type { Database } from "../db/client";
 import { fileResponse, MAX_CRM_FILE_BYTES, storeFile } from "./files";
+import { addMissingSales } from "./directory";
 import { crmErrorResponse } from "./errors";
 import { listParamsFrom } from "./filters";
 import type { CrmMail } from "./mail";
@@ -11,6 +12,7 @@ import { createModelRoutes } from "./model-routes";
 import { createPlatformRoutes } from "./platform-routes";
 import { type CrmRecords, createCrmRecords } from "./records";
 import { globalSearch, SEARCH_RESOURCES, type SearchResource } from "./search";
+import { createSignInRoutes } from "./sign-in-routes";
 import {
   type AutomationDeps,
   createAutomationRoutes,
@@ -69,6 +71,19 @@ export function createCrmRoutes(deps: {
   const records = deps.records ?? createCrmRecords(database);
   const notFound = { error: "Not found." };
 
+  routes.use("*", async (context, next) => {
+    if ((await records.sale(context.var.actor)).disabled) {
+      return context.json(
+        {
+          error:
+            "Your CRM access is turned off. Ask an admin to turn it back on.",
+        },
+        403,
+      );
+    }
+    await next();
+  });
+
   if (deps.mail) {
     routes.route("/mail", createMailRoutes({ mail: deps.mail, records }));
   }
@@ -76,6 +91,7 @@ export function createCrmRoutes(deps: {
     routes.route("/", createAutomationRoutes(deps.automation));
   routes.route("/", createModelRoutes({ database, records }));
   routes.route("/", createPlatformRoutes({ database, records }));
+  routes.route("/", createSignInRoutes({ database }));
 
   routes.get("/me", async (context) =>
     context.json({ data: await records.sale(context.var.actor) }),
@@ -125,15 +141,17 @@ export function createCrmRoutes(deps: {
       context.json(notFound, 404),
   );
 
-  routes.get("/:resource", async (context) =>
-    context.json(
+  routes.get("/:resource", async (context) => {
+    const resource = context.req.param("resource");
+    if (resource === "sales") await addMissingSales(database);
+    return context.json(
       await records.list(
         context.var.actor,
-        context.req.param("resource"),
+        resource,
         listParamsFrom(new URL(context.req.url).searchParams),
       ),
-    ),
-  );
+    );
+  });
 
   routes.get("/:resource/:id", async (context) => {
     const row = await records.get(

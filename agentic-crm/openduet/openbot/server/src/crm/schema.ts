@@ -711,6 +711,21 @@ export const apiKeys = crm.table(
   (table) => [uniqueIndex("api_keys_prefix_idx").on(table.prefix)],
 );
 
+// Bearer tokens a company's directory (Okta, Entra) sends to SCIM. Only a hash is kept.
+export const scimTokens = crm.table(
+  "scim_tokens",
+  {
+    id: id(),
+    prefix: text().notNull(),
+    hash: text().notNull(),
+    created_by: text(),
+    last_used_at: moment(),
+    revoked_at: moment(),
+    created_at: createdAt(),
+  },
+  (table) => [uniqueIndex("scim_tokens_prefix_idx").on(table.prefix)],
+);
+
 // Dashboards: a grid of charts and numbers over any object, for one person or everybody.
 export const dashboards = crm.table("dashboards", {
   id: id(),

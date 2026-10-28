@@ -60,6 +60,7 @@ export function settingsTabs(isAdmin: boolean): Tab[] {
           { label: "General", to: "/settings" },
           { label: "Data model", to: "/settings/data-model" },
           { label: "Roles", to: "/settings/roles" },
+          { label: "Sign-in", to: "/settings/sign-in" },
           { label: "People", to: "/sales" },
         ]
       : []),

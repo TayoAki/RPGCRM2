@@ -268,6 +268,29 @@ export type Dashboard = {
 
 export type ReportRow = { key: unknown; value: number };
 
+export type ScimToken = {
+  id: number;
+  prefix: string;
+  created_by: string | null;
+  last_used_at: string | null;
+  created_at: string;
+};
+
+export type SignInSetup = {
+  auth_url: string;
+  scim_url: string;
+  scim_from_environment: boolean;
+  scim_tokens: ScimToken[];
+};
+
+export type IdentityProvider = {
+  providerId: string;
+  issuer: string;
+  domain: string;
+  protocol: "saml" | "oidc";
+  registeredBy: string | null;
+};
+
 export type ApiKey = {
   id: number;
   name: string;

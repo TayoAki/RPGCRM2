@@ -13,8 +13,8 @@
  *   deny-lists the address, retires every connector credential they granted, and stops their Bots'
  *   computers. Reactivating them lifts a deny-list entry SCIM wrote, never one an administrator did.
  *
- * `SCIM_BEARER_TOKEN_NEXT` is accepted alongside the current token for rotation. Off entirely when
- * `SCIM_BEARER_TOKEN` is unset.
+ * `SCIM_BEARER_TOKEN_NEXT` is accepted alongside the current token for rotation. Tokens an admin makes
+ * in the CRM's settings are accepted too, so SCIM needs no environment variable at all.
  */
 import type { SCIMOptions } from "@better-auth/scim";
 import { eq } from "drizzle-orm";
@@ -22,6 +22,8 @@ import { type AuditStore, recordAuditEvent } from "../audit";
 import type { Database } from "../db/client";
 import { revokedAccess, userRoles, users } from "../db/schema";
 import { enterpriseControls } from "../admin/controls";
+import { setDirectoryAccess } from "../crm/directory";
+import { scimTokenAuthentication } from "../crm/scim-tokens";
 import { roleForEmail } from "./roles";
 
 export const SCIM_REVOKED_BY_PREFIX = "scim:";
@@ -66,6 +68,7 @@ export async function reconcileDirectoryState(
 ): Promise<void> {
   const email = await emailOf(deps.database, state.userId);
   if (!email) return;
+  await setDirectoryAccess(deps.database, state.userId, state.active);
   const normalized = email.trim().toLowerCase();
   const by = `${SCIM_REVOKED_BY_PREFIX}directory`;
 
@@ -123,13 +126,12 @@ export async function reconcileDirectoryState(
   }
 }
 
-/** The plugin's options, or undefined when SCIM is not configured. */
+/** The plugin's options. Tokens come from SCIM_BEARER_TOKEN or the CRM's settings. */
 export function scimOptions(
   deps: ScimDeps,
   env: Record<string, string | undefined> = process.env,
 ): SCIMOptions | undefined {
   const token = env.SCIM_BEARER_TOKEN?.trim();
-  if (!token) return undefined;
   const next = env.SCIM_BEARER_TOKEN_NEXT?.trim();
   const connectionId = env.SCIM_CONNECTION_ID?.trim() || "directory";
 
@@ -137,20 +139,23 @@ export function scimOptions(
     connections: [
       {
         id: connectionId,
-        credentials: [
-          { type: "bearer", id: `${connectionId}-primary`, token },
-          ...(next
-            ? [
-                {
-                  type: "bearer" as const,
-                  id: `${connectionId}-next`,
-                  token: next,
-                },
-              ]
-            : []),
-        ],
+        credentials: token
+          ? [
+              { type: "bearer", id: `${connectionId}-primary`, token },
+              ...(next
+                ? [
+                    {
+                      type: "bearer" as const,
+                      id: `${connectionId}-next`,
+                      token: next,
+                    },
+                  ]
+                : []),
+            ]
+          : [],
       },
     ],
+    authentication: scimTokenAuthentication(deps.database, connectionId),
     identity: {
       reconcileUser: async (state) => {
         await reconcileDirectoryState(deps, state);

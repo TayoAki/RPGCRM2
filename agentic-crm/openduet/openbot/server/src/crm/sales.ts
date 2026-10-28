@@ -5,6 +5,11 @@ import { sales } from "./schema";
 
 export type Sale = typeof sales.$inferSelect;
 
+export function namesOf(name: string | null | undefined, email: string) {
+  const [firstName, ...otherNames] = (name?.trim() || email).split(/\s+/);
+  return { first_name: firstName ?? email, last_name: otherNames.join(" ") };
+}
+
 /**
  * The CRM user ("sale") for somebody signed in to OpenDuet, made on their first visit.
  *
@@ -36,16 +41,12 @@ export async function saleFor(
     return updated ?? existing;
   }
 
-  const [firstName, ...otherNames] = (actor.name?.trim() || actor.email).split(
-    /\s+/,
-  );
   const [created] = await database
     .insert(sales)
     .values({
       user_id: actor.id,
       email: actor.email,
-      first_name: firstName ?? actor.email,
-      last_name: otherNames.join(" "),
+      ...namesOf(actor.name, actor.email),
       administrator,
       ...(actor.image ? { avatar: { src: actor.image } } : {}),
     })
