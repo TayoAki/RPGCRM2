@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { inArray } from "drizzle-orm";
 import type { AuthenticatedActor } from "../src/auth/guards";
-import { crmFollowUps, withCrmFollowUps } from "../src/crm/brief";
+import { crmFollowUps, withCrm } from "../src/crm/brief";
+import {
+  buildMorningBrief,
+  type CallTool,
+  GMAIL_SEARCH,
+} from "../src/openduet/brief";
 import { createCrmRecords } from "../src/crm/records";
 import { createDatabase } from "../src/db/client";
 import { users } from "../src/db/schema";
@@ -123,13 +128,84 @@ test("the brief lists a person's due tasks, stalled deals and cooling hot contac
 });
 
 test("someone who has never opened the CRM gets no CRM rows, and no CRM user is made", async () => {
-  const brief = await withCrmFollowUps(database, NEWCOMER.id, {
-    couldNotCheck: [],
-  });
+  const empty = { needsYou: [], canWait: [], couldNotCheck: [] };
+  const brief = await withCrm(database, NEWCOMER.id, empty);
 
-  expect(brief).toEqual({ couldNotCheck: [] });
+  expect(brief).toEqual(empty);
   const { total } = await records.list("sales", {
     filter: { user_id: NEWCOMER.id },
   });
   expect(total).toBe(0);
+});
+
+test("mail from a CRM contact says who they are in the CRM, whatever the address's case", async () => {
+  const company = await create(MAYA, "companies", { name: `Hearth ${run}` });
+  const ana = await create(MAYA, "contacts", {
+    first_name: "Ana",
+    last_name: `Pereira${run}`,
+    company_id: company.id,
+    email_jsonb: [{ email: `ana.${run}@hearth.test`, type: "Work" }],
+  });
+  const mail = (id: string, from: string) => ({
+    id,
+    threadId: `t-${id}`,
+    from,
+    to: [MAYA.email],
+    cc: [],
+    subject: `Subject ${id}`,
+    date: NOW.toISOString(),
+    snippet: "Can you confirm Friday?",
+    labels: ["INBOX"],
+    headers: {},
+  });
+  const callTool: CallTool = async ({ ref }) => ({
+    text: JSON.stringify(
+      ref === GMAIL_SEARCH
+        ? {
+            messages: [
+              mail("m1", `Ana Pereira <Ana.${run}@Hearth.test>`),
+              mail("m2", `Someone Else <someone-${run}@elsewhere.test>`),
+            ],
+          }
+        : { events: [] },
+    ),
+    isError: false,
+  });
+
+  const brief = await withCrm(
+    database,
+    MAYA.id,
+    await buildMorningBrief(
+      {
+        callTool,
+        model: "test-model",
+        now: () => NOW,
+        complete: async () =>
+          '{"verdict":"needs_you","reason":"Needs an answer."}',
+      },
+      {
+        actorId: MAYA.id,
+        botId: "openduet",
+        initiator: { kind: "person" },
+        person: { name: "Maya", email: MAYA.email },
+      },
+    ),
+  );
+
+  expect(
+    brief.needsYou.map((item) => ({
+      id: item.id,
+      crm: "crm" in item ? item.crm : null,
+    })),
+  ).toEqual([
+    {
+      id: "m1",
+      crm: {
+        contactId: ana.id,
+        name: `Ana Pereira${run}`,
+        company: `Hearth ${run}`,
+      },
+    },
+    { id: "m2", crm: null },
+  ]);
 });

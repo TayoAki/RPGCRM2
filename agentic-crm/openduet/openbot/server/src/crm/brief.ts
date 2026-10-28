@@ -1,6 +1,13 @@
-import { and, asc, eq, isNull, lt, notInArray } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, notInArray, sql } from "drizzle-orm";
 import type { Database } from "../db/client";
-import { configuration, contacts, deals, sales, tasks } from "./schema";
+import {
+  configuration,
+  contacts,
+  contactsSummary,
+  deals,
+  sales,
+  tasks,
+} from "./schema";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -156,17 +163,82 @@ export async function crmFollowUps(
   ];
 }
 
-/** The brief with the person's CRM follow-ups added, or a note that the CRM couldn't be read. */
-export async function withCrmFollowUps<
-  TBrief extends { couldNotCheck: { source: string; why: string }[] },
+/** Who a sender is in the CRM. */
+export type CrmSender = {
+  contactId: number;
+  name: string;
+  company: string | null;
+};
+
+/** The CRM contacts with these email addresses, by lowercased address. */
+export async function crmSenders(
+  database: Database,
+  addresses: string[],
+): Promise<Map<string, CrmSender>> {
+  const wanted = [
+    ...new Set(addresses.map((address) => address.toLowerCase())),
+  ];
+  if (wanted.length === 0) return new Map();
+  const rows = (await database.execute(sql`
+    select c.id, c.first_name, c.last_name, c.company_name, lower(e->>'email') as email
+    from ${contactsSummary} c, jsonb_array_elements(coalesce(c.email_jsonb, '[]'::jsonb)) e
+    where lower(e->>'email') = any(${sql.param(wanted)}::text[])
+    order by c.id`)) as unknown as {
+    id: number | string;
+    first_name: string | null;
+    last_name: string | null;
+    company_name: string | null;
+    email: string;
+  }[];
+  const found = new Map<string, CrmSender>();
+  for (const row of rows) {
+    if (found.has(row.email)) continue;
+    found.set(row.email, {
+      contactId: Number(row.id),
+      name: nameOf(row),
+      company: row.company_name,
+    });
+  }
+  return found;
+}
+
+type Mail = { address?: string };
+
+/**
+ * The brief with the CRM in it: the person's follow-ups, and who each sender is in the CRM. When the
+ * CRM can't be read the brief still arrives, saying so.
+ */
+export async function withCrm<
+  TBrief extends {
+    needsYou: Mail[];
+    canWait: Mail[];
+    couldNotCheck: { source: string; why: string }[];
+  },
 >(
   database: Database,
   actorId: string,
   brief: TBrief,
 ): Promise<TBrief & { crm?: CrmBriefItem[] }> {
   try {
-    const crm = await crmFollowUps(database, actorId);
-    return crm.length ? { ...brief, crm } : brief;
+    const [crm, senders] = await Promise.all([
+      crmFollowUps(database, actorId),
+      crmSenders(
+        database,
+        [...brief.needsYou, ...brief.canWait].flatMap((mail) =>
+          mail.address ? [mail.address] : [],
+        ),
+      ),
+    ]);
+    const known = <TMail extends Mail>(mail: TMail) => {
+      const sender = mail.address ? senders.get(mail.address) : undefined;
+      return sender ? { ...mail, crm: sender } : mail;
+    };
+    return {
+      ...brief,
+      needsYou: brief.needsYou.map(known),
+      canWait: brief.canWait.map(known),
+      ...(crm.length ? { crm } : {}),
+    };
   } catch (error) {
     console.error(
       JSON.stringify({ type: "crm-brief-failed", detail: String(error) }),

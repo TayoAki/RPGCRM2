@@ -4,7 +4,13 @@ import { z } from "zod";
 import { useConversationSend } from "@/components/channels/conversation-send";
 import { ToolLine } from "@/components/channels/tool-line";
 import { BuildInProvider, useArrivedLive } from "@/components/duet/build-in";
-import { crmFollowUpRows, crmFollowUpsSchema } from "@/crm/brief-follow-ups";
+import {
+  crmFollowUpRows,
+  crmFollowUpsSchema,
+  crmSenderNote,
+  crmSenderSchema,
+  crmSenderSentence,
+} from "@/crm/brief";
 import {
   type BriefItem,
   MorningBriefCard,
@@ -25,6 +31,7 @@ const mail = z.object({
   subject: z.string().default(""),
   reason: z.string(),
   decidedBy: z.string().default(""),
+  crm: crmSenderSchema,
 });
 export const briefSchema = z.object({
   at: z.string(),
@@ -116,7 +123,9 @@ export function briefCard(brief: Brief): {
       .map((item) => ({
         id: item.id,
         title: item.subject ? `${item.from} · ${item.subject}` : item.from,
-        why: item.reason,
+        why: item.crm
+          ? `${item.reason} · ${crmSenderNote(item.crm)}`
+          : item.reason,
       })),
     followUp: crmFollowUpRows(brief.crm),
     canWait: brief.canWait.length
@@ -194,9 +203,10 @@ function BriefToolView({
  * to take it on. A reply that goes out still stops for Allow once like any other.
  */
 export function startRequest(item: Brief["needsYou"][number]): string {
-  return item.subject
+  const request = item.subject
     ? `Take care of ${item.from}'s email: ${item.subject}`
     : `Take care of ${item.from}'s email.`;
+  return item.crm ? `${request}${crmSenderSentence(item.crm)}` : request;
 }
 
 /**

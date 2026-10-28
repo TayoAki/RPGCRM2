@@ -47,7 +47,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 | C1 | CRM tools for the agent: search, read, create, update records | MVP | Build | Done | The built-in "CRM" plugin: search, find a contact by email, list, read with notes and tasks, create, update. Same rules as the screens. Generated from metadata once D1 lands |
 | C2 | Agent asks before writing to the CRM | MVP | OpenDuet | Done | A team rule asks the person before every CRM write, even if they once said always allow |
 | C3 | Morning brief includes the CRM | MVP | Build | In progress | A "Follow up" section: tasks overdue or due within a day, open deals unchanged for 14 days, hot contacts not seen for 7 days. Deals that moved need a stage history first |
-| C4 | Email triage linked to the CRM | MVP | Build | Not started | Match the sender to a contact or company; offer "log to CRM" or "create contact" |
+| C4 | Email triage linked to the CRM | MVP | Build | Done | The brief marks mail from CRM contacts, and Start tells the Bot who the sender is. The Bot is told to offer to log the email as a note, or to add an unknown sender as a contact. Gmail only, as the brief is |
 | C5 | "Ask the agent" from any record, with that record as context | MVP | Build | Done | On contacts, companies and deals: the person types the ask, and it runs as a task that knows the record |
 | C6 | Agent works under the user's CRM permissions | P1 | Build | Not started | Depends on G4 |
 | C7 | Agent builds charts and dashboards on request | P1 | Build | Not started | Depends on F2; OpenDuet's "Make" already makes dashboards |

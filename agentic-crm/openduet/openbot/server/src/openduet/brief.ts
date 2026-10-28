@@ -31,6 +31,8 @@ export type BriefMail = {
   id: string;
   threadId: string;
   from: string;
+  /** The sender's address, lowercased, when the From header has one. */
+  address?: string;
   subject: string;
   reason: string;
   /** `rule:<id>`, `model:<name>`, or `unsorted` when sorting failed and it is shown to be safe. */
@@ -268,10 +270,12 @@ export async function buildMorningBrief(
 
   const failures: string[] = [];
   for (const entry of sorted) {
+    const address = ADDRESS.exec(entry.message.from)?.[0]?.toLowerCase();
     const item = {
       id: entry.message.id,
       threadId: entry.message.threadId,
       from: displayName(entry.message.from),
+      ...(address ? { address } : {}),
       subject: entry.message.subject,
     };
     if (!("result" in entry) || !entry.result) {

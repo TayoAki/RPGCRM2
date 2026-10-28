@@ -96,7 +96,7 @@ const TOOLS: readonly McpTool[] = Object.freeze([
   {
     name: "find_contact",
     description:
-      "Find the CRM contacts with an email address, and the companies whose website matches its domain. Use it to tell who an email is from.",
+      "Find the CRM contacts with an email address, and the companies whose website matches its domain. Use it to tell who an email is from. When you take care of an email from a contact, offer to log it on them as a note; when nobody matches and the sender looks like a customer or a prospect, offer to add them as a contact.",
     inputSchema: {
       type: "object",
       properties: {

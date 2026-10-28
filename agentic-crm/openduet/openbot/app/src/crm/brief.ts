@@ -21,3 +21,22 @@ export const crmFollowUpRows = (
   items: z.infer<typeof crmFollowUpsSchema>,
 ): BriefItem[] =>
   items.map(({ id, title, why, href }) => ({ id, title, why, href }));
+
+/** Who a mail's sender is in the CRM, when the server found them. */
+export const crmSenderSchema = z
+  .object({
+    contactId: z.number(),
+    name: z.string(),
+    company: z.string().nullable(),
+  })
+  .optional()
+  .catch(undefined);
+
+type CrmSender = NonNullable<z.infer<typeof crmSenderSchema>>;
+
+export const crmSenderNote = (sender: CrmSender) =>
+  sender.company ? `In the CRM, at ${sender.company}` : "In the CRM";
+
+/** Added to Start, so the Bot can log the email on the contact or update them. */
+export const crmSenderSentence = (sender: CrmSender) =>
+  ` ${sender.name} is contact ${sender.contactId} in the CRM.`;
