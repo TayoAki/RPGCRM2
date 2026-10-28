@@ -128,9 +128,6 @@ export function createCrmRecords(database: Database) {
     ): Promise<CrmRow | undefined> {
       const resource = resourceNamed(name);
       const { table, values } = await writable(actor, resource, body, id);
-      if (resource === CRM_RESOURCES.deals) {
-        values.updated_at = new Date().toISOString();
-      }
       if (Object.keys(values).length > 0) {
         await database
           .update(table)

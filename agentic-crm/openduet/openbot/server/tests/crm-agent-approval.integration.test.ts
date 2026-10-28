@@ -8,10 +8,10 @@ import { createApprovalStore } from "../src/approvals/store";
 import type { ApprovalAction } from "../src/approvals/types";
 import { createAuditStore } from "../src/audit";
 import type { ActionPolicy } from "../src/computer/policy";
+import { createCredentialStore } from "../src/credentials";
 import { useCrmTools } from "../src/crm/agent-tools";
 import { CRM_SERVER, CRM_WRITE_RULE } from "../src/crm/install";
 import { contacts, sales } from "../src/crm/schema";
-import { createCredentialStore } from "../src/credentials";
 import { createDatabase } from "../src/db/client";
 import {
   agents,

@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { eq, inArray } from "drizzle-orm";
+import { createAuditStore } from "../src/audit";
 import { callTool, listTools, useCrmTools } from "../src/crm/agent-tools";
 import { installCrmTools } from "../src/crm/install";
 import { installs } from "../src/crm/schema";
 import { createDatabase } from "../src/db/client";
 import { agents, approvalTeamRules, users } from "../src/db/schema";
-import { createAuditStore } from "../src/audit";
 import { TEST_POOL, testDatabaseUrl } from "./support/database";
 
 const database = createDatabase(testDatabaseUrl(), TEST_POOL);

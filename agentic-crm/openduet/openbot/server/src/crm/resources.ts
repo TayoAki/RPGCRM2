@@ -15,7 +15,11 @@ import {
   contacts,
   contactsSummary,
   dealNotes,
+  dealStageHistory,
   deals,
+  emails,
+  meetings,
+  proposals,
   sales,
   tags,
   tasks,
@@ -32,6 +36,9 @@ export type CrmResource = {
   ownedBySales?: boolean;
 };
 
+// Kept by the database, never set by a write.
+const MANAGED_COLUMNS = new Set(["id", "updated_at", "token"]);
+
 function readable(source: PgTable | PgView): Columns {
   return (
     is(source, PgView) ? getViewSelectedFields(source) : getTableColumns(source)
@@ -46,7 +53,8 @@ function resource(
   const writable = table
     ? Object.entries(getTableColumns(table))
         .filter(
-          ([name, column]) => name !== "id" && !(column as Column).generated,
+          ([name, column]) =>
+            !MANAGED_COLUMNS.has(name) && !(column as Column).generated,
         )
         .map(([name]) => name)
     : [];
@@ -73,6 +81,11 @@ export const CRM_RESOURCES: Record<string, CrmResource> = {
   deal_notes: resource(dealNotes, dealNotes, owned),
   tasks: resource(tasks, tasks, owned),
   tags: resource(tags, tags),
+  meetings: resource(meetings, meetings, owned),
+  proposals: resource(proposals, proposals, owned),
+  // Written by the mail sender (email.ts), which checks the mailbox and the recipient.
+  emails: resource(emails, undefined),
+  deal_stage_history: resource(dealStageHistory, undefined),
   sales: resource(sales, sales, { adminOnly: true }),
   configuration: resource(configuration, configuration, { adminOnly: true }),
   activity_log: resource(activityLog, undefined),

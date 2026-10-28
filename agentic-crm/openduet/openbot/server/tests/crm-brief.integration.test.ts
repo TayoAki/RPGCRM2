@@ -2,14 +2,15 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { inArray } from "drizzle-orm";
 import type { AuthenticatedActor } from "../src/auth/guards";
 import { crmFollowUps, withCrm } from "../src/crm/brief";
+import { createCrmRecords } from "../src/crm/records";
+import { createDatabase } from "../src/db/client";
+import { users } from "../src/db/schema";
 import {
   buildMorningBrief,
   type CallTool,
   GMAIL_SEARCH,
 } from "../src/openduet/brief";
-import { createCrmRecords } from "../src/crm/records";
-import { createDatabase } from "../src/db/client";
-import { users } from "../src/db/schema";
+import { setUpdatedAt } from "./support/crm";
 import { TEST_POOL, testDatabaseUrl } from "./support/database";
 
 const database = createDatabase(testDatabaseUrl(), TEST_POOL);
@@ -82,18 +83,14 @@ test("the brief lists a person's due tasks, stalled deals and cooling hot contac
   await create(MAYA, "tasks", task("Later", 3 * DAY));
   await create(MAYA, "tasks", task("Done", -DAY, { done_date: at(-HOUR) }));
   await create(OTHER, "tasks", task("Not Maya's", -DAY));
-  const deal = (name: string, stage: string, updated: number) => ({
-    name: `${name} ${run}`,
-    stage,
-    updated_at: at(updated),
-  });
-  const stalled = await create(
-    MAYA,
-    "deals",
-    deal("Zeppelins", "proposal-sent", -20 * DAY),
-  );
-  await create(MAYA, "deals", deal("Won", "won", -20 * DAY));
-  await create(MAYA, "deals", deal("Fresh", "opportunity", -DAY));
+  const deal = async (name: string, stage: string, updated: number) => {
+    const made = await create(MAYA, "deals", { name: `${name} ${run}`, stage });
+    await setUpdatedAt(database, "deals", made.id, at(updated));
+    return made;
+  };
+  const stalled = await deal("Zeppelins", "proposal-sent", -20 * DAY);
+  await deal("Won", "won", -20 * DAY);
+  await deal("Fresh", "opportunity", -DAY);
 
   const items = await crmFollowUps(database, MAYA.id, NOW);
 

@@ -44,7 +44,11 @@ const moment = customType<{ data: string; driverData: Date | string }>({
 });
 const now = sql`now()`;
 const createdAt = () => moment().notNull().default(now);
+// Kept by the touch_updated_at trigger, whoever writes.
+const updatedAt = () => moment().notNull().default(now);
+const customFields = () => json().notNull().default({});
 const cascade = { onDelete: "cascade", onUpdate: "cascade" } as const;
+const setNull = { onDelete: "set null", onUpdate: "cascade" } as const;
 
 export const sales = crm.table(
   "sales",
@@ -82,6 +86,10 @@ export const companies = crm.table("companies", {
   revenue: text(),
   tax_identifier: text(),
   logo: json(),
+  updated_at: updatedAt(),
+  lifecycle_stage: text().notNull().default("lead"),
+  lead_source: text(),
+  custom_fields: customFields(),
 });
 
 export const contacts = crm.table(
@@ -106,6 +114,12 @@ export const contacts = crm.table(
     linkedin_url: text(),
     email_jsonb: json(),
     phone_jsonb: json(),
+    updated_at: updatedAt(),
+    lifecycle_stage: text().notNull().default("lead"),
+    lead_source: text(),
+    // Campaign, referrer or UTM tags, as they arrived.
+    lead_source_detail: text(),
+    custom_fields: customFields(),
   },
   (table) => [index("contacts_company_id_idx").on(table.company_id)],
 );
@@ -122,6 +136,7 @@ export const contactNotes = crm.table(
     sales_id: reference().references(() => sales.id),
     status: text(),
     attachments: json(),
+    updated_at: updatedAt(),
   },
   (table) => [index("contact_notes_contact_id_idx").on(table.contact_id)],
 );
@@ -144,6 +159,8 @@ export const deals = crm.table(
     expected_closing_date: date({ mode: "string" }),
     sales_id: reference().references(() => sales.id),
     index: smallint(),
+    lead_source: text(),
+    custom_fields: customFields(),
   },
   (table) => [index("deals_company_id_idx").on(table.company_id)],
 );
@@ -160,6 +177,7 @@ export const dealNotes = crm.table(
     date: moment().default(now),
     sales_id: reference().references(() => sales.id),
     attachments: json(),
+    updated_at: updatedAt(),
   },
   (table) => [index("deal_notes_deal_id_idx").on(table.deal_id)],
 );
@@ -183,8 +201,130 @@ export const tasks = crm.table(
     done_date: moment(),
     sales_id: reference().references(() => sales.id),
     created_at: createdAt(),
+    updated_at: updatedAt(),
   },
   (table) => [index("tasks_contact_id_idx").on(table.contact_id)],
+);
+
+// Calls and meetings: booked through a scheduling tool, or logged by hand, with how each one went.
+export const meetings = crm.table(
+  "meetings",
+  {
+    id: id(),
+    title: text().notNull(),
+    contact_id: reference().references(() => contacts.id, setNull),
+    deal_id: reference().references(() => deals.id, setNull),
+    company_id: reference().references(() => companies.id, setNull),
+    start_at: moment().notNull(),
+    end_at: moment(),
+    location: text(),
+    // scheduled, completed, no_show, canceled
+    status: text().notNull().default("scheduled"),
+    outcome: text(),
+    outcome_notes: text(),
+    // manual, calcom, calendly, webhook
+    source: text().notNull().default("manual"),
+    external_id: text(),
+    attendees: json().notNull().default([]),
+    sales_id: reference().references(() => sales.id),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+    custom_fields: customFields(),
+  },
+  (table) => [
+    index("meetings_contact_id_idx").on(table.contact_id),
+    index("meetings_deal_id_idx").on(table.deal_id),
+    index("meetings_start_at_idx").on(table.start_at),
+    uniqueIndex("meetings_source_external_id_idx").on(
+      table.source,
+      table.external_id,
+    ),
+  ],
+);
+
+export const proposals = crm.table(
+  "proposals",
+  {
+    id: id(),
+    deal_id: reference()
+      .notNull()
+      .references(() => deals.id, cascade),
+    contact_id: reference().references(() => contacts.id, setNull),
+    title: text().notNull(),
+    // Markdown.
+    body: text().notNull().default(""),
+    amount: bigint({ mode: "number" }),
+    // draft, scheduled, sent, viewed, accepted, declined
+    status: text().notNull().default("draft"),
+    // A scheduled proposal goes out at this time.
+    send_at: moment(),
+    sent_at: moment(),
+    viewed_at: moment(),
+    accepted_at: moment(),
+    declined_at: moment(),
+    valid_until: date({ mode: "string" }),
+    // The client's link to read and accept it, without signing in.
+    token: text()
+      .notNull()
+      .default(
+        sql`replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')`,
+      ),
+    sales_id: reference().references(() => sales.id),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+    custom_fields: customFields(),
+  },
+  (table) => [
+    index("proposals_deal_id_idx").on(table.deal_id),
+    uniqueIndex("proposals_token_idx").on(table.token),
+  ],
+);
+
+// Mail the CRM sent, or will send, and what happened to it.
+export const emails = crm.table(
+  "emails",
+  {
+    id: id(),
+    // draft, scheduled, sending, sent, failed
+    status: text().notNull().default("draft"),
+    from_address: text(),
+    to_address: text().notNull(),
+    cc: text(),
+    subject: text().notNull().default(""),
+    body: text().notNull().default(""),
+    contact_id: reference().references(() => contacts.id, setNull),
+    deal_id: reference().references(() => deals.id, setNull),
+    meeting_id: reference().references(() => meetings.id, setNull),
+    proposal_id: reference().references(() => proposals.id, setNull),
+    workflow_run_id: reference(),
+    send_at: moment(),
+    sent_at: moment(),
+    message_id: text(),
+    error: text(),
+    sales_id: reference().references(() => sales.id),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+  },
+  (table) => [
+    index("emails_contact_id_idx").on(table.contact_id),
+    index("emails_deal_id_idx").on(table.deal_id),
+    index("emails_status_send_at_idx").on(table.status, table.send_at),
+  ],
+);
+
+// Every stage a deal entered, written by a trigger so the kanban, the API and the agent all count.
+export const dealStageHistory = crm.table(
+  "deal_stage_history",
+  {
+    id: id(),
+    deal_id: reference()
+      .notNull()
+      .references(() => deals.id, cascade),
+    from_stage: text(),
+    to_stage: text().notNull(),
+    changed_at: createdAt(),
+  },
+  (table) => [index("deal_stage_history_deal_id_idx").on(table.deal_id)],
 );
 
 // Attachments, logos and avatars. In Postgres like OpenDuet's own attachments: one database, one backup.
@@ -234,6 +374,10 @@ export const companiesSummary = crm
     revenue: text(),
     tax_identifier: text(),
     logo: json(),
+    updated_at: moment().notNull(),
+    lifecycle_stage: text().notNull(),
+    lead_source: text(),
+    custom_fields: json().notNull(),
     nb_deals: integer().notNull(),
     nb_contacts: integer().notNull(),
   })
@@ -258,6 +402,11 @@ export const contactsSummary = crm
     linkedin_url: text(),
     email_jsonb: json(),
     phone_jsonb: json(),
+    updated_at: moment().notNull(),
+    lifecycle_stage: text().notNull(),
+    lead_source: text(),
+    lead_source_detail: text(),
+    custom_fields: json().notNull(),
     email_fts: text(),
     phone_fts: text(),
     company_name: text(),

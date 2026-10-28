@@ -57,6 +57,13 @@
       "when": 1793206924252,
       "tag": "0007_deal_amount_default",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793213349123,
+      "tag": "0008_foundations",
+      "breakpoints": true
     }
   ]
 }

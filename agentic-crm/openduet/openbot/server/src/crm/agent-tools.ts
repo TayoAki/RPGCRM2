@@ -7,8 +7,8 @@ import type { McpCallResult, McpTool } from "../plugins/mcp";
 import { MAX_RESULT_CHARS } from "../plugins/mcp";
 import { CrmQueryError } from "./filters";
 import {
-  CrmRefusal,
   type CrmRecords,
+  CrmRefusal,
   type CrmRow,
   createCrmRecords,
 } from "./records";
@@ -41,9 +41,14 @@ const READABLE = [
   "tasks",
   "contact_notes",
   "deal_notes",
+  "meetings",
+  "proposals",
   "tags",
+  "emails",
+  "deal_stage_history",
 ] as const;
-const WRITABLE = READABLE.filter((name) => name !== "tags");
+const READ_ONLY = new Set<string>(["tags", "emails", "deal_stage_history"]);
+const WRITABLE = READABLE.filter((name) => !READ_ONLY.has(name));
 const MAX_ROWS = 50;
 // Unread by a model, or held as files: the rows are clearer without them.
 const DROPPED_FIELDS = new Set(["avatar", "logo", "email_fts", "phone_fts"]);
@@ -62,9 +67,11 @@ const FREE_MAIL = new Set([
 
 const RECORD_SHAPES = [
   "Fields by resource (send only the ones you mean to set):",
-  '- contacts: first_name, last_name, title, company_id, status ("cold", "warm", "hot" or "in-contract"), background, linkedin_url, email_jsonb as [{"email": "ada@acme.com", "type": "Work"}], phone_jsonb as [{"number": "+1 555 0100", "type": "Work"}], tags (tag ids).',
-  "- companies: name, sector, website, phone_number, address, city, zipcode, country, description.",
-  '- deals: name, company_id, contact_ids, stage ("opportunity", "proposal-sent", "in-negociation", "won", "lost" or "delayed" unless the CRM was set up otherwise), amount (whole number), expected_closing_date (YYYY-MM-DD), description.',
+  '- contacts: first_name, last_name, title, company_id, status ("cold", "warm", "hot" or "in-contract"), lifecycle_stage ("lead", "prospect", "client" or "former-client"), lead_source, lead_source_detail, background, linkedin_url, email_jsonb as [{"email": "ada@acme.com", "type": "Work"}], phone_jsonb as [{"number": "+1 555 0100", "type": "Work"}], tags (tag ids), custom_fields (object).',
+  "- companies: name, sector, website, phone_number, address, city, zipcode, country, description, lifecycle_stage, lead_source, custom_fields.",
+  '- deals: name, company_id, contact_ids, stage ("opportunity", "proposal-sent", "in-negociation", "won", "lost" or "delayed" unless the CRM was set up otherwise), amount (whole number), expected_closing_date (YYYY-MM-DD), description, lead_source, custom_fields.',
+  '- meetings: title, contact_id, deal_id, company_id, start_at and end_at (ISO 8601), location, status ("scheduled", "completed", "no_show" or "canceled"), outcome, outcome_notes.',
+  "- proposals: deal_id, contact_id, title, body (Markdown), amount, valid_until (YYYY-MM-DD). Sending one is the person's to do from the deal.",
   "- tasks: contact_id, text, type (such as email, call or meeting), due_date (ISO 8601), done_date.",
   "- contact_notes: contact_id, text, status. deal_notes: deal_id, text.",
 ].join("\n");
