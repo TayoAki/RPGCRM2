@@ -7,7 +7,12 @@ import type { Database } from "../db/client";
 import { users } from "../db/schema";
 import { createProactiveStore } from "../proactive/store";
 import { ProactiveNotFoundError } from "../proactive/types";
-import { buildMorningBrief, type CallTool, openduetTools } from "./brief";
+import {
+  buildMorningBrief,
+  type CallTool,
+  type OtherMail,
+  openduetTools,
+} from "./brief";
 import { offerTools } from "./offers";
 import { createPageStore, type PageStore, pageTools } from "./pages";
 import { replyTools } from "./replies";
@@ -147,6 +152,8 @@ export function createOpenDuetTools(deps: {
   ) => Promise<{ id: string; threadId: string }>;
   /** Where `make_page` saves. The same store answers /api/openduet/pages. */
   pages?: PageStore;
+  /** The person's own mailbox, for the brief when Gmail isn't connected. */
+  otherMail?: OtherMail;
   /**
    * Where `start_task` opens a task and starts it: the proactive engine's `startAsked`, which runs
    * started suggestions too. Absent, the tool is not held.
@@ -199,6 +206,7 @@ export function createOpenDuetTools(deps: {
               callTool: deps.callTool,
               complete: deps.complete,
               model: deps.model,
+              ...(deps.otherMail ? { otherMail: deps.otherMail } : {}),
             },
             input,
           ),

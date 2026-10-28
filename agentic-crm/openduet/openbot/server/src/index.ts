@@ -154,6 +154,7 @@ import {
   type DeliveryScopeResolver,
 } from "./delivery/routes";
 import { createDeliveryStore } from "./delivery/store";
+import { createRecentMail } from "./crm/mail-inbox";
 import { createExtraRoutes } from "./extra-routes";
 import type { DeliveryScope } from "./delivery/types";
 import { DeliveryRefusedError } from "./delivery/types";
@@ -1445,6 +1446,10 @@ const openDuetDirectChannel = async (ownerUserId: string, agentId: string) =>
 const openDuetTools = createOpenDuetTools({
   database,
   pages: openDuetPages,
+  otherMail: createRecentMail({
+    database,
+    encryptionKey: config.keyEncryptionKey,
+  }),
   startTask: openDuetStartTask,
   callTool: (input) => pluginStore.callTool(input),
   complete: chooseSkills,

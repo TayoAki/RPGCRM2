@@ -5,9 +5,14 @@ import {
   type OutgoingMessage,
   textToHtml,
 } from "../src/crm/mail";
-import { createCrmInbox, type InboxMessage } from "../src/crm/mail-inbox";
+import {
+  createCrmInbox,
+  createRecentMail,
+  type InboxMessage,
+} from "../src/crm/mail-inbox";
 import { mailboxes } from "../src/crm/schema";
 import { createDatabase } from "../src/db/client";
+import { buildMorningBrief, GMAIL_SEARCH } from "../src/openduet/brief";
 import { crmTestClient, type Json } from "./support/crm";
 import { TEST_POOL, testDatabaseUrl } from "./support/database";
 
@@ -327,6 +332,76 @@ test("mail from a contact, or a reply to mail the CRM sent, lands on the contact
       expect.objectContaining({ status: "received", deal_id: deal.id }),
     ]),
   );
+});
+
+test("the morning brief sorts the person's own IMAP mailbox when Gmail isn't connected", async () => {
+  await call(
+    "PUT",
+    "/mail/mailboxes/mine",
+    {
+      ...mailbox,
+      imap_host: "imap.acme.test",
+      imap_port: 993,
+      imap_user: mailbox.smtp_user,
+      imap_password: "imap secret",
+    },
+    "member",
+  );
+  const now = new Date("2026-06-15T09:00:00Z");
+  let asked: { since: Date; password: string } | null = null;
+  const otherMail = createRecentMail({
+    database,
+    encryptionKey,
+    readRecent: async (box, since) => {
+      asked = { since, password: box.imapPassword };
+      return [
+        {
+          messageId: "<m1@client.test>",
+          from: "rae@client.test",
+          fromName: "Rae Client",
+          to: mailbox.from_address,
+          subject: "Can we meet Friday?",
+          text: "Let me know.",
+          date: "2026-06-15T07:00:00Z",
+        },
+      ];
+    },
+  });
+  const brief = (actorId: string) =>
+    buildMorningBrief(
+      {
+        callTool: async ({ ref }) =>
+          ref === GMAIL_SEARCH
+            ? { text: "Connect Google Workspace first.", isError: true }
+            : { text: JSON.stringify({ events: [] }), isError: false },
+        complete: async () =>
+          '{"verdict":"needs_you","reason":"A client asks to meet."}',
+        model: "test-model",
+        now: () => now,
+        otherMail,
+      },
+      {
+        actorId,
+        botId: "openduet",
+        initiator: { kind: "person" },
+        person: { name: "Max Member", email: mailbox.from_address },
+      },
+    );
+
+  const withMailbox = await brief(crm.people.member.id);
+  const without = await brief(crm.people.admin.id);
+
+  expect(withMailbox.needsYou.map((item) => item.subject)).toEqual([
+    "Can we meet Friday?",
+  ]);
+  expect(withMailbox.couldNotCheck.map((item) => item.source)).not.toContain(
+    "Gmail",
+  );
+  expect(asked).toEqual({
+    since: new Date("2026-06-14T09:00:00Z"),
+    password: "imap secret",
+  });
+  expect(without.couldNotCheck.map((item) => item.source)).toContain("Gmail");
 });
 
 test("plain text becomes safe HTML", () => {

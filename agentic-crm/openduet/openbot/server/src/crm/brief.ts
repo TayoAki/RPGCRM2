@@ -1,9 +1,22 @@
-import { and, asc, eq, isNull, lt, notInArray, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  notInArray,
+  sql,
+} from "drizzle-orm";
 import type { Database } from "../db/client";
 import {
   configuration,
   contacts,
   contactsSummary,
+  dealStageHistory,
   deals,
   sales,
   tasks,
@@ -45,9 +58,9 @@ const shorten = (text: string, length = 80) =>
   text.length > length ? `${text.slice(0, length - 1)}…` : text;
 
 /**
- * What the person's own CRM records ask of them today: tasks overdue or due within a day, open deals
- * nobody has touched in two weeks, and hot contacts not heard from in a week. Read-only: someone who
- * has never opened the CRM owns nothing and gets nothing.
+ * What the person's own CRM records ask of them today: tasks overdue or due within a day, deals that
+ * changed stage in the last day, open deals nobody has touched in two weeks, and hot contacts not
+ * heard from in a week. Read-only: someone who has never opened the CRM owns nothing and gets nothing.
  */
 export async function crmFollowUps(
   database: Database,
@@ -71,63 +84,84 @@ export async function crmFollowUps(
     stage.charAt(0).toUpperCase() + stage.slice(1).replaceAll("-", " ");
   const at = (offset: number) => new Date(now.getTime() + offset).toISOString();
 
-  const [dueTasks, stalledDeals, coolingContacts] = await Promise.all([
-    database
-      .select({
-        id: tasks.id,
-        text: tasks.text,
-        due_date: tasks.due_date,
-        contact_id: tasks.contact_id,
-        first_name: contacts.first_name,
-        last_name: contacts.last_name,
-      })
-      .from(tasks)
-      .leftJoin(contacts, eq(contacts.id, tasks.contact_id))
-      .where(
-        and(
-          eq(tasks.sales_id, sale.id),
-          isNull(tasks.done_date),
-          lt(tasks.due_date, at(DAY)),
-        ),
-      )
-      .orderBy(asc(tasks.due_date))
-      .limit(10),
-    database
-      .select({
-        id: deals.id,
-        name: deals.name,
-        stage: deals.stage,
-        updated_at: deals.updated_at,
-      })
-      .from(deals)
-      .where(
-        and(
-          eq(deals.sales_id, sale.id),
-          isNull(deals.archived_at),
-          notInArray(deals.stage, closed),
-          lt(deals.updated_at, at(-STALLED_AFTER)),
-        ),
-      )
-      .orderBy(asc(deals.updated_at))
-      .limit(5),
-    database
-      .select({
-        id: contacts.id,
-        first_name: contacts.first_name,
-        last_name: contacts.last_name,
-        last_seen: contacts.last_seen,
-      })
-      .from(contacts)
-      .where(
-        and(
-          eq(contacts.sales_id, sale.id),
-          eq(contacts.status, "hot"),
-          lt(contacts.last_seen, at(-COOLING_AFTER)),
-        ),
-      )
-      .orderBy(asc(contacts.last_seen))
-      .limit(5),
-  ]);
+  const [dueTasks, movedDeals, stalledDeals, coolingContacts] =
+    await Promise.all([
+      database
+        .select({
+          id: tasks.id,
+          text: tasks.text,
+          due_date: tasks.due_date,
+          contact_id: tasks.contact_id,
+          first_name: contacts.first_name,
+          last_name: contacts.last_name,
+        })
+        .from(tasks)
+        .leftJoin(contacts, eq(contacts.id, tasks.contact_id))
+        .where(
+          and(
+            eq(tasks.sales_id, sale.id),
+            isNull(tasks.done_date),
+            lt(tasks.due_date, at(DAY)),
+          ),
+        )
+        .orderBy(asc(tasks.due_date))
+        .limit(10),
+      database
+        .selectDistinctOn([dealStageHistory.deal_id], {
+          id: deals.id,
+          name: deals.name,
+          from_stage: dealStageHistory.from_stage,
+          to_stage: dealStageHistory.to_stage,
+          changed_at: dealStageHistory.changed_at,
+        })
+        .from(dealStageHistory)
+        .innerJoin(deals, eq(deals.id, dealStageHistory.deal_id))
+        .where(
+          and(
+            eq(deals.sales_id, sale.id),
+            isNotNull(dealStageHistory.from_stage),
+            gte(dealStageHistory.changed_at, at(-DAY)),
+            lte(dealStageHistory.changed_at, at(0)),
+          ),
+        )
+        .orderBy(dealStageHistory.deal_id, desc(dealStageHistory.changed_at))
+        .limit(5),
+      database
+        .select({
+          id: deals.id,
+          name: deals.name,
+          stage: deals.stage,
+          updated_at: deals.updated_at,
+        })
+        .from(deals)
+        .where(
+          and(
+            eq(deals.sales_id, sale.id),
+            isNull(deals.archived_at),
+            notInArray(deals.stage, closed),
+            lt(deals.updated_at, at(-STALLED_AFTER)),
+          ),
+        )
+        .orderBy(asc(deals.updated_at))
+        .limit(5),
+      database
+        .select({
+          id: contacts.id,
+          first_name: contacts.first_name,
+          last_name: contacts.last_name,
+          last_seen: contacts.last_seen,
+        })
+        .from(contacts)
+        .where(
+          and(
+            eq(contacts.sales_id, sale.id),
+            eq(contacts.status, "hot"),
+            lt(contacts.last_seen, at(-COOLING_AFTER)),
+          ),
+        )
+        .orderBy(asc(contacts.last_seen))
+        .limit(5),
+    ]);
 
   const since = (moment: string | null) =>
     now.getTime() - new Date(moment ?? now).getTime();
@@ -140,6 +174,18 @@ export async function crmFollowUps(
         title: `${shorten(task.text?.trim() || "Task")} · ${nameOf(task)}`,
         why: late >= 0 ? `Overdue by ${span(late)}` : `Due in ${span(-late)}`,
         href: `/crm/contacts/${task.contact_id}/show`,
+      };
+    }),
+    ...movedDeals.map((deal): CrmBriefItem => {
+      const ago = span(since(deal.changed_at));
+      return {
+        id: `moved-${deal.id}`,
+        kind: "deal",
+        title: deal.name,
+        why: CLOSED_STAGES.includes(deal.to_stage)
+          ? `${stageLabel(deal.to_stage)} ${ago} ago`
+          : `Moved from ${stageLabel(deal.from_stage ?? "")} to ${stageLabel(deal.to_stage)} ${ago} ago`,
+        href: `/crm/deals/${deal.id}/show`,
       };
     }),
     ...stalledDeals.map(

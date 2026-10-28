@@ -3,6 +3,7 @@ import { inArray } from "drizzle-orm";
 import type { AuthenticatedActor } from "../src/auth/guards";
 import { crmFollowUps, withCrm } from "../src/crm/brief";
 import { createCrmRecords } from "../src/crm/records";
+import { dealStageHistory } from "../src/crm/schema";
 import { createDatabase } from "../src/db/client";
 import { users } from "../src/db/schema";
 import {
@@ -120,6 +121,69 @@ test("the brief lists a person's due tasks, stalled deals and cooling hot contac
       title: `Ada Brief${run}`,
       why: "Hot, last contact 10 days ago",
       href: `/crm/contacts/${ada.id}/show`,
+    },
+  ]);
+});
+
+test("the brief says which of a person's deals changed stage in the last day", async () => {
+  const won = await create(MAYA, "deals", {
+    name: `Moved won ${run}`,
+    stage: "won",
+  });
+  const moving = await create(MAYA, "deals", {
+    name: `Moved on ${run}`,
+    stage: "proposal-sent",
+  });
+  const old = await create(MAYA, "deals", {
+    name: `Moved long ago ${run}`,
+    stage: "proposal-sent",
+  });
+  const others = await create(OTHER, "deals", {
+    name: `Not Maya's ${run}`,
+    stage: "won",
+  });
+  await database.insert(dealStageHistory).values([
+    {
+      deal_id: Number(won.id),
+      from_stage: "proposal-sent",
+      to_stage: "won",
+      changed_at: at(-3 * HOUR),
+    },
+    {
+      deal_id: Number(moving.id),
+      from_stage: "lead",
+      to_stage: "opportunity",
+      changed_at: at(-20 * HOUR),
+    },
+    {
+      deal_id: Number(moving.id),
+      from_stage: "opportunity",
+      to_stage: "proposal-sent",
+      changed_at: at(-2 * HOUR),
+    },
+    {
+      deal_id: Number(old.id),
+      from_stage: "opportunity",
+      to_stage: "proposal-sent",
+      changed_at: at(-3 * DAY),
+    },
+    {
+      deal_id: Number(others.id),
+      from_stage: "opportunity",
+      to_stage: "won",
+      changed_at: at(-HOUR),
+    },
+  ]);
+
+  const moved = (await crmFollowUps(database, MAYA.id, NOW)).filter((item) =>
+    item.id.startsWith("moved-"),
+  );
+
+  expect(moved.map(({ title, why }) => ({ title, why }))).toEqual([
+    { title: `Moved won ${run}`, why: "Won 3 hours ago" },
+    {
+      title: `Moved on ${run}`,
+      why: "Moved from Opportunity to Proposal sent 2 hours ago",
     },
   ]);
 });

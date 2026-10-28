@@ -95,6 +95,29 @@ const searchResult = z.object({
  * cap stays, but a window that held more than it is now said out loud under could not check.
  */
 export const BRIEF_MAIL_CAP = 50;
+
+/** Mail from a source other than Gmail, in the shape Gmail's search returns. */
+export type OtherMail = (
+  actorId: string,
+  since: Date,
+  max: number,
+) => Promise<{ source: string; messages: unknown[] } | null>;
+
+const UNIT_MS: Record<string, number> = {
+  h: 3600_000,
+  d: 86_400_000,
+  m: 30 * 86_400_000,
+  y: 365 * 86_400_000,
+};
+
+// Gmail's newer_than window ("1d", "2d", "1m") as the moment it starts.
+function sinceMoment(now: Date, window = "1d") {
+  const match = /^(\d+)([hdmy])$/.exec(window);
+  const span = match
+    ? Number(match[1]) * (UNIT_MS[match[2] ?? "d"] ?? 0)
+    : UNIT_MS.d;
+  return new Date(now.getTime() - (span ?? 86_400_000));
+}
 const calendarResult = z.object({
   events: z
     .array(
@@ -178,6 +201,8 @@ export async function buildMorningBrief(
     complete: Complete;
     model: string;
     now?: () => Date;
+    /** Another inbox (the person's own IMAP mailbox) read when Gmail can't be. */
+    otherMail?: OtherMail;
   },
   input: {
     actorId: string;
@@ -208,13 +233,14 @@ export async function buildMorningBrief(
   };
 
   let messages: z.infer<typeof searchedMessage>[] = [];
+  const gmailProblems: MorningBrief["couldNotCheck"] = [];
   try {
     const result = await call(GMAIL_SEARCH, {
       query: `in:inbox newer_than:${input.since ?? "1d"}`,
       maxResults: BRIEF_MAIL_CAP,
     });
     if (result.isError)
-      couldNotCheck.push({ source: "Gmail", why: why(result.text) });
+      gmailProblems.push({ source: "Gmail", why: why(result.text) });
     else {
       const found = searchResult.parse(JSON.parse(result.text));
       messages = found.messages;
@@ -226,8 +252,23 @@ export async function buildMorningBrief(
         });
     }
   } catch (error) {
-    couldNotCheck.push({ source: "Gmail", why: why(error) });
+    gmailProblems.push({ source: "Gmail", why: why(error) });
   }
+  const other =
+    gmailProblems.length && deps.otherMail
+      ? await deps
+          .otherMail(
+            input.actorId,
+            sinceMoment(now, input.since),
+            BRIEF_MAIL_CAP,
+          )
+          .catch((error: unknown) => {
+            couldNotCheck.push({ source: "Mailbox", why: why(error) });
+            return null;
+          })
+      : null;
+  if (other) messages = z.array(searchedMessage).parse(other.messages);
+  else couldNotCheck.push(...gmailProblems);
 
   const owner = inboxOwner(input.person.email, messages);
   const person: TriagePerson = {
