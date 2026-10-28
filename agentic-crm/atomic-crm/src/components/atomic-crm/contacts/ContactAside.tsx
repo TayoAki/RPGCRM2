@@ -15,6 +15,7 @@ import type { Contact } from "../types";
 import { ContactMergeButton } from "./ContactMergeButton";
 import { ExportVCardButton } from "./ExportVCardButton";
 import { AskAgentButton } from "../../../embed/askAgent";
+import { CustomerAside } from "../../../extensions/fields/CustomerFields";
 
 export const ContactAside = ({ link = "edit" }: { link?: "edit" | "show" }) => {
   const record = useRecordContext<Contact>();
@@ -36,6 +37,8 @@ export const ContactAside = ({ link = "edit" }: { link?: "edit" | "show" }) => {
       <AsideSection title={translate("resources.notes.fields.status")}>
         <ContactStatusSelector />
       </AsideSection>
+
+      <CustomerAside resource="contacts" />
 
       <AsideSection
         title={translate("resources.contacts.field_categories.personal_info")}

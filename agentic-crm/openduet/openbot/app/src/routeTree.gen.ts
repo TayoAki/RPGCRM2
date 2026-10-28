@@ -16,6 +16,7 @@ import { Route as AuthedAppRouteImport } from './routes/_authed/_app'
 import { Route as AuthedAdminRouteRouteImport } from './routes/_authed/admin/route'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as AuthedSettingsRouteRouteImport } from './routes/_authed/settings/route'
+import { Route as ProposalTokenRouteImport } from './routes/proposal.$token'
 import { Route as AuthedAppIndexRouteImport } from './routes/_authed/_app/index'
 import { Route as AuthedAppActivityRouteImport } from './routes/_authed/_app/activity'
 import { Route as AuthedAppApprovalsRouteImport } from './routes/_authed/_app/approvals'
@@ -122,6 +123,11 @@ const AuthedSettingsRouteRoute = AuthedSettingsRouteRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AuthedRoute,
+} as any)
+const ProposalTokenRoute = ProposalTokenRouteImport.update({
+  id: '/proposal/$token',
+  path: '/proposal/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedAppIndexRoute = AuthedAppIndexRouteImport.update({
   id: '/',
@@ -525,6 +531,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthedAdminRouteRouteWithChildren
   '/settings': typeof AuthedSettingsRouteRouteWithChildren
   '/onboarding': typeof AuthedOnboardingRoute
+  '/proposal/$token': typeof ProposalTokenRoute
   '/activity': typeof AuthedAppActivityRoute
   '/approvals': typeof AuthedAppApprovalsRoute
   '/bot': typeof AuthedAppBotRoute
@@ -603,6 +610,7 @@ export interface FileRoutesByTo {
   '/set-password': typeof SetPasswordRoute
   '/sign': typeof SignRoute
   '/onboarding': typeof AuthedOnboardingRoute
+  '/proposal/$token': typeof ProposalTokenRoute
   '/activity': typeof AuthedAppActivityRoute
   '/approvals': typeof AuthedAppApprovalsRoute
   '/bot': typeof AuthedAppBotRoute
@@ -684,6 +692,7 @@ export interface FileRoutesById {
   '/_authed/settings': typeof AuthedSettingsRouteRouteWithChildren
   '/_authed/_app': typeof AuthedAppRouteWithChildren
   '/_authed/onboarding': typeof AuthedOnboardingRoute
+  '/proposal/$token': typeof ProposalTokenRoute
   '/_authed/_app/activity': typeof AuthedAppActivityRoute
   '/_authed/_app/approvals': typeof AuthedAppApprovalsRoute
   '/_authed/_app/bot': typeof AuthedAppBotRoute
@@ -767,6 +776,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/settings'
     | '/onboarding'
+    | '/proposal/$token'
     | '/activity'
     | '/approvals'
     | '/bot'
@@ -845,6 +855,7 @@ export interface FileRouteTypes {
     | '/set-password'
     | '/sign'
     | '/onboarding'
+    | '/proposal/$token'
     | '/activity'
     | '/approvals'
     | '/bot'
@@ -925,6 +936,7 @@ export interface FileRouteTypes {
     | '/_authed/settings'
     | '/_authed/_app'
     | '/_authed/onboarding'
+    | '/proposal/$token'
     | '/_authed/_app/activity'
     | '/_authed/_app/approvals'
     | '/_authed/_app/bot'
@@ -1004,6 +1016,7 @@ export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   SetPasswordRoute: typeof SetPasswordRoute
   SignRoute: typeof SignRoute
+  ProposalTokenRoute: typeof ProposalTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1056,6 +1069,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof AuthedSettingsRouteRouteImport
       parentRoute: typeof AuthedRoute
+    }
+    '/proposal/$token': {
+      id: '/proposal/$token'
+      path: '/proposal/$token'
+      fullPath: '/proposal/$token'
+      preLoaderRoute: typeof ProposalTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authed/_app/': {
       id: '/_authed/_app/'
@@ -1803,6 +1823,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   SetPasswordRoute: SetPasswordRoute,
   SignRoute: SignRoute,
+  ProposalTokenRoute: ProposalTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

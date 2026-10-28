@@ -2,11 +2,12 @@ import { useMemo } from "react";
 import { useStore } from "ra-core";
 
 import type { DealStage, LabeledValue, NoteStatus } from "../types";
+import type { AutomationConfig } from "../../../extensions/settings/AutomationSettings";
 import { defaultConfiguration } from "./defaultConfiguration";
 
 export const CONFIGURATION_STORE_KEY = "app.configuration";
 
-export interface ConfigurationContextValue {
+export interface ConfigurationContextValue extends AutomationConfig {
   companySectors: LabeledValue[];
   currency: string;
   dealCategories: LabeledValue[];

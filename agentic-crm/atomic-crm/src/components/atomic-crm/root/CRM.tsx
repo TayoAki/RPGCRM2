@@ -59,6 +59,7 @@ import { ContactListMobile } from "../contacts/ContactList.tsx";
 import { ContactShow } from "../contacts/ContactShow.tsx";
 import { CompanyShow } from "../companies/CompanyShow.tsx";
 import { NoteShowPage } from "../notes/NoteShowPage.tsx";
+import { EXTENSION_ROUTES } from "../../../extensions/routes";
 
 const defaultStore = localStorageStore(undefined, "CRM");
 
@@ -262,6 +263,7 @@ const DesktopAdmin = (
         <Route path={ImportPage.path} element={<ImportPage />} />
         <Route path={ChangelogPage.path} element={<ChangelogPage />} />
       </CustomRoutes>
+      <CustomRoutes>{EXTENSION_ROUTES}</CustomRoutes>
       <Resource name="deals" {...deals} />
       <Resource name="contacts" {...contacts} />
       <Resource name="companies" {...companies} />
@@ -337,6 +339,7 @@ const MobileAdmin = (
           />
           <Route path={ChangelogPage.path} element={<ChangelogPage />} />
         </CustomRoutes>
+        <CustomRoutes>{EXTENSION_ROUTES}</CustomRoutes>
         <Resource
           name="contacts"
           list={ContactListMobile}

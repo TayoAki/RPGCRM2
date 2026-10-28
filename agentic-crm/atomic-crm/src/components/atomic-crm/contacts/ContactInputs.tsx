@@ -23,6 +23,7 @@ import { StatusSelector } from "../notes";
 import type { Sale, Contact } from "../types";
 import { Avatar } from "./Avatar";
 import { AutocompleteCompanyInput } from "../companies/AutocompleteCompanyInput.tsx";
+import { CustomerInputs } from "../../../extensions/fields/CustomerFields";
 import {
   contactGender,
   translateContactGenderLabel,
@@ -47,6 +48,7 @@ export const ContactInputs = () => {
         )}
         <div className="flex flex-col gap-10 flex-1">
           <ContactPersonalInformationInputs />
+          <CustomerInputs withDetail />
           <ContactMiscInputs />
         </div>
       </div>

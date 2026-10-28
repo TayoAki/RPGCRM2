@@ -11,6 +11,7 @@ import { ImportPage } from "../misc/ImportPage";
 import { ChangelogPage } from "../misc/ChangelogPage";
 import { GlobalSearchButton } from "../search/GlobalSearchButton";
 import { useHost } from "../../../embed/host";
+import { EXTENSION_TABS } from "../../../extensions/routes";
 
 const Header = () => {
   const { darkModeLogo, lightModeLogo, title } = useConfigurationContext();
@@ -27,6 +28,12 @@ const Header = () => {
     currentPath = "/companies";
   } else if (matchPath("/deals/*", location.pathname)) {
     currentPath = "/deals";
+  } else if (
+    EXTENSION_TABS.some((tab) => matchPath(`${tab.to}/*`, location.pathname))
+  ) {
+    currentPath =
+      EXTENSION_TABS.find((tab) => matchPath(`${tab.to}/*`, location.pathname))
+        ?.to ?? false;
   } else {
     currentPath = false;
   }
@@ -81,6 +88,14 @@ const Header = () => {
                     to="/deals"
                     isActive={currentPath === "/deals"}
                   />
+                  {EXTENSION_TABS.map((tab) => (
+                    <NavigationTab
+                      key={tab.to}
+                      label={tab.label}
+                      to={tab.to}
+                      isActive={currentPath === tab.to}
+                    />
+                  ))}
                 </nav>
               </div>
               <div className="flex items-center">

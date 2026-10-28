@@ -20,6 +20,7 @@ import { getTranslatedCompanySizeLabel } from "./getTranslatedCompanySizeLabel";
 import { sizes } from "./sizes";
 import { useGetSalesName } from "../sales/useGetSalesName";
 import { AskAgentButton } from "../../../embed/askAgent";
+import { CustomerAside } from "../../../extensions/fields/CustomerFields";
 
 interface CompanyAsideProps {
   link?: string;
@@ -40,6 +41,8 @@ export const CompanyAside = ({ link = "edit" }: CompanyAsideProps) => {
         )}
         <AskAgentButton resource="companies" />
       </div>
+
+      <CustomerAside resource="companies" />
 
       <CompanyInfo record={record} />
 

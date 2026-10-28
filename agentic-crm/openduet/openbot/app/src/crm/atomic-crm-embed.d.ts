@@ -23,3 +23,10 @@ declare module "atomic-crm/embed" {
 
   export const CrmEmbed: ComponentType<CrmEmbedProps>;
 }
+
+// A client's proposal link (agentic-crm/atomic-crm/src/embed/ProposalPage.tsx), without the CRM.
+declare module "atomic-crm/proposal" {
+  import type { ComponentType } from "react";
+
+  export const ProposalPage: ComponentType<{ token: string }>;
+}

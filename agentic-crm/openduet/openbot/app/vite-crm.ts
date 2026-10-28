@@ -10,6 +10,7 @@ const ATOMIC_CRM_ROOT = path.resolve(__dirname, "../../../atomic-crm");
 const ATOMIC_CRM_SOURCE = path.join(ATOMIC_CRM_ROOT, "src");
 const CRM_EMBED_MODULE = "atomic-crm/embed";
 const STAND_INS_MODULE = "atomic-crm/embed/stand-ins";
+const PROPOSAL_MODULE = "atomic-crm/proposal";
 
 // Atomic modules served as its embed/standIns.tsx instead, which says why.
 const REPLACED_MODULES = new Set(
@@ -67,6 +68,9 @@ export function atomicCrm(appRoot: string): Plugin {
       }
       if (source === STAND_INS_MODULE) {
         return path.join(ATOMIC_CRM_SOURCE, "embed", "standIns.tsx");
+      }
+      if (source === PROPOSAL_MODULE) {
+        return path.join(ATOMIC_CRM_SOURCE, "embed", "ProposalPage.tsx");
       }
       return null;
     },

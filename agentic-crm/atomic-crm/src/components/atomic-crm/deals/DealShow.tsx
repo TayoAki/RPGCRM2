@@ -28,6 +28,7 @@ import { useConfigurationContext } from "../root/ConfigurationContext";
 import type { Deal } from "../types";
 import { ContactList } from "./ContactList";
 import { AskAgentButton } from "../../../embed/askAgent";
+import { DealExtras } from "../../../extensions/RecordExtras";
 import {
   findDealLabel,
   formatDealCategories,
@@ -173,6 +174,8 @@ const DealShowContent = () => {
               <p className="text-sm leading-6">{record.description}</p>
             </div>
           )}
+
+          <DealExtras />
 
           <div className="m-4">
             <Separator className="mb-4" />

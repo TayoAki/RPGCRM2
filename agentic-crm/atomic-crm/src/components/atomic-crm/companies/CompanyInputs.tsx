@@ -6,6 +6,7 @@ import { ArrayInput } from "@/components/admin/array-input";
 import { SimpleFormIterator } from "@/components/admin/simple-form-iterator";
 import { Separator } from "@/components/ui/separator";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { CustomerInputs } from "../../../extensions/fields/CustomerFields";
 
 import ImageEditorField from "../misc/ImageEditorField";
 import { isLinkedinUrl } from "../misc/isLinkedInUrl";
@@ -37,6 +38,7 @@ export const CompanyInputs = () => {
         <div className="flex flex-col gap-10 flex-1">
           <CompanyContactInputs />
           <CompanyContextInputs />
+          <CustomerInputs />
         </div>
         <Separator orientation={isMobile ? "horizontal" : "vertical"} />
         <div className="flex flex-col gap-8 flex-1">

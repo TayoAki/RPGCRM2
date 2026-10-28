@@ -28,6 +28,13 @@ import {
 } from "../root/ConfigurationContext";
 import { defaultConfiguration } from "../root/defaultConfiguration";
 import { SettingsTags } from "./SettingsTags";
+import {
+  AUTOMATION_SECTIONS,
+  AutomationSettings,
+  automationConfig,
+  automationFormValues,
+} from "../../../extensions/settings/AutomationSettings";
+import { useAutomationInfo } from "../../../extensions/queries";
 
 const SECTIONS = [
   {
@@ -44,6 +51,7 @@ const SECTIONS = [
   { id: "notes", label: "resources.notes.name", fallback: "Notes" },
   { id: "tasks", label: "resources.tasks.name", fallback: "Tasks" },
   { id: "tags", label: "resources.tags.name", fallback: "Tags" },
+  ...AUTOMATION_SECTIONS,
 ];
 
 /** Ensure every item in a { value, label } array has a value (slug from label). */
@@ -128,6 +136,7 @@ const transformFormValues = (data: Record<string, any>) => ({
     dealStages: ensureValues(data.dealStages),
     dealPipelineStatuses: data.dealPipelineStatuses,
     noteStatuses: ensureValues(data.noteStatuses),
+    ...automationConfig(data),
   } as ConfigurationContextValue,
 });
 
@@ -163,6 +172,7 @@ SettingsPage.path = "/settings";
 
 const SettingsForm = () => {
   const config = useConfigurationContext();
+  const { data: automationDefaults, isPending } = useAutomationInfo();
 
   const defaultValues = useMemo(
     () => ({
@@ -176,10 +186,12 @@ const SettingsForm = () => {
       dealStages: config.dealStages,
       dealPipelineStatuses: config.dealPipelineStatuses,
       noteStatuses: config.noteStatuses,
+      ...automationFormValues(config, automationDefaults),
     }),
-    [config],
+    [config, automationDefaults],
   );
 
+  if (isPending) return null;
   return (
     <Form defaultValues={defaultValues}>
       <SettingsFormFields />
@@ -465,6 +477,8 @@ const SettingsFormFields = () => {
 
         {/* Tags */}
         <SettingsTags />
+
+        <AutomationSettings />
       </div>
 
       {/* Sticky save button */}

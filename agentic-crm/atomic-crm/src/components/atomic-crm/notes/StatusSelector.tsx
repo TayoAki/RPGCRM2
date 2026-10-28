@@ -95,7 +95,12 @@ export const StatusSelector = ({
       value={status || NONE_VALUE}
       onValueChange={handleValueChange}
     >
-      <SelectTrigger className={cn("w-32", triggerClassName)}>
+      <SelectTrigger
+        className={cn("w-32", triggerClassName)}
+        aria-label={translate("resources.notes.fields.status", {
+          _: "Status",
+        })}
+      >
         <SelectValue placeholder={noneLabel} />
       </SelectTrigger>
       <SelectContent>

@@ -20,6 +20,8 @@ import { SimpleFormIterator } from "@/components/admin/simple-form-iterator";
 import { TextInput } from "@/components/admin/text-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useHost } from "../../../embed/host";
+import { MailboxCard } from "../../../extensions/mail/MailboxCard";
 import {
   Select,
   SelectContent,
@@ -106,6 +108,7 @@ const ProfileForm = ({
 }) => {
   const notify = useNotify();
   const translate = useTranslate();
+  const host = useHost();
   const record = useRecordContext<Sale>();
   const { identity, refetch } = useGetIdentity();
   const { isDirty } = useFormState();
@@ -236,6 +239,7 @@ const ProfileForm = ({
           </div>
         </CardContent>
       </Card>
+      {host ? <MailboxCard scope="mine" /> : null}
       {import.meta.env.VITE_INBOUND_EMAIL && (
         <Card>
           <CardContent>
@@ -254,25 +258,28 @@ const ProfileForm = ({
           </CardContent>
         </Card>
       )}
-      <Card>
-        <CardContent>
-          <div className="space-y-4 justify-between">
-            <h2 className="text-xl font-semibold text-muted-foreground">
-              {translate("crm.profile.mcp.title", {
-                _: "MCP Server",
-              })}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {translate("crm.profile.mcp.description", {
-                _: "Use this URL to connect your AI assistant to your CRM data via the Model Context Protocol (MCP).",
-              })}
-            </p>
-            <CopyPaste
-              value={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mcp`}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Atomic's MCP server is a Supabase function, which the host doesn't run. */}
+      {host ? null : (
+        <Card>
+          <CardContent>
+            <div className="space-y-4 justify-between">
+              <h2 className="text-xl font-semibold text-muted-foreground">
+                {translate("crm.profile.mcp.title", {
+                  _: "MCP Server",
+                })}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {translate("crm.profile.mcp.description", {
+                  _: "Use this URL to connect your AI assistant to your CRM data via the Model Context Protocol (MCP).",
+                })}
+              </p>
+              <CopyPaste
+                value={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mcp`}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
