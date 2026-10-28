@@ -3,12 +3,13 @@ import { useLayoutEffect, useMemo, useState } from "react";
 import { unstable_HistoryRouter as HistoryRouter } from "react-router";
 
 import { CRM } from "../components/atomic-crm/root/CRM";
+import { AskAgentContext, type CrmRecordRef } from "./askAgent";
 import { createHostAuthProvider, type HostUser } from "./hostAuthProvider";
 import { createHostDataProvider, fetchCurrentSale } from "./hostDataProvider";
 import { createHostRouterHistory, type HostHistory } from "./hostHistory";
 import "./embed.css";
 
-export type { HostHistory, HostUser };
+export type { CrmRecordRef, HostHistory, HostUser };
 
 export type CrmEmbedProps = {
   basename: string;
@@ -17,6 +18,8 @@ export type CrmEmbedProps = {
   theme: "light" | "dark";
   // Keep it stable: a new function rebuilds the auth provider.
   onSignOut?: () => Promise<void>;
+  // Shows "Ask the agent" on contacts, companies and deals.
+  onAskAgent?: (record: CrmRecordRef) => void;
 };
 
 const THEME_STORE_KEY = "theme";
@@ -27,6 +30,7 @@ export const CrmEmbed = ({
   user,
   theme,
   onSignOut,
+  onAskAgent,
 }: CrmEmbedProps) => {
   const routerHistory = useMemo(
     () => createHostRouterHistory(history),
@@ -54,12 +58,14 @@ export const CrmEmbed = ({
 
   return (
     <HistoryRouter basename={basename} history={routerHistory}>
-      <CRM
-        dataProvider={dataProvider}
-        authProvider={authProvider}
-        store={store}
-        disableTelemetry
-      />
+      <AskAgentContext.Provider value={onAskAgent ?? null}>
+        <CRM
+          dataProvider={dataProvider}
+          authProvider={authProvider}
+          store={store}
+          disableTelemetry
+        />
+      </AskAgentContext.Provider>
     </HistoryRouter>
   );
 };

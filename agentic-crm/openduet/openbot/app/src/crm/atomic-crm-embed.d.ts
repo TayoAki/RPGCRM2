@@ -5,12 +5,19 @@ declare module "atomic-crm/embed" {
   import type { ComponentType } from "react";
   import type { AuthenticatedUser } from "@/lib/auth/queries";
 
+  export type CrmRecordRef = {
+    resource: "contacts" | "companies" | "deals";
+    id: number;
+    title: string;
+  };
+
   export type CrmEmbedProps = {
     basename: string;
     history: RouterHistory;
     user: Pick<AuthenticatedUser, "id" | "email" | "name" | "image" | "role">;
     theme: "light" | "dark";
     onSignOut?: () => Promise<void>;
+    onAskAgent?: (record: CrmRecordRef) => void;
   };
 
   export const CrmEmbed: ComponentType<CrmEmbedProps>;

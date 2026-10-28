@@ -1,12 +1,17 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { lazy, Suspense, useCallback } from "react";
+import type { CrmRecordRef } from "atomic-crm/embed";
+import { lazy, Suspense, useCallback, useState } from "react";
+import { NewTaskSheet } from "@/components/shell/new-task-sheet";
 import { usePageChrome } from "@/components/shell/page-chrome";
 import { useTheme } from "@/components/theme-provider";
 import { signOutMutationOptions } from "@/lib/auth/mutations";
+import { primaryBot } from "@/lib/agents/primary-bot";
+import { agentListQueryOptions } from "@/lib/agents/queries";
 import { currentUserQueryOptions } from "@/lib/auth/queries";
 import { deploymentCapabilitiesQueryOptions } from "@/lib/deployment/queries";
 import { queryClient } from "@/query-client";
+import { askAgentContext } from "./ask-agent";
 import "./crm-screen.css";
 
 const CrmEmbed = lazy(() =>
@@ -27,6 +32,8 @@ export function CrmScreen() {
   const navigate = useNavigate();
   const { data: user } = useQuery(currentUserQueryOptions());
   const { data: capabilities } = useQuery(deploymentCapabilitiesQueryOptions());
+  const bot = primaryBot(useQuery(agentListQueryOptions()).data);
+  const [asking, setAsking] = useState<CrmRecordRef | null>(null);
   const { mutateAsync: signOut } = useMutation(
     signOutMutationOptions(queryClient),
   );
@@ -48,10 +55,25 @@ export function CrmScreen() {
               ? signOutAndLeave
               : undefined
           }
+          onAskAgent={bot ? setAsking : undefined}
           theme={resolved}
           user={user}
         />
       </Suspense>
+      {asking && bot ? (
+        <NewTaskSheet
+          bot={bot}
+          instructionPrefix={askAgentContext(asking)}
+          onAdded={(where, task) => {
+            setAsking(null);
+            void (where === "active" && task
+              ? navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })
+              : navigate({ to: "/tasks" }));
+          }}
+          onClose={() => setAsking(null)}
+          question={`What should ${bot.name} do about ${asking.title || "this"}?`}
+        />
+      ) : null}
     </div>
   );
 }

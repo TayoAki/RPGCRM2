@@ -136,7 +136,8 @@ export const deals = crm.table(
     categories: text().array(),
     stage: text().notNull(),
     description: text(),
-    amount: bigint({ mode: "number" }),
+    // The deal screens format it as a number; the form requires it, imports and the agent may not set it.
+    amount: bigint({ mode: "number" }).notNull().default(0),
     created_at: createdAt(),
     updated_at: createdAt(),
     archived_at: moment(),

@@ -19,6 +19,7 @@ import type { Company } from "../types";
 import { getTranslatedCompanySizeLabel } from "./getTranslatedCompanySizeLabel";
 import { sizes } from "./sizes";
 import { useGetSalesName } from "../sales/useGetSalesName";
+import { AskAgentButton } from "../../../embed/askAgent";
 
 interface CompanyAsideProps {
   link?: string;
@@ -37,6 +38,7 @@ export const CompanyAside = ({ link = "edit" }: CompanyAsideProps) => {
         ) : (
           <ShowButton label={translate("resources.companies.action.show")} />
         )}
+        <AskAgentButton resource="companies" />
       </div>
 
       <CompanyInfo record={record} />
