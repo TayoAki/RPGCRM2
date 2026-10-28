@@ -12,7 +12,7 @@ function fakeApi(answer: (sent: Sent) => { status?: number; body: unknown }) {
     const request = {
       url: new URL(input, "http://crm.test"),
       method: init?.method ?? "GET",
-      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+      body: typeof init?.body === "string" ? JSON.parse(init.body) : init?.body,
     };
     sent.push(request);
     const { status = 200, body } = answer(request);
@@ -112,11 +112,22 @@ describe("createHostDataProvider", () => {
     expect(data[0]).not.toHaveProperty("contact_note");
   });
 
-  it("sends a note's attached file inside the note", async () => {
-    const { sent, dataProvider } = fakeApi(({ body }) => ({
-      status: 201,
-      body: { data: { id: 9, ...body } },
-    }));
+  it("uploads a note's attached file and keeps a link to it in the note", async () => {
+    const { sent, dataProvider } = fakeApi(({ url, body }) =>
+      url.pathname === "/api/crm/files"
+        ? {
+            status: 201,
+            body: {
+              data: {
+                src: "/api/crm/files/f1",
+                title: "notes.txt",
+                type: "text/plain",
+                path: "f1",
+              },
+            },
+          }
+        : { status: 201, body: { data: { id: 9, ...body } } },
+    );
 
     await dataProvider.create("contact_notes", {
       data: {
@@ -132,11 +143,16 @@ describe("createHostDataProvider", () => {
       },
     });
 
-    expect(sent[0].body.attachments).toEqual([
+    expect(sent.map((request) => request.url.pathname)).toEqual([
+      "/api/crm/files",
+      "/api/crm/contact_notes",
+    ]);
+    expect(sent[1].body.attachments).toEqual([
       {
-        src: "data:text/plain;base64,aGVsbG8=",
+        src: "/api/crm/files/f1",
         title: "notes.txt",
         type: "text/plain",
+        path: "f1",
       },
     ]);
   });

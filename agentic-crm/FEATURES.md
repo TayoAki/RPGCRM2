@@ -36,7 +36,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 | B4 | Global search | MVP | Atomic | Done | Postgres full-text search, prefix matching. Add indexes when data grows |
 | B5 | CSV import and export | MVP | Atomic | In progress | Check against the real API |
 | B6 | Activity log | MVP | Atomic | Done | |
-| B7 | Attachments on notes | MVP | Atomic | In progress | Stored inside the note for now, up to 7 MB; move to S3 or local disk |
+| B7 | Attachments on notes | MVP | Atomic | Done | Stored in Postgres (`crm.files`), up to 20 MB each, downloads need sign-in; also company logos and avatars |
 | B8 | Merge duplicate contacts | P1 | Atomic | Not started | The merge button says it isn't available yet |
 | B9 | Capture emails sent or forwarded to the CRM | Out | Atomic | Dropped | Replaced by C4 (the agent reads the mailbox) |
 

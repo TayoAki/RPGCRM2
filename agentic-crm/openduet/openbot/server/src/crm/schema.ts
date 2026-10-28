@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { users } from "../db/schema";
 
@@ -26,6 +27,10 @@ export const crm = pgSchema("crm");
 const json = customType<{ data: unknown; driverData: unknown }>({
   dataType: () => "jsonb",
   toDriver: (value) => value,
+});
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => "bytea",
 });
 
 const id = () =>
@@ -83,8 +88,9 @@ export const contacts = crm.table(
     title: text(),
     background: text(),
     avatar: json(),
-    first_seen: moment(),
-    last_seen: moment(),
+    // Defaults for contacts made outside the form (the API, the agent); the form sets both.
+    first_seen: moment().defaultNow(),
+    last_seen: moment().defaultNow(),
     has_newsletter: boolean(),
     status: text(),
     tags: bigint({ mode: "number" }).array(),
@@ -172,6 +178,17 @@ export const tasks = crm.table(
   },
   (table) => [index("tasks_contact_id_idx").on(table.contact_id)],
 );
+
+// Attachments, logos and avatars. In Postgres like OpenDuet's own attachments: one database, one backup.
+export const files = crm.table("files", {
+  id: uuid().primaryKey().defaultRandom(),
+  name: text().notNull(),
+  mime_type: text().notNull(),
+  size: integer().notNull(),
+  content: bytea().notNull(),
+  sales_id: reference().references(() => sales.id),
+  created_at: createdAt(),
+});
 
 export const configuration = crm.table("configuration", {
   id: integer().primaryKey().default(1),

@@ -97,7 +97,7 @@ Covers A1 to A6, A8, B1 to B7, C1 to C5, G6 and H4.
   - Companies, contacts, deals, tasks and notes on real data (B1, B2), global search (B4) and the activity log (B6).
   - Checked in a browser with two people.
 - **Next, in this order:**
-  1. File storage for attachments (B7).
+  1. ~~File storage for attachments (B7).~~ Done.
   2. Check CSV import and export (B5) and bulk tagging (B3) against the real API.
   3. Remove Supabase and the fake-data generator from the CRM's bundle, and hide the CRM's own theme switch and Logout.
   4. The agent work (C1 to C5).

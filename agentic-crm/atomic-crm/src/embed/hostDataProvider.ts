@@ -29,7 +29,7 @@ export const CRM_API = "/api/crm";
 /**
  * Atomic CRM's data provider for the host's CRM API (/api/crm on OpenDuet's server), replacing the
  * Supabase one. The API speaks the same filter language, so the screens and their filters are
- * unchanged. Files travel inline as data URLs until the CRM has file storage.
+ * unchanged. Files go to the API's file store and records keep links to them.
  */
 export function createHostDataProvider(
   fetchImpl: Fetch = (...args) => fetch(...args),
@@ -213,11 +213,41 @@ export function createHostDataProvider(
     },
   };
 
+  // Files go to the CRM's file store first; the record keeps a link to them, as Atomic's did.
+  const storeFile: StoreFile = async (file) => {
+    if (!file?.rawFile || !(file.rawFile instanceof Blob)) return file;
+    const { rawFile, ...rest } = file;
+    const form = new FormData();
+    form.set(
+      "file",
+      rawFile,
+      rawFile instanceof File ? rawFile.name : (rest.title ?? "file"),
+    );
+    const response = await fetchImpl(`${CRM_API}/files`, {
+      method: "POST",
+      credentials: "same-origin",
+      body: form,
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new HttpError(
+        body.error ?? response.statusText,
+        response.status,
+        body,
+      );
+    }
+    return { ...rest, ...body.data, title: rest.title ?? body.data.title };
+  };
+
   return withLifecycleCallbacks(
     crmDataProvider,
-    lifecycleCallbacks,
+    lifecycleCallbacks(storeFile),
   ) as unknown as CrmDataProvider;
 }
+
+type StoreFile = <TFile extends Partial<RAFile> | undefined | null>(
+  file: TFile,
+) => Promise<TFile>;
 
 // Atomic's `applyFullTextSearch`: the search box's words, against the columns that resource shows.
 const searchIn = (columns: string[]) => (params: GetListParams) => {
@@ -237,31 +267,13 @@ const searchIn = (columns: string[]) => (params: GetListParams) => {
   };
 };
 
-const readAsDataUrl = (file: Blob): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-async function inlineFile<T extends Partial<RAFile> | undefined | null>(
-  file: T,
-): Promise<T> {
-  if (!file?.rawFile || !(file.rawFile instanceof Blob)) return file;
-  const { rawFile, ...rest } = file;
-  return {
-    ...rest,
-    src: await readAsDataUrl(rawFile),
-    type: rawFile.type,
-  } as T;
-}
-
-const inlineAttachments = async (data: Json) =>
+const storeAttachments = (storeFile: StoreFile) => async (data: Json) =>
   data.attachments
     ? {
         ...data,
-        attachments: await Promise.all(data.attachments.map(inlineFile)),
+        attachments: await Promise.all(
+          data.attachments.map((file: Partial<RAFile>) => storeFile(file)),
+        ),
       }
     : data;
 
@@ -274,21 +286,21 @@ const withContactAvatar = async <TParams extends { data: Json }>(
   return src ? { ...params, data: { ...data, avatar: { src } } } : params;
 };
 
-const withCompanyLogo = async <TParams extends { data: Json }>(
-  params: TParams,
-): Promise<TParams> => {
-  const logo = params.data.logo?.rawFile
-    ? await inlineFile(params.data.logo)
-    : (params.data.logo ?? (await getCompanyAvatar(params.data)));
-  return { ...params, data: { ...params.data, logo } };
-};
+const withCompanyLogo =
+  (storeFile: StoreFile) =>
+  async <TParams extends { data: Json }>(params: TParams): Promise<TParams> => {
+    const logo = params.data.logo?.rawFile
+      ? await storeFile(params.data.logo)
+      : (params.data.logo ?? (await getCompanyAvatar(params.data)));
+    return { ...params, data: { ...params.data, logo } };
+  };
 
-const configLogo = async (logo: unknown) =>
+const configLogo = async (storeFile: StoreFile, logo: unknown) =>
   typeof logo === "string"
     ? logo
-    : ((await inlineFile(logo as RAFile))?.src ?? "");
+    : ((await storeFile(logo as RAFile))?.src ?? "");
 
-const lifecycleCallbacks: ResourceCallbacks[] = [
+const lifecycleCallbacks = (storeFile: StoreFile): ResourceCallbacks[] => [
   {
     resource: "contacts",
     beforeGetList: async (params) =>
@@ -320,8 +332,8 @@ const lifecycleCallbacks: ResourceCallbacks[] = [
         "city",
         "state_abbr",
       ])(params),
-    beforeCreate: withCompanyLogo,
-    beforeUpdate: withCompanyLogo,
+    beforeCreate: withCompanyLogo(storeFile),
+    beforeUpdate: withCompanyLogo(storeFile),
   },
   {
     resource: "deals",
@@ -337,10 +349,10 @@ const lifecycleCallbacks: ResourceCallbacks[] = [
     beforeGetList: async (params) =>
       searchIn(["first_name", "last_name"])(params),
     beforeSave: async (data: RaRecord) =>
-      data.avatar ? { ...data, avatar: await inlineFile(data.avatar) } : data,
+      data.avatar ? { ...data, avatar: await storeFile(data.avatar) } : data,
   },
-  { resource: "contact_notes", beforeSave: inlineAttachments },
-  { resource: "deal_notes", beforeSave: inlineAttachments },
+  { resource: "contact_notes", beforeSave: storeAttachments(storeFile) },
+  { resource: "deal_notes", beforeSave: storeAttachments(storeFile) },
   {
     resource: "configuration",
     beforeUpdate: async (params) => {
@@ -352,8 +364,8 @@ const lifecycleCallbacks: ResourceCallbacks[] = [
           ...params.data,
           config: {
             ...config,
-            lightModeLogo: await configLogo(config.lightModeLogo),
-            darkModeLogo: await configLogo(config.darkModeLogo),
+            lightModeLogo: await configLogo(storeFile, config.lightModeLogo),
+            darkModeLogo: await configLogo(storeFile, config.darkModeLogo),
           },
         },
       };

@@ -4,6 +4,7 @@ import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { AppVariables } from "../auth/guards";
 import type { Database } from "../db/client";
+import { fileResponse, MAX_CRM_FILE_BYTES, storeFile } from "./files";
 import { CrmQueryError, listQuery, MAX_PAGE_SIZE } from "./filters";
 import { CRM_RESOURCES, type CrmResource } from "./resources";
 import { type Sale, saleFor } from "./sales";
@@ -12,8 +13,8 @@ import { globalSearch, SEARCH_RESOURCES, type SearchResource } from "./search";
 type Variables = { Variables: AppVariables };
 type Row = Record<string, unknown>;
 
-// Attachments travel inside the record as data URLs until they move to file storage.
-const MAX_BODY_BYTES = 10 * 1024 * 1024;
+const MAX_RECORD_BYTES = 1024 * 1024;
+const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
 
 // A non-admin may change these on their own CRM user, from the profile page.
 const OWN_PROFILE_FIELDS = new Set(["first_name", "last_name", "avatar"]);
@@ -48,16 +49,21 @@ export function createCrmRoutes(deps: {
   const { database } = deps;
   const routes = new Hono<Variables>();
   routes.use("*", deps.requireUser);
-  routes.use(
-    "*",
-    bodyLimit({
-      maxSize: MAX_BODY_BYTES,
-      onError: (context) =>
-        context.json(
-          { error: "That's too large. Keep files under 7 MB." },
-          413,
-        ),
-    }),
+  const recordLimit = bodyLimit({
+    maxSize: MAX_RECORD_BYTES,
+    onError: (context) =>
+      context.json({ error: "That's too large to save." }, 413),
+  });
+  const fileLimit = bodyLimit({
+    maxSize: MAX_CRM_FILE_BYTES + MULTIPART_OVERHEAD_BYTES,
+    onError: (context) =>
+      context.json({ error: "Files must be 20 MB or smaller." }, 413),
+  });
+  routes.use("*", (context, next) =>
+    (context.req.path.endsWith("/files") ? fileLimit : recordLimit)(
+      context,
+      next,
+    ),
   );
 
   const sale = (context: Context<Variables>) =>
@@ -124,6 +130,26 @@ export function createCrmRoutes(deps: {
       ),
     });
   });
+
+  routes.post("/files", async (context) => {
+    const form = await context.req.formData().catch(() => null);
+    const file = form?.get("file");
+    if (!(file instanceof File)) {
+      return context.json({ error: "Send a file in the 'file' field." }, 400);
+    }
+    if (file.size > MAX_CRM_FILE_BYTES) {
+      return context.json({ error: "Files must be 20 MB or smaller." }, 413);
+    }
+    const stored = await storeFile(database, file, (await sale(context)).id);
+    return context.json({ data: stored }, 201);
+  });
+
+  routes.get(
+    "/files/:id",
+    async (context) =>
+      (await fileResponse(database, context.req.param("id"))) ??
+      context.json({ error: "Not found." }, 404),
+  );
 
   routes.get("/:resource", async (context) => {
     const resource = resourceOf(context);

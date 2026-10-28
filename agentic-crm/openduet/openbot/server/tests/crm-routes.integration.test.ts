@@ -135,6 +135,7 @@ test("in, contains, comparison and null filters narrow the list", async () => {
   const plain = await create("contacts", {
     first_name: "Plain",
     last_name: `Filter${run}`,
+    last_seen: null,
   });
   const ours = { "last_name@ilike": `filter${run}` };
 
@@ -161,7 +162,11 @@ test("sorting newest first puts records with no date last, and pages count the w
     last_name: `Sorted${run}`,
     last_seen: "2026-02-01T00:00:00Z",
   });
-  await create("contacts", { first_name: "B", last_name: `Sorted${run}` });
+  await create("contacts", {
+    first_name: "B",
+    last_name: `Sorted${run}`,
+    last_seen: null,
+  });
   await create("contacts", {
     first_name: "C",
     last_name: `Sorted${run}`,
@@ -259,6 +264,7 @@ test("a note on a contact moves the contact's last seen forward", async () => {
   const contact = await create("contacts", {
     first_name: "Noted",
     last_name: `Seen${run}`,
+    last_seen: "2026-01-01T00:00:00Z",
   });
   await create("contact_notes", {
     contact_id: contact.id,
@@ -374,4 +380,97 @@ test("a contact form with empty phone numbers and no tags saves", async () => {
 
   expect(status).toBe(201);
   expect(json.data).toMatchObject({ phone_jsonb: null, tags: [] });
+});
+
+const PNG_BYTES = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0,
+]);
+
+async function upload(file: File) {
+  const form = new FormData();
+  form.set("file", file);
+  const response = await routes.request("/files", {
+    method: "POST",
+    body: form,
+  });
+  return { status: response.status, json: (await response.json()) as Json };
+}
+
+const download = (src: unknown) =>
+  routes.request(String(src).replace("/api/crm", ""));
+
+test("an uploaded picture opens in the page, and an uploaded web page only downloads", async () => {
+  const picture = await upload(
+    new File([PNG_BYTES], "logo.png", { type: "image/png" }),
+  );
+  const page = await upload(
+    new File(["<script>alert(1)</script>"], "trap.html", { type: "text/html" }),
+  );
+
+  const pictureResponse = await download((picture.json.data as Json).src);
+  const pageResponse = await download((page.json.data as Json).src);
+
+  expect(picture.status).toBe(201);
+  expect(pictureResponse.headers.get("content-type")).toBe("image/png");
+  expect(pictureResponse.headers.get("content-disposition")).toBe("inline");
+  expect(pageResponse.headers.get("content-disposition")).toStartWith(
+    "attachment",
+  );
+  expect(pageResponse.headers.get("x-content-type-options")).toBe("nosniff");
+  expect(pageResponse.headers.get("content-security-policy")).toContain(
+    "sandbox",
+  );
+  expect(await pageResponse.text()).toBe("<script>alert(1)</script>");
+});
+
+test("a file taken off a note, or on a deleted note, is deleted too", async () => {
+  const contact = await create("contacts", {
+    first_name: "Files",
+    last_name: `Owner${run}`,
+  });
+  const kept = (
+    await upload(new File(["keep"], "keep.txt", { type: "text/plain" }))
+  ).json.data as Json;
+  const dropped = (
+    await upload(new File(["drop"], "drop.txt", { type: "text/plain" }))
+  ).json.data as Json;
+  const note = await create("contact_notes", {
+    contact_id: contact.id,
+    text: "Two files",
+    attachments: [kept, dropped],
+  });
+
+  await call("PUT", `/contact_notes/${note.id}`, { attachments: [kept] });
+  const afterEdit = [
+    (await download(kept.src)).status,
+    (await download(dropped.src)).status,
+  ];
+  await call("DELETE", `/contact_notes/${note.id}`);
+  const afterDelete = (await download(kept.src)).status;
+
+  expect(afterEdit).toEqual([200, 404]);
+  expect(afterDelete).toBe(404);
+});
+
+test("a file over 20 MB is refused", async () => {
+  const { status } = await upload(
+    new File([new Uint8Array(21 * 1024 * 1024)], "huge.bin", {
+      type: "application/octet-stream",
+    }),
+  );
+
+  expect(status).toBe(413);
+});
+
+test("a contact made through the API is first and last seen now", async () => {
+  const before = Date.now();
+  const contact = await create("contacts", {
+    first_name: "Api",
+    last_name: `Made${run}`,
+  });
+
+  expect(new Date(String(contact.first_seen)).getTime()).toBeGreaterThanOrEqual(
+    before - 5000,
+  );
+  expect(contact.last_seen).toBe(contact.first_seen);
 });
