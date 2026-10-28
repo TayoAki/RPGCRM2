@@ -165,37 +165,52 @@ export function whereOf(columns: Columns, filter: unknown): SQL | undefined {
   return parts.length ? and(...parts) : undefined;
 }
 
-export function listQuery(
-  columns: Columns,
-  params: URLSearchParams,
-): ListQuery {
-  let filter: unknown;
+export type ListParams = {
+  filter?: unknown;
+  sort?: string | null;
+  order?: string | null;
+  page?: number | string | null;
+  perPage?: number | string | null;
+};
+
+// The list parameters of a URL, as react-admin's data provider sends them.
+export function listParamsFrom(search: URLSearchParams): ListParams {
   try {
-    filter = JSON.parse(params.get("filter") ?? "{}");
+    return {
+      filter: JSON.parse(search.get("filter") ?? "{}"),
+      sort: search.get("sort"),
+      order: search.get("order"),
+      page: search.get("page"),
+      perPage: search.get("perPage"),
+    };
   } catch {
     throw new CrmQueryError("The filter is not valid JSON.");
   }
+}
 
+const whole = (value: number | string | null | undefined, fallback: number) =>
+  Number.parseInt(String(value ?? fallback), 10) || fallback;
+
+export function listQuery(columns: Columns, params: ListParams): ListQuery {
   const orderBy: SQL[] = [];
-  const sort = params.get("sort");
-  if (sort) {
-    const column = columns[sort];
-    if (!column) throw new CrmQueryError(`Unknown sort field: ${sort}`);
+  if (params.sort) {
+    const column = columns[params.sort];
+    if (!column) throw new CrmQueryError(`Unknown sort field: ${params.sort}`);
     orderBy.push(
-      params.get("order")?.toUpperCase() === "DESC"
+      params.order?.toUpperCase() === "DESC"
         ? sql`${column} desc nulls last`
         : asc(column),
     );
   }
 
-  const page = Math.max(1, Number.parseInt(params.get("page") ?? "1", 10) || 1);
+  const page = Math.max(1, whole(params.page, 1));
   const perPage = Math.min(
     MAX_PAGE_SIZE,
-    Math.max(1, Number.parseInt(params.get("perPage") ?? "25", 10) || 25),
+    Math.max(1, whole(params.perPage, 25)),
   );
 
   return {
-    where: whereOf(columns, filter),
+    where: whereOf(columns, params.filter),
     orderBy,
     limit: perPage,
     offset: (page - 1) * perPage,

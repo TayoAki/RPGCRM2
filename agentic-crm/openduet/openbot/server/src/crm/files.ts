@@ -1,7 +1,7 @@
 import { classifyAttachment } from "@openbot/shared/attachments";
 import { eq } from "drizzle-orm";
-import { contentDispositionFilename } from "../channels/attachments";
 import { sniffMimeType } from "../channels/attachment-mime";
+import { contentDispositionFilename } from "../channels/attachments";
 import type { Database } from "../db/client";
 import { files } from "./schema";
 
