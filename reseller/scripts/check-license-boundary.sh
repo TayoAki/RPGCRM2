@@ -7,7 +7,7 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-vendor_commit=$(git log -n1 --format=%H --grep='^Vendor-Snapshot: ' HEAD)
+vendor_commit=$(git log -n1 --format=%H --grep='^Vendor-Snapshot: twentyhq/twenty@' HEAD)
 if [ -z "$vendor_commit" ]; then
   echo "No vendor snapshot commit found (see reseller/scripts/sync-upstream.sh)." >&2
   exit 1

@@ -50,7 +50,7 @@ has_head=false
 previous_vendor_commit=""
 if git rev-parse -q --verify HEAD >/dev/null; then
   has_head=true
-  previous_vendor_commit=$(git log -n1 --format=%H --grep="^${TRAILER}: " HEAD)
+  previous_vendor_commit=$(git log -n1 --format=%H --grep="^${TRAILER}: twentyhq/twenty@" HEAD)
 fi
 
 if [ -n "$previous_vendor_commit" ] &&
