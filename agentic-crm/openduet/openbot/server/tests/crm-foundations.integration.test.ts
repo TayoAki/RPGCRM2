@@ -181,6 +181,10 @@ test("emails and stage history are read-only through the API", async () => {
 });
 
 test("contacts list their lifecycle stage, lead source and custom fields", async () => {
+  await call("POST", "/metadata/objects/contacts/fields", {
+    label: "Budget",
+    type: "currency",
+  });
   await create("contacts", {
     first_name: "Cleo",
     last_name: `Client${run}`,

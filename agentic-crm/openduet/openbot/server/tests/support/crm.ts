@@ -1,6 +1,7 @@
 import { inArray, sql } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import type { AppVariables } from "../../src/auth/guards";
+import { createMetadata } from "../../src/crm/metadata";
 import { createCrmRoutes } from "../../src/crm/routes";
 import type { Database } from "../../src/db/client";
 import { users } from "../../src/db/schema";
@@ -90,6 +91,7 @@ export function crmTestClient(
         .data as Json;
     },
     async setUp() {
+      await createMetadata(database).installStandard();
       await database.insert(users).values([
         { ...people.admin, emailVerified: false },
         { ...people.member, emailVerified: false },

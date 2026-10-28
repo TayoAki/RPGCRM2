@@ -62,6 +62,8 @@ export const sales = crm.table(
     avatar: json(),
     disabled: boolean().notNull().default(false),
     secondary_emails: json().notNull().default([]),
+    // No role: everything but administering. See crm.roles.
+    role_id: bigint({ mode: "number" }).references(() => roles.id, setNull),
   },
   (table) => [uniqueIndex("sales_user_id_idx").on(table.user_id)],
 );
@@ -575,4 +577,116 @@ export const workflowFirings = crm.table(
       table.moment,
     ),
   ],
+);
+
+/*
+ * The data model, described: every object (the standard ones and those an admin adds) and its
+ * fields. Standard fields are the tables' own columns; custom fields live in each record's
+ * custom_fields, and custom objects' records in crm.records.
+ */
+export const objects = crm.table("objects", {
+  name: text().primaryKey(),
+  label_singular: text().notNull(),
+  label_plural: text().notNull(),
+  description: text().notNull().default(""),
+  icon: text(),
+  standard: boolean().notNull().default(false),
+  // Shown as a tab in the CRM's header.
+  in_navigation: boolean().notNull().default(true),
+  created_at: createdAt(),
+  updated_at: updatedAt(),
+});
+
+export const fields = crm.table(
+  "fields",
+  {
+    id: id(),
+    object: text()
+      .notNull()
+      .references(() => objects.name, cascade),
+    name: text().notNull(),
+    label: text().notNull(),
+    // text, long_text, number, currency, date, datetime, boolean, select, multi_select, email,
+    // phone, url, rating, relation
+    type: text().notNull(),
+    // Choices for selects, the target object of a relation.
+    options: json().notNull().default({}),
+    required: boolean().notNull().default(false),
+    position: integer().notNull().default(0),
+    standard: boolean().notNull().default(false),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("fields_object_name_idx").on(table.object, table.name),
+  ],
+);
+
+// Records of custom objects. A custom object's title is its "name" field.
+export const records = crm.table(
+  "records",
+  {
+    id: id(),
+    object: text()
+      .notNull()
+      .references(() => objects.name, cascade),
+    data: json().notNull().default({}),
+    sales_id: reference().references(() => sales.id),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+  },
+  (table) => [
+    index("records_object_idx").on(table.object),
+    index("records_data_idx").using("gin", table.data),
+  ],
+);
+
+// Notes on custom objects' records (contacts and deals keep their own).
+export const recordNotes = crm.table(
+  "record_notes",
+  {
+    id: id(),
+    record_id: reference()
+      .notNull()
+      .references(() => records.id, cascade),
+    text: text(),
+    date: moment().default(now),
+    sales_id: reference().references(() => sales.id),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+  },
+  (table) => [index("record_notes_record_id_idx").on(table.record_id)],
+);
+
+/*
+ * Roles: what people may do, per object (read, create, update, delete, for all records or only
+ * their own) and per field (hidden or read-only). Admins can do everything; people with no role
+ * can do everything but administer.
+ */
+export const roles = crm.table("roles", {
+  id: id(),
+  name: text().notNull(),
+  description: text().notNull().default(""),
+  rules: json().notNull().default({}),
+  created_at: createdAt(),
+  updated_at: updatedAt(),
+});
+
+// Saved views: a list's filters, sort, columns and layout, for one person or everybody.
+export const views = crm.table(
+  "views",
+  {
+    id: id(),
+    object: text().notNull(),
+    name: text().notNull(),
+    // table, kanban, calendar
+    type: text().notNull().default("table"),
+    config: json().notNull().default({}),
+    shared: boolean().notNull().default(false),
+    sales_id: reference().references(() => sales.id, cascade),
+    position: integer().notNull().default(0),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+  },
+  (table) => [index("views_object_idx").on(table.object)],
 );

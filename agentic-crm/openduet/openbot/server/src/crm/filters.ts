@@ -27,7 +27,8 @@ import {
 
 export class CrmQueryError extends Error {}
 
-export type Columns = Record<string, Column>;
+// A resource's own columns, or SQL for a custom field (records.ts).
+export type Columns = Record<string, Column | SQL>;
 
 export type ListQuery = {
   where: SQL | undefined;
@@ -95,7 +96,8 @@ function conditions(columns: Columns, key: string, value: unknown): SQL[] {
   const at = key.indexOf("@");
   const field = at === -1 ? key : key.slice(0, at);
   const operator = at === -1 ? undefined : key.slice(at + 1);
-  const column = columns[field];
+  // A custom field is SQL, not a column; drizzle's operators take either.
+  const column = columns[field] as Column | undefined;
   if (!column) throw new CrmQueryError(`Unknown field: ${field}`);
 
   switch (operator) {
@@ -194,7 +196,7 @@ const whole = (value: number | string | null | undefined, fallback: number) =>
 export function listQuery(columns: Columns, params: ListParams): ListQuery {
   const orderBy: SQL[] = [];
   if (params.sort) {
-    const column = columns[params.sort];
+    const column = columns[params.sort] as Column | undefined;
     if (!column) throw new CrmQueryError(`Unknown sort field: ${params.sort}`);
     orderBy.push(
       params.order?.toUpperCase() === "DESC"

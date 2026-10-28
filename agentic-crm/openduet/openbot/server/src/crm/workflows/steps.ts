@@ -281,7 +281,8 @@ const EXECUTORS: {
     const companyName = field(step.company_name);
     const existing = await findContactByEmail(deps.database, email);
     if (existing) {
-      const current = (await deps.records.get("contacts", existing)) ?? {};
+      const current =
+        (await deps.records.get(run.actor, "contacts", existing)) ?? {};
       // Fills what is missing; never overwrites what a person entered.
       const missing = Object.fromEntries(
         Object.entries(values).filter(([key, value]) => value && !current[key]),

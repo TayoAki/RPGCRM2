@@ -7,6 +7,7 @@ import { fileResponse, MAX_CRM_FILE_BYTES, storeFile } from "./files";
 import { CrmQueryError, listParamsFrom } from "./filters";
 import type { CrmMail } from "./mail";
 import { createMailRoutes } from "./mail-routes";
+import { createModelRoutes } from "./model-routes";
 import { CrmRefusal, createCrmRecords } from "./records";
 import { globalSearch, SEARCH_RESOURCES, type SearchResource } from "./search";
 import {
@@ -70,6 +71,7 @@ export function createCrmRoutes(deps: {
   }
   if (deps.automation)
     routes.route("/", createAutomationRoutes(deps.automation));
+  routes.route("/", createModelRoutes({ database, records }));
 
   routes.get("/me", async (context) =>
     context.json({ data: await records.sale(context.var.actor) }),
@@ -91,6 +93,7 @@ export function createCrmRoutes(deps: {
         context.req.query("q") ?? "",
         requested.length ? requested : SEARCH_RESOURCES,
         limit,
+        await records.accessFor(context.var.actor),
       ),
     });
   });
@@ -121,6 +124,7 @@ export function createCrmRoutes(deps: {
   routes.get("/:resource", async (context) =>
     context.json(
       await records.list(
+        context.var.actor,
         context.req.param("resource"),
         listParamsFrom(new URL(context.req.url).searchParams),
       ),
@@ -129,6 +133,7 @@ export function createCrmRoutes(deps: {
 
   routes.get("/:resource/:id", async (context) => {
     const row = await records.get(
+      context.var.actor,
       context.req.param("resource"),
       parseId(context.req.param("id")),
     );

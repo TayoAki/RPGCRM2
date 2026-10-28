@@ -50,8 +50,8 @@ export function createAutomationRoutes(deps: AutomationDeps) {
     const { mine, shared } = await deps.mail.mailboxesFor(
       (await records.sale(context.var.actor)).id,
     );
-    const config = ((await records.get("configuration", 1))?.config ??
-      {}) as Record<string, unknown>;
+    const config = ((await records.get(context.var.actor, "configuration", 1))
+      ?.config ?? {}) as Record<string, unknown>;
     const listOr = (value: unknown, fallback: string[]) =>
       Array.isArray(value) && value.length ? value : fallback;
     return context.json({

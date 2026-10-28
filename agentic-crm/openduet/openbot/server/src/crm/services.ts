@@ -93,6 +93,7 @@ export function createCrmServices(deps: {
     workflows,
     automation,
     async start() {
+      await records.metadata.installStandard();
       await workflows.installRecipes();
       loops = [
         repeatAfterEach(

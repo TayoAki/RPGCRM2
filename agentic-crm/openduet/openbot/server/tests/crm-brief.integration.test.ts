@@ -129,9 +129,13 @@ test("someone who has never opened the CRM gets no CRM rows, and no CRM user is 
   const brief = await withCrm(database, NEWCOMER.id, empty);
 
   expect(brief).toEqual(empty);
-  const { total } = await records.list("sales", {
-    filter: { user_id: NEWCOMER.id },
-  });
+  const { total } = await records.list(
+    { service: "test", salesId: null },
+    "sales",
+    {
+      filter: { user_id: NEWCOMER.id },
+    },
+  );
   expect(total).toBe(0);
 });
 

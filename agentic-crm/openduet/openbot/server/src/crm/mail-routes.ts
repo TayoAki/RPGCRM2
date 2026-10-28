@@ -60,7 +60,7 @@ export function createMailRoutes(deps: { mail: CrmMail; records: CrmRecords }) {
   const ownEmail = async (actor: AppVariables["actor"], raw: string) => {
     const id = Number(raw);
     const email = Number.isSafeInteger(id)
-      ? await records.get("emails", id)
+      ? await records.get(actor, "emails", id)
       : undefined;
     if (!email) throw new CrmRefusal("Not found.", 404);
     if (

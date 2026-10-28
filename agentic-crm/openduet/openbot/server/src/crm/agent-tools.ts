@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, isNull, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { AuthenticatedActor } from "../auth/guards";
 import type { OpenBotRole } from "../auth/roles";
 import type { Database } from "../db/client";
@@ -13,14 +13,6 @@ import {
   createCrmRecords,
 } from "./records";
 import { CRM_RESOURCES } from "./resources";
-import {
-  companiesSummary,
-  contactNotes,
-  contactsSummary,
-  dealNotes,
-  deals,
-  tasks,
-} from "./schema";
 import { globalSearch, SEARCH_RESOURCES, type SearchResource } from "./search";
 
 /**
@@ -245,98 +237,113 @@ async function actorOf(
   return { id: userId, ...user, role: await deps.roleOf(userId) };
 }
 
-async function related(database: Database, resource: string, id: number) {
+// What a role can't see is left out, rather than failing the whole read.
+async function readable<TResult>(
+  read: () => Promise<TResult>,
+  fallback: TResult,
+) {
+  try {
+    return await read();
+  } catch (error) {
+    if (error instanceof CrmRefusal) return fallback;
+    throw error;
+  }
+}
+
+async function related(
+  records: CrmRecords,
+  actor: AuthenticatedActor,
+  resource: string,
+  id: number,
+) {
+  const rows = (name: string, filter: Record<string, unknown>, extra = {}) =>
+    readable(
+      async () =>
+        (
+          await records.list(actor, name, {
+            filter,
+            perPage: MAX_ROWS,
+            ...extra,
+          })
+        ).data,
+      [] as CrmRow[],
+    );
+  const newest = { sort: "date", order: "DESC", perPage: 10 };
   if (resource === "contacts") {
     const [notes, openTasks] = await Promise.all([
-      database
-        .select()
-        .from(contactNotes)
-        .where(eq(contactNotes.contact_id, id))
-        .orderBy(desc(contactNotes.date))
-        .limit(10),
-      database
-        .select()
-        .from(tasks)
-        .where(and(eq(tasks.contact_id, id), isNull(tasks.done_date))),
+      rows("contact_notes", { contact_id: id }, newest),
+      rows("tasks", { contact_id: id, "done_date@is": null }),
     ]);
-    return { recent_notes: notes.map(slim), open_tasks: openTasks };
+    return { recent_notes: notes.map(slim), open_tasks: openTasks.map(slim) };
   }
   if (resource === "companies") {
     const [people, companyDeals] = await Promise.all([
-      database
-        .select({
-          id: contactsSummary.id,
-          first_name: contactsSummary.first_name,
-          last_name: contactsSummary.last_name,
-          title: contactsSummary.title,
-          status: contactsSummary.status,
-        })
-        .from(contactsSummary)
-        .where(eq(contactsSummary.company_id, id))
-        .limit(MAX_ROWS),
-      database
-        .select({ id: deals.id, name: deals.name, stage: deals.stage })
-        .from(deals)
-        .where(eq(deals.company_id, id))
-        .limit(MAX_ROWS),
+      rows("contacts_summary", { company_id: id }),
+      rows("deals", { company_id: id }),
     ]);
-    return { contacts: people, deals: companyDeals };
+    return {
+      contacts: people.map(({ id, first_name, last_name, title, status }) => ({
+        id,
+        first_name,
+        last_name,
+        title,
+        status,
+      })),
+      deals: companyDeals.map(({ id, name, stage }) => ({ id, name, stage })),
+    };
   }
   if (resource === "deals") {
-    const [notes, [deal]] = await Promise.all([
-      database
-        .select()
-        .from(dealNotes)
-        .where(eq(dealNotes.deal_id, id))
-        .orderBy(desc(dealNotes.date))
-        .limit(10),
-      database
-        .select({ contact_ids: deals.contact_ids })
-        .from(deals)
-        .where(eq(deals.id, id)),
+    const deal = await records.get(actor, "deals", id);
+    const contactIds = (deal?.contact_ids as number[] | null) ?? [];
+    const [notes, people] = await Promise.all([
+      rows("deal_notes", { deal_id: id }, newest),
+      contactIds.length ? rows("contacts_summary", { id: contactIds }) : [],
     ]);
-    const contactIds = deal?.contact_ids ?? [];
-    const people = contactIds.length
-      ? await database
-          .select({
-            id: contactsSummary.id,
-            first_name: contactsSummary.first_name,
-            last_name: contactsSummary.last_name,
-          })
-          .from(contactsSummary)
-          .where(inArray(contactsSummary.id, contactIds))
-      : [];
-    return { recent_notes: notes.map(slim), contacts: people };
+    return {
+      recent_notes: notes.map(slim),
+      contacts: people.map(({ id, first_name, last_name }) => ({
+        id,
+        first_name,
+        last_name,
+      })),
+    };
   }
   return {};
 }
 
-async function findContact(database: Database, email: string) {
+async function findContact(
+  records: CrmRecords,
+  actor: AuthenticatedActor,
+  email: string,
+) {
   const address = email.trim().toLowerCase();
   const domain = address.split("@")[1] ?? "";
   const [people, companies] = await Promise.all([
-    database
-      .select()
-      .from(contactsSummary)
-      .where(
-        sql`${contactsSummary.email_jsonb} @> jsonb_build_array(jsonb_build_object('email', ${address}::text))`,
-      )
-      .limit(10),
-    domain && !FREE_MAIL.has(domain)
-      ? database
-          .select({
-            id: companiesSummary.id,
-            name: companiesSummary.name,
-            website: companiesSummary.website,
+    readable(
+      async () =>
+        (
+          await records.list(actor, "contacts_summary", {
+            filter: { "email_fts@ilike": address },
+            perPage: 10,
           })
-          .from(companiesSummary)
-          .where(
-            ilike(
-              companiesSummary.website,
-              `%${domain.replace(/[\\%_]/g, "\\$&")}%`,
-            ),
-          )
-          .limit(5)
+        ).data.filter((contact) =>
+          ((contact.email_jsonb as { email?: string }[] | null) ?? []).some(
+            (entry) => entry.email?.toLowerCase() === address,
+          ),
+        ),
+      [] as CrmRow[],
+    ),
+    domain && !FREE_MAIL.has(domain)
+      ? readable(
+          async () =>
+            (
+              await records.list(actor, "companies_summary", {
+                filter: { "website@ilike": domain },
+                perPage: 5,
+              })
+            ).data.map(({ id, name, website }) => ({ id, name, website })),
+          [] as CrmRow[],
+        )
       : [],
   ]);
   return { contacts: people.map(slim), companies };
@@ -374,19 +381,20 @@ async function run(
           query,
           wanted.length ? wanted : SEARCH_RESOURCES,
           20,
+          await records.accessFor(actor),
         ),
       );
     }
     case "find_contact":
       return typeof args.email === "string" && args.email.includes("@")
-        ? asResult(await findContact(deps.database, args.email))
+        ? asResult(await findContact(records, actor, args.email))
         : failure("Give the email address to look for.");
     case "list_records": {
       const resource = oneOf(READABLE, args.resource);
       if (!resource)
         return failure(`resource is one of ${READABLE.join(", ")}.`);
       const limit = Math.min(MAX_ROWS, Math.max(1, Number(args.limit) || 20));
-      const { data, total } = await records.list(resource, {
+      const { data, total } = await records.list(actor, resource, {
         filter: isObject(args.filter) ? args.filter : {},
         sort: typeof args.sort === "string" ? args.sort : null,
         order: args.order === "DESC" ? "DESC" : "ASC",
@@ -399,11 +407,11 @@ async function run(
       if (!resource)
         return failure(`resource is one of ${READABLE.join(", ")}.`);
       if (!Number.isSafeInteger(id)) return failure("Give the record's id.");
-      const row = await records.get(resource, id);
+      const row = await records.get(actor, resource, id);
       if (!row) return failure(`There is no ${resource} record ${id}.`);
       return asResult({
         ...slim(row),
-        ...(await related(deps.database, resource, id)),
+        ...(await related(records, actor, resource, id)),
       });
     }
     case "create_record":
