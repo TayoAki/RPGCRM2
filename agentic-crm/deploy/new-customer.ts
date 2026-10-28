@@ -67,8 +67,11 @@ KEY_ENCRYPTION_KEY=${secret()}
 AGENT_TOOL_TOKEN=${hex()}
 INITIAL_ADMIN_EMAILS=${admin}
 
+# CopilotKit Intelligence (docs/deployment.md in openduet/openbot): the managed service by default.
+INTELLIGENCE_API_URL=https://api.intelligence.copilotkit.ai
+INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.copilotkit.ai
+
 # Fill these in before the first start.
-# CopilotKit Intelligence (docs/deployment.md in openduet/openbot).
 INTELLIGENCE_API_KEY=
 # The model the assistant runs on: OPENAI_API_KEY, or another provider OpenDuet supports.
 OPENAI_API_KEY=

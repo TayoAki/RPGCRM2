@@ -103,7 +103,7 @@ Covers A1 to A6, A8, B1 to B7, C1 to C5, G6 and H4.
   2. ~~Check CSV import and export (B5) and bulk tagging (B3) against the real API.~~ Done.
   3. ~~Remove Supabase and the fake-data generator from the CRM's bundle, and hide the CRM's own theme switch.~~ Done.
   4. ~~The agent work (C1 to C5).~~ Done.
-  5. Branding (A5), the deploy kit (A6) and languages (A8).
+  5. Branding (A5), the deploy kit (A6) and languages (A8). The deploy kit is done. Branding covers the product's name, with no logo or colors yet. Languages cover the CRM's screens, while OpenDuet's screens stay English.
 
 ### Phase 2: metadata, views and permissions (about 5 to 6 weeks)
 
