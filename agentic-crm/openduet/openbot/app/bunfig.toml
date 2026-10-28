@@ -1,0 +1,4 @@
+[test]
+# The root bunfig.toml's preload, for `bun test` run from inside app/ (see server/bunfig.toml). Without
+# it Base UI's dialogs never mount and every test that opens one fails.
+preload = ["../server/scripts/test-preload.ts", "./tests/preload.ts"]

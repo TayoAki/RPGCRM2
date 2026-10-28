@@ -36,6 +36,12 @@ describe("bunfig preload", () => {
     );
   });
 
+  test("the root and app configs preload the same scripts", () => {
+    expect(
+      preloadedScripts(resolve(repositoryRoot, "app", "bunfig.toml")),
+    ).toEqual(preloadedScripts(rootBunfig));
+  });
+
   test("every preloaded script exists", () => {
     const scripts = preloadedScripts(rootBunfig);
 
