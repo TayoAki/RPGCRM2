@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCanAccess, useGetList, useNotify, useUpdate } from "ra-core";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -135,9 +134,6 @@ export const RolesPage = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link to="/settings/data-model">Data model</Link>
-          </Button>
           <Button onClick={() => setEditing("new")}>
             <Plus className="size-4" />
             New role

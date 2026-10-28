@@ -51,12 +51,15 @@ const BOARD_SIZE = 500;
 const MONTH_SIZE = 1000;
 
 type ViewType = SavedView["type"];
+const LAYOUTS: ViewType[] = ["table", "kanban", "calendar"];
 
 type ObjectListProps = {
   object: ObjectDefinition;
   fields: FieldDefinition[];
   access: ObjectAccess | undefined;
   view: SavedView | undefined;
+  // The layout a link asked for (?layout=kanban), when no saved view says.
+  layout: ViewType | undefined;
   views: SavedView[];
   onView: (id: number | null) => void;
 };
@@ -66,6 +69,7 @@ const ObjectList = ({
   fields,
   access,
   view,
+  layout,
   views,
   onView,
 }: ObjectListProps) => {
@@ -76,7 +80,7 @@ const ObjectList = ({
     (field) => field.type === "date" || field.type === "datetime",
   );
   const groupFields = fields.filter(groupable);
-  const [type, setType] = useState<ViewType>(view?.type ?? "table");
+  const [type, setType] = useState<ViewType>(view?.type ?? layout ?? "table");
   const [rows, setRows] = useState<FilterRow[]>(() =>
     rowsOf(config.filter, fields, custom),
   );
@@ -405,9 +409,11 @@ export const ObjectListPage = () => {
   }
   const hidden = new Set(objectAccess?.hidden ?? []);
   const view = views.find((each) => String(each.id) === viewId);
+  const layout = LAYOUTS.find((each) => each === params.get("layout"));
   return (
     <ObjectList
-      key={`${name}:${view?.id ?? ALL}`}
+      key={`${name}:${view?.id ?? ALL}:${layout ?? ""}`}
+      layout={layout}
       object={object}
       fields={fields.filter((field) => !hidden.has(field.name))}
       access={objectAccess}

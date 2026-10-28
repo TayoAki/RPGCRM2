@@ -6,7 +6,6 @@ import { RunsPage } from "./automations/RunsPage";
 import { DashboardPage } from "./dashboards/DashboardPage";
 import { DashboardsPage } from "./dashboards/DashboardsPage";
 import { MeetingsPage } from "./meetings/MeetingsPage";
-import { useAccess, useMetadata } from "./objects/model";
 import { ObjectListPage } from "./objects/ObjectListPage";
 import { ObjectsIndex } from "./objects/ObjectsIndex";
 import { RecordPage } from "./objects/RecordPage";
@@ -37,32 +36,3 @@ export const EXTENSION_ROUTES = [
   <Route key="reports" path="/reports" element={<DashboardsPage />} />,
   <Route key="report" path="/reports/:id" element={<DashboardPage />} />,
 ];
-
-const FIXED_TABS = [
-  { label: "Meetings", to: "/meetings" },
-  { label: "Automations", to: "/automations" },
-  { label: "Reports", to: "/reports" },
-];
-
-/**
- * Their tabs in the CRM's header, after Atomic's: custom objects shown in navigation come before
- * "Records", whose path contains theirs, so the header highlights the more specific one.
- */
-export const useExtensionTabs = () => {
-  const { data } = useMetadata();
-  const { data: access } = useAccess();
-  const objects = (data?.objects ?? []).filter(
-    (object) =>
-      !object.standard &&
-      object.in_navigation &&
-      access?.objects[object.name]?.read !== "none",
-  );
-  return [
-    ...FIXED_TABS,
-    ...objects.map((object) => ({
-      label: object.label_plural,
-      to: `/o/${object.name}`,
-    })),
-    { label: "Records", to: "/o" },
-  ];
-};

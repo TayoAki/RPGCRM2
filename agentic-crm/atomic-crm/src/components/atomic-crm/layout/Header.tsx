@@ -11,14 +11,12 @@ import { ImportPage } from "../misc/ImportPage";
 import { ChangelogPage } from "../misc/ChangelogPage";
 import { GlobalSearchButton } from "../search/GlobalSearchButton";
 import { useHost } from "../../../embed/host";
-import { useExtensionTabs } from "../../../extensions/routes";
 
 const Header = () => {
   const { darkModeLogo, lightModeLogo, title } = useConfigurationContext();
   const host = useHost();
   const location = useLocation();
   const translate = useTranslate();
-  const extensionTabs = useExtensionTabs();
 
   let currentPath: string | boolean = "/";
   if (matchPath("/", location.pathname)) {
@@ -29,12 +27,6 @@ const Header = () => {
     currentPath = "/companies";
   } else if (matchPath("/deals/*", location.pathname)) {
     currentPath = "/deals";
-  } else if (
-    extensionTabs.some((tab) => matchPath(`${tab.to}/*`, location.pathname))
-  ) {
-    currentPath =
-      extensionTabs.find((tab) => matchPath(`${tab.to}/*`, location.pathname))
-        ?.to ?? false;
   } else {
     currentPath = false;
   }
@@ -47,7 +39,7 @@ const Header = () => {
             <div className="flex justify-between items-center flex-1">
               <Link
                 to="/"
-                className="flex shrink-0 items-center gap-2 mr-4 text-secondary-foreground no-underline"
+                className="flex items-center gap-2 text-secondary-foreground no-underline"
               >
                 <img
                   className="[.light_&]:hidden h-6"
@@ -59,11 +51,9 @@ const Header = () => {
                   src={lightModeLogo}
                   alt={title}
                 />
-                <h1 className="text-xl font-semibold whitespace-nowrap">
-                  {title}
-                </h1>
+                <h1 className="text-xl font-semibold">{title}</h1>
               </Link>
-              <div className="min-w-0 overflow-x-auto">
+              <div>
                 <nav className="flex">
                   <NavigationTab
                     label={translate("ra.page.dashboard")}
@@ -91,14 +81,6 @@ const Header = () => {
                     to="/deals"
                     isActive={currentPath === "/deals"}
                   />
-                  {extensionTabs.map((tab) => (
-                    <NavigationTab
-                      key={tab.to}
-                      label={tab.label}
-                      to={tab.to}
-                      isActive={currentPath === tab.to}
-                    />
-                  ))}
                 </nav>
               </div>
               <div className="flex items-center">
@@ -227,3 +209,4 @@ const ChangelogMenuItem = () => {
   );
 };
 export default Header;
+export { ImportFromJsonMenuItem, ProfileMenu, SettingsMenu, UsersMenu };

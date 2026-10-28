@@ -16,7 +16,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 
 | ID | Feature | Tier | Starts from | Status | Notes |
 |---|---|---|---|---|---|
-| A1 | One app: OpenDuet hosts the CRM area | MVP | Build | Done | CRM screens run at `/crm` inside OpenDuet's app on real data, on desktop and phone. On phones the CRM's header is the page's only bar, beside OpenDuet's back button |
+| A1 | One app: OpenDuet hosts the CRM area | MVP | Build | Done | CRM screens run at `/crm` inside OpenDuet's app on real data, on desktop and phone. On phones the CRM's header is the page's only bar, beside OpenDuet's back button. On desktop the CRM has its own frame: an icon rail, a sidebar of objects and views, tabs for the current section, a Today panel (tasks due, meetings coming up, deals that moved) and a status bar. Tabs that don't fit go into a "more" menu instead of scrolling |
 | A2 | One login for agent and CRM | MVP | OpenDuet | Done | The CRM uses OpenDuet's session. Email and password sign-in with admin-issued set-password links (`SIGNIN_EMAIL_PASSWORD`). No mail needed. |
 | A3 | One database: CRM tables in OpenDuet's Postgres | MVP | Build | Done | `crm` schema with its own migrations (`server/drizzle-crm/`); Supabase removed from the data path |
 | A4 | CRM API on OpenDuet's server | MVP | Build | Done | `/api/crm`: lists with Atomic's filter language, reads, writes, bulk updates and deletes, admin-only settings |
@@ -24,7 +24,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 | A6 | One-command deploy per customer | MVP | OpenDuet | Done | `deploy/`: `new-customer.ts` then `up.sh <customer>`. Postgres, migrations, OpenDuet's image with the CRM and the customer's name, the assistant's computer in its own container off the database network, Caddy for HTTPS |
 | A7 | SSO (SAML, OIDC) and SCIM provisioning | P1 | OpenDuet | Not started | Already in OpenDuet via Better Auth plugins; verify and expose |
 | A8 | Languages: English now, French later | MVP | Atomic | Done | English for the MVP. The CRM's screens already follow a French browser, including the embed's own buttons, but OpenDuet's screens are English only: OpenDuet has no translation layer. Stages and statuses show as they're written in the CRM's settings. Full French and more languages in P2 |
-| A9 | Mobile | P2 | OpenDuet | Not started | OpenDuet has a mobile app; Atomic has PWA screens |
+| A9 | Mobile | P2 | OpenDuet | In progress | Phones get contacts, companies, deals (list with stage filters, detail with stage change and notes) and tasks. OpenDuet has a mobile app; Atomic has PWA screens |
 
 ## B. Core CRM records
 
@@ -50,7 +50,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 | C4 | Email triage linked to the CRM | MVP | Build | Done | The brief marks mail from CRM contacts, and Start tells the Bot who the sender is. The Bot is told to offer to log the email as a note, or to add an unknown sender as a contact. Gmail, or the person's own IMAP mailbox when Gmail isn't connected |
 | C5 | "Ask the agent" from any record, with that record as context | MVP | Build | Done | On contacts, companies and deals: the person types the ask, and it runs as a task that knows the record |
 | C6 | Agent works under the user's CRM permissions | P1 | Build | Done | The CRM tools read and write through the same records layer as the screens, as the person, under their role |
-| C7 | Agent builds charts and dashboards on request | P1 | Build | Not started | The reports API it would use exists (`POST /api/crm/reports`); OpenDuet's "Make" already makes dashboards |
+| C7 | Agent builds charts and dashboards on request | P1 | Build | Done | CRM tools `run_report`, `list_reports` and `make_chart`. A chart is checked against the data before it's saved, goes on a new or existing report the person owns, and asks for approval like other CRM writes |
 | C8 | Agent drafts workflows from plain language | P2 | Build | Not started | Depends on E1 |
 
 ## D. Data model and views
@@ -80,7 +80,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 | E5 | Trigger: manual (button on a record or a list selection) | P1 | Build | Done | A Run menu on contacts, companies and deals; only on records the person could change. Not yet from a list selection |
 | E6 | Trigger: incoming webhook | P1 | Build | Done | Each automation gets its own secret address |
 | E7 | Actions, core 10: create, update, delete and find records; if/else; filter; delay; send email; HTTP request; AI agent | P1 | Build | Done | Find is the trigger's scope (the record, its contact, company, deal); filter is conditions plus stop. The AI agent step starts a task for the Bot |
-| E8 | Actions, remaining 12: upsert, pick record, iterator, wait for event, form, draft email, create calendar event, send chat message, classify, code, logic function, empty | P2 | Build | In progress | Done: upsert contact, AI writing, create task, add note, generate and send proposal. The rest not started |
+| E8 | Actions, remaining 12: upsert, pick record, iterator, wait for event, form, draft email, create calendar event, send chat message, classify, code, logic function, empty | P2 | Build | In progress | 7 of 12 done: upsert contact, find a record, for each, wait until, draft email (send with review first), create meeting, classify. Not started: form, send chat message, code, logic function, empty |
 
 ## F. Dashboards
 

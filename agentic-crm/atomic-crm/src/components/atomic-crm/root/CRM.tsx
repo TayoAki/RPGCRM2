@@ -59,6 +59,8 @@ import { ContactListMobile } from "../contacts/ContactList.tsx";
 import { ContactShow } from "../contacts/ContactShow.tsx";
 import { CompanyShow } from "../companies/CompanyShow.tsx";
 import { NoteShowPage } from "../notes/NoteShowPage.tsx";
+import { DealListMobile } from "../../../extensions/mobile/DealListMobile";
+import { DealShowMobile } from "../../../extensions/mobile/DealShowMobile";
 import { EXTENSION_ROUTES } from "../../../extensions/routes";
 
 const defaultStore = localStorageStore(undefined, "CRM");
@@ -349,6 +351,7 @@ const MobileAdmin = (
           <Route path=":id/notes/:noteId" element={<NoteShowPage />} />
         </Resource>
         <Resource name="companies" show={CompanyShow} />
+        <Resource name="deals" list={DealListMobile} show={DealShowMobile} />
         <Resource name="tasks" list={MobileTasksList} />
       </Admin>
     </PersistQueryClientProvider>

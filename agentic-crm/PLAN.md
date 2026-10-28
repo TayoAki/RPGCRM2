@@ -133,7 +133,7 @@ Covers E1 to E7, F1, F2, C7 and H1.
 
 **Exit:** a customer builds "when a deal moves to Won, create an onboarding task and have the agent draft a welcome email for approval", and a dashboard of deals by stage.
 
-**Status: done except C7.** E1 to E7 with 12 ready-made automations, reports (F1, F2) and the public API (H1) are built and tested. The agent building charts on request (C7) is next; the reports API it needs is in place.
+**Status: done.** E1 to E7 with 12 ready-made automations, reports (F1, F2), the public API (H1) and the agent building charts on request (C7) are built and tested.
 
 ### Phase 4: P2 backlog
 

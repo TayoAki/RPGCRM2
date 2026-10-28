@@ -10,6 +10,7 @@ export const useViews = (object: string) =>
     queryKey: viewsKey(object),
     queryFn: () =>
       crmApi<SavedView[]>(`/views?object=${encodeURIComponent(object)}`),
+    enabled: Boolean(object),
   });
 
 // The fields that name a record; the table's first column already shows them.

@@ -6,20 +6,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { DataImportProvider } from "../dataImport/DataImportProvider";
 import { useConfigurationLoader } from "../root/useConfigurationLoader";
-import Header from "./Header";
+import { CrmFrame } from "../../../extensions/shell/CrmFrame";
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   useConfigurationLoader();
   return (
     <DataImportProvider>
-      <Header />
-      <main className="max-w-screen-xl mx-auto p-4" id="main-content">
+      <CrmFrame>
         <ErrorBoundary FallbackComponent={Error}>
           <Suspense fallback={<Skeleton className="h-12 w-12 rounded-full" />}>
             {children}
           </Suspense>
         </ErrorBoundary>
-      </main>
+      </CrmFrame>
       <Notification />
     </DataImportProvider>
   );

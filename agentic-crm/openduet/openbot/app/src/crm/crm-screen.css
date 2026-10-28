@@ -44,3 +44,11 @@
     padding-top: 0.5rem;
   }
 }
+
+/* On desktop the CRM's frame fills the page under OpenDuet's chrome and scrolls inside itself. */
+@media (min-width: 768px) {
+  div.crm-screen {
+    overflow: hidden;
+    padding-bottom: var(--copilotkit-license-banner-offset, 0px);
+  }
+}

@@ -21,7 +21,7 @@ export const DataImportButton = ({
     ? resources.filter(({ name }) => name === resource)
     : resources;
 
-  // The resource may not be registered in this Admin, e.g. deals on mobile
+  // The resource may not be registered in this Admin
   if (!available.length) return null;
 
   return (

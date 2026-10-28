@@ -166,9 +166,6 @@ export const DataModelPage = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link to="/settings/roles">Roles</Link>
-          </Button>
           <Button onClick={() => setEditing({ kind: "object" })}>
             <Plus className="size-4" />
             New object

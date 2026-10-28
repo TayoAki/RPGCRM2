@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Home, ListTodo, Plus, Settings, Users } from "lucide-react";
+import { Handshake, Home, ListTodo, Plus, Settings, Users } from "lucide-react";
 import { useTranslate } from "ra-core";
 import { Link, matchPath, useLocation, useMatch } from "react-router";
 import { ContactCreateSheet } from "../contacts/ContactCreateSheet";
@@ -69,6 +69,12 @@ export const MobileNavigation = () => {
             isActive={currentPath === "/contacts"}
           />
           <CreateButton />
+          <NavigationButton
+            href="/deals"
+            Icon={Handshake}
+            label={translate("resources.deals.name", { smart_count: 2 })}
+            isActive={currentPath === "/deals"}
+          />
           <NavigationButton
             href="/tasks"
             Icon={ListTodo}

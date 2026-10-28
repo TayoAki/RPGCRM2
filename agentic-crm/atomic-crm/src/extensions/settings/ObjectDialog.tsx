@@ -107,7 +107,7 @@ export const ObjectDialog = ({
               checked={inNavigation}
               onCheckedChange={(checked) => setInNavigation(checked === true)}
             />
-            Show a tab for it in the header
+            Show it in the sidebar
           </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
