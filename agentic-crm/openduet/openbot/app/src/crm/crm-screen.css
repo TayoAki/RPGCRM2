@@ -22,3 +22,10 @@
 .crm-screen .fixed.bottom-2 {
   bottom: calc(0.5rem + var(--copilotkit-license-banner-offset, 0px));
 }
+
+/* Below 768px the CRM uses its own mobile screens, whose fixed header goes under OpenDuet's. */
+@media (max-width: 767px) {
+  .crm-screen header.fixed.top-0 {
+    top: 92px;
+  }
+}

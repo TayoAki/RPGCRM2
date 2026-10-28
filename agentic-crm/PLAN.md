@@ -70,7 +70,7 @@ Checked in a browser:
 | OpenDuet has no email-and-password sign-in. Without Google, Microsoft or Okta, it only runs in single-user dev mode. | **Done.** `SIGNIN_EMAIL_PASSWORD=true` turns it on. Sign-up stays closed: an admin adds people and hands them a one-time link to set their password. |
 | OpenDuet's build now needs Atomic's packages, installed by `npm ci` in `atomic-crm/`. | **Done.** The Docker image takes Atomic's sources as a build context and installs its packages (A6). Later, move Atomic's dependencies into OpenDuet's bun workspace. |
 | The CRM chunk is 2.3 MB (712 kB gzipped), mostly the Supabase client and the fake-data generator. | **Done.** 1.5 MB (483 kB gzipped): the fake data went with the real data provider, and the build leaves out Atomic's Supabase modules. |
-| On phones, Atomic's mobile layout (fixed header and bottom bar) collides with OpenDuet's page header. | Desktop first for the MVP. On phones, hide one of the two headers when mobile (A9) comes up. |
+| On phones, Atomic's mobile layout (fixed header and bottom bar) collides with OpenDuet's page header. | **Done.** The CRM's header sits under OpenDuet's, so both show and neither covers the other. Merge them into one when mobile (A9) comes up. |
 | OpenDuet's self-hosting banner, CopilotKit's "Powered by CopilotKit, Get a license" badge, and the "Atomic CRM" title all show. | The CRM now shows the deployment's name (A5). The banner goes on a paid Intelligence plan and the badge once a CopilotKit license is set; until then, the CRM's bottom bars sit above the badge. |
 | The CRM's own theme switch and Logout repeat OpenDuet's. Logout does nothing in single-user mode. | **Done.** The theme switch is hidden. Logout stays, because it signs out of OpenDuet; only the dev-only single-user mode has nothing to sign out of. |
 | CopilotKit's runtime sends telemetry by default. | **Done.** The deploy kit sets `COPILOTKIT_TELEMETRY_DISABLED=true` (A6). |
@@ -97,13 +97,15 @@ Covers A1 to A6, A8, B1 to B7, C1 to C5, G6 and H4.
   - Companies, contacts, deals, tasks and notes on real data (B1, B2), global search (B4) and the activity log (B6).
   - Attachments (B7), tags and bulk tagging (B3), CSV import and export (B5).
   - The agent (C1 to C5): CRM tools that ask before every write, CRM follow-ups and senders in the morning brief, and "Ask the agent" on records. Checked with tests and in a browser; a Bot's live turns need a model key, which the development setup didn't have.
+  - Magpie CRM branding (A5), the one-command deploy (A6), and a usable phone layout (A1).
   - Checked in a browser with two people.
 - **Next, in this order:**
   1. ~~File storage for attachments (B7).~~ Done.
   2. ~~Check CSV import and export (B5) and bulk tagging (B3) against the real API.~~ Done.
   3. ~~Remove Supabase and the fake-data generator from the CRM's bundle, and hide the CRM's own theme switch.~~ Done.
   4. ~~The agent work (C1 to C5).~~ Done.
-  5. Branding (A5), the deploy kit (A6) and languages (A8). The deploy kit is done. Branding covers the product's name, with no logo or colors yet. Languages cover the CRM's screens, while OpenDuet's screens stay English.
+  5. ~~Branding (A5), the deploy kit (A6) and languages (A8).~~ Done. Magpie CRM with its logo, any customer's own name and logo, and English for now.
+  6. The Google and Notion plugins (H4) with real accounts, and deals that moved in the brief (C3). Then a pilot customer.
 
 ### Phase 2: metadata, views and permissions (about 5 to 6 weeks)
 

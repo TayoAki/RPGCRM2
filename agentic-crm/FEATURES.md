@@ -16,14 +16,14 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 
 | ID | Feature | Tier | Starts from | Status | Notes |
 |---|---|---|---|---|---|
-| A1 | One app: OpenDuet hosts the CRM area | MVP | Build | In progress | CRM screens run at `/crm` inside OpenDuet's app on real data. Open: phone layout, one header instead of two |
+| A1 | One app: OpenDuet hosts the CRM area | MVP | Build | Done | CRM screens run at `/crm` inside OpenDuet's app on real data, on desktop and phone. On phones the CRM's header sits under OpenDuet's; one header waits for mobile (A9) |
 | A2 | One login for agent and CRM | MVP | OpenDuet | Done | The CRM uses OpenDuet's session. Email and password sign-in with admin-issued set-password links (`SIGNIN_EMAIL_PASSWORD`). No mail needed. |
 | A3 | One database: CRM tables in OpenDuet's Postgres | MVP | Build | Done | `crm` schema with its own migrations (`server/drizzle-crm/`); Supabase removed from the data path |
 | A4 | CRM API on OpenDuet's server | MVP | Build | Done | `/api/crm`: lists with Atomic's filter language, reads, writes, bulk updates and deletes, admin-only settings |
 | A5 | White-label branding (name, logo, colors) | MVP | OpenDuet | Done | Magpie CRM by default; any deployment can have its own name, assistant and logo (`scripts/make-tenant.ts`). Shown in the tab, the sign-in pages, OpenDuet's screens and the CRM. Colors stay OpenDuet's |
 | A6 | One-command deploy per customer | MVP | OpenDuet | Done | `deploy/`: `new-customer.ts` then `up.sh <customer>`. Postgres, migrations, OpenDuet's image with the CRM and the customer's name, Caddy for HTTPS. Built and run end to end with Docker |
 | A7 | SSO (SAML, OIDC) and SCIM provisioning | P1 | OpenDuet | Not started | Already in OpenDuet via Better Auth plugins; verify and expose |
-| A8 | Languages: English and French | MVP | Atomic | In progress | The CRM's screens follow the browser's language, English or French, including the embed's own buttons. OpenDuet's own screens are English only: OpenDuet has no translation layer. Stages and statuses show as they're written in the CRM's settings. More languages in P2 |
+| A8 | Languages: English now, French later | MVP | Atomic | Done | English for the MVP. The CRM's screens already follow a French browser, including the embed's own buttons, but OpenDuet's screens are English only: OpenDuet has no translation layer. Stages and statuses show as they're written in the CRM's settings. Full French and more languages in P2 |
 | A9 | Mobile | P2 | OpenDuet | Not started | OpenDuet has a mobile app; Atomic has PWA screens |
 
 ## B. Core CRM records
@@ -110,7 +110,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 | H1 | Public REST API with API keys | P1 | Build | Not started | Generated from metadata; goes through G4 |
 | H2 | Outgoing webhooks per record event | P2 | Build | Not started | Shares E3's event stream |
 | H3 | MCP server for outside AI clients (Claude, ChatGPT) | P2 | Atomic | Not started | Port Atomic's edge function, or expose C1's tools |
-| H4 | Gmail, Google Calendar, Drive, Notion for the agent | MVP | OpenDuet | Not started | Already in OpenDuet |
+| H4 | Gmail, Google Calendar, Drive, Notion for the agent | MVP | OpenDuet | In progress | In the admin's Plugins screen as OpenDuet ships them. Google's need the deployment's own OAuth client, entered there; Notion needs none. Not yet tried with real accounts |
 | H5 | Two-way email sync onto the CRM timeline | P2 | Build | Not started | The MVP covers this with C4 |
 | H6 | Calendar events linked to contacts | P2 | Build | Not started | |
 
