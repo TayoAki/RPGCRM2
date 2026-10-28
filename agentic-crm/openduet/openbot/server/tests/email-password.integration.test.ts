@@ -1,11 +1,11 @@
 import { afterAll, expect, test } from "bun:test";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { createEnterpriseStore } from "../src/admin/settings-store";
 import { createAuth } from "../src/auth";
 import { createPasswordPeople } from "../src/auth/email-password";
 import type { DeploymentConfig } from "../src/config";
 import { createDatabase } from "../src/db/client";
-import { userRoles } from "../src/db/schema";
+import { userRoles, users } from "../src/db/schema";
 import { TEST_POOL, testDatabaseUrl } from "./support/database";
 
 const database = createDatabase(testDatabaseUrl(), TEST_POOL);
@@ -51,6 +51,7 @@ afterAll(async () => {
     false,
     "test",
   );
+  await database.delete(users).where(like(users.email, `%-${run}@acme.test`));
   await database.$client.end({ timeout: 5 });
 });
 

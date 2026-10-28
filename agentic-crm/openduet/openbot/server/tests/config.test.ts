@@ -320,8 +320,8 @@ describe("deployment configuration", () => {
       INITIAL_ADMIN_EMAILS: "owner@openbot.test",
     });
 
-    expect(config.auth?.emailPassword).toBe(true);
-    expect(config.auth?.google).toBeUndefined();
+    expect(config.auth).toMatchObject({ emailPassword: true });
+    expect(config.auth).not.toHaveProperty("google");
     expect(config.singleUser).toBe(false);
   });
 
