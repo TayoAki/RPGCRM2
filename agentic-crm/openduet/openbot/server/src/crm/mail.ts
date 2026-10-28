@@ -325,7 +325,7 @@ export function createCrmMail(deps: {
      * is kept as failed, with the reason, and can be sent again.
      */
     async compose(
-      salesId: number,
+      salesId: number | null,
       body: unknown,
       extra: { workflowRunId?: number } = {},
     ): Promise<EmailRow> {

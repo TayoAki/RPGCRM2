@@ -67,7 +67,7 @@ const imapInbox: ReadInbox = async (mailbox, since) => {
           { uid: true },
         );
         lastUid = Math.max(lastUid ?? 0, uid);
-        if (!fetched?.source) continue;
+        if (fetched === false || !fetched.source) continue;
         const parsed = await simpleParser(fetched.source);
         const from = parsed.from?.value[0];
         if (!from?.address || !parsed.messageId) continue;

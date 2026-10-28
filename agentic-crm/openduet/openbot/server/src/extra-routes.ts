@@ -4,6 +4,7 @@ import type { PasswordPeople } from "./auth/email-password";
 import type { AppVariables } from "./auth/guards";
 import { createCrmRoutes } from "./crm/routes";
 import type { CrmServices } from "./crm/services";
+import { createCrmPublicRoutes } from "./crm/workflows/routes";
 import type { Database } from "./db/client";
 import { createPasswordPeopleRoutes } from "./people/password-routes";
 import type { PeopleStore } from "./people/store";
@@ -26,9 +27,17 @@ export function createExtraRoutes(deps: {
       createCrmRoutes({
         requireUser,
         database: deps.database,
-        ...(deps.crm ? { mail: deps.crm.mail } : {}),
+        ...(deps.crm
+          ? { mail: deps.crm.mail, automation: deps.crm.automation }
+          : {}),
       }),
     ],
+    ...(deps.crm
+      ? ([["/api/crm-public", createCrmPublicRoutes(deps.crm.automation)]] as [
+          string,
+          Hono<Variables>,
+        ][])
+      : []),
     ...(deps.passwordPeople
       ? ([
           [

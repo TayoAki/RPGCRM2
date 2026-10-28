@@ -60,6 +60,7 @@ import { signallingBusy } from "./approvals/busy-runner";
 import { createApprovalResumeTick } from "./approvals/resume-sweep";
 import { createApprovalStore } from "./approvals/store";
 import { installCrmTools } from "./crm/install";
+import { createTextWriter } from "./crm/ai";
 import { createCrmServices } from "./crm/services";
 import { ApprovalRefusedError } from "./approvals/types";
 import { createServerApprovalService } from "./approvals/wiring";
@@ -2573,11 +2574,27 @@ const identityGithubCallback =
     : undefined;
 
 // The CRM's mail and automations, run beside the API like the sweeps above.
+const crmApiUrl =
+  config.publicUrl ?? config.auth?.baseUrl ?? `http://localhost:${config.port}`;
+const crmPrimaryBot = primaryBotIdOf(
+  tenantPackage.agents.map((agent) => agent.id),
+  tenantPackage.tenantId,
+);
 const crmServices = createCrmServices({
   database,
   encryptionKey: config.keyEncryptionKey,
+  appUrl: config.appUrl ?? crmApiUrl,
+  apiUrl: crmApiUrl,
+  writeText: createTextWriter({
+    model: runtimeModel,
+    resolveApiKey: resolveRuntimeModelApiKey,
+  }),
+  hasModel: async () => Boolean(await resolveRuntimeModelApiKey()),
+  startAgentTask: (ownerUserId, task) =>
+    openDuetStartTask({ ownerUserId, agentId: crmPrimaryBot, task }),
+  allowPrivateHosts: config.computer?.allowPrivateHosts === true,
 });
-crmServices.start();
+await crmServices.start();
 const app = createApp(
   config,
   auth,

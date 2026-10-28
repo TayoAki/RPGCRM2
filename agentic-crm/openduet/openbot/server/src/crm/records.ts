@@ -1,4 +1,4 @@
-import { count, eq, getTableColumns, inArray } from "drizzle-orm";
+import { count, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { AuthenticatedActor } from "../auth/guards";
 import type { Database } from "../db/client";
@@ -8,6 +8,28 @@ import { saleFor } from "./sales";
 
 export type CrmRow = Record<string, unknown>;
 export type CrmId = number | string;
+
+/**
+ * The CRM itself writing, not a person: an automation's run, or a client answering a proposal link.
+ * Allowed what an admin is, and named on every change it makes. New records go to `salesId`.
+ */
+export type ServiceActor = {
+  service: string;
+  salesId: number | null;
+  workflow?: { id: number; runId: number };
+};
+export type CrmActor = AuthenticatedActor | ServiceActor;
+
+export const isService = (actor: CrmActor): actor is ServiceActor =>
+  "service" in actor;
+
+// Read by the record_events trigger, so automations know who made each change.
+export const originOf = (actor: CrmActor) =>
+  isService(actor)
+    ? actor.workflow
+      ? `workflow:${actor.workflow.id}:${actor.workflow.runId}`
+      : `service:${actor.service}`
+    : `user:${actor.id}`;
 
 /** A request the CRM turns down, with the HTTP status that says why. */
 export class CrmRefusal extends Error {
@@ -50,7 +72,7 @@ export function createCrmRecords(database: Database) {
 
   // The columns a write may set, once this person is allowed to make it.
   const writable = async (
-    actor: AuthenticatedActor,
+    actor: CrmActor,
     resource: CrmResource,
     body: unknown,
     id?: CrmId,
@@ -63,7 +85,9 @@ export function createCrmRecords(database: Database) {
     const values = Object.fromEntries(
       Object.entries(body).filter(([key]) => resource.writable.has(key)),
     );
-    if (!resource.adminOnly || actor.role === "admin") return { table, values };
+    if (!resource.adminOnly || isService(actor) || actor.role === "admin") {
+      return { table, values };
+    }
     const own = await saleFor(database, actor);
     const editsOwnProfile =
       resource === CRM_RESOURCES.sales &&
@@ -74,6 +98,21 @@ export function createCrmRecords(database: Database) {
     }
     return { table, values };
   };
+
+  const ownerOf = async (actor: CrmActor) =>
+    isService(actor) ? actor.salesId : (await saleFor(database, actor)).id;
+
+  // One write, in a transaction that says who made it.
+  const writeAs = <TResult>(
+    actor: CrmActor,
+    work: (transaction: Database) => Promise<TResult>,
+  ) =>
+    database.transaction(async (transaction) => {
+      await transaction.execute(
+        sql`select set_config('crm.actor', ${originOf(actor)}, true)`,
+      );
+      return work(transaction as unknown as Database);
+    });
 
   return {
     sale: (actor: AuthenticatedActor) => saleFor(database, actor),
@@ -103,25 +142,27 @@ export function createCrmRecords(database: Database) {
     },
 
     async create(
-      actor: AuthenticatedActor,
+      actor: CrmActor,
       name: string,
       body: unknown,
     ): Promise<CrmRow | undefined> {
       const resource = resourceNamed(name);
       const { table, values } = await writable(actor, resource, body);
       if (resource.ownedBySales && values.sales_id == null) {
-        values.sales_id = (await saleFor(database, actor)).id;
+        values.sales_id = await ownerOf(actor);
       }
-      const [created] = (await database
-        .insert(table)
-        .values(values as never)
-        .returning({ id: idOf(table) })) as { id: number }[];
+      const [created] = (await writeAs(actor, (transaction) =>
+        transaction
+          .insert(table)
+          .values(values as never)
+          .returning({ id: idOf(table) }),
+      )) as { id: number }[];
       const [row] = created ? await readRows(resource, [created.id]) : [];
       return row;
     },
 
     async update(
-      actor: AuthenticatedActor,
+      actor: CrmActor,
       name: string,
       id: CrmId,
       body: unknown,
@@ -129,17 +170,19 @@ export function createCrmRecords(database: Database) {
       const resource = resourceNamed(name);
       const { table, values } = await writable(actor, resource, body, id);
       if (Object.keys(values).length > 0) {
-        await database
-          .update(table)
-          .set(values as never)
-          .where(eq(idOf(table), id));
+        await writeAs(actor, (transaction) =>
+          transaction
+            .update(table)
+            .set(values as never)
+            .where(eq(idOf(table), id)),
+        );
       }
       const [row] = await readRows(resource, [id]);
       return row;
     },
 
     async updateMany(
-      actor: AuthenticatedActor,
+      actor: CrmActor,
       name: string,
       ids: number[],
       body: unknown,
@@ -150,31 +193,39 @@ export function createCrmRecords(database: Database) {
         body,
       );
       if (ids.length && Object.keys(values).length) {
-        await database
-          .update(table)
-          .set(values as never)
-          .where(inArray(idOf(table), ids));
+        await writeAs(actor, (transaction) =>
+          transaction
+            .update(table)
+            .set(values as never)
+            .where(inArray(idOf(table), ids)),
+        );
       }
       return ids;
     },
 
     async remove(
-      actor: AuthenticatedActor,
+      actor: CrmActor,
       name: string,
       id: CrmId,
     ): Promise<CrmRow | undefined> {
       const resource = resourceNamed(name);
       const { table } = await writable(actor, resource, {});
       const [row] = await readRows(resource, [id]);
-      if (row) await database.delete(table).where(eq(idOf(table), id));
+      if (row) {
+        await writeAs(actor, (transaction) =>
+          transaction.delete(table).where(eq(idOf(table), id)),
+        );
+      }
       return row;
     },
 
-    async removeMany(actor: AuthenticatedActor, name: string, ids: number[]) {
+    async removeMany(actor: CrmActor, name: string, ids: number[]) {
       const { table } = await writable(actor, resourceNamed(name), {});
       const some = ids.slice(0, MAX_PAGE_SIZE);
       if (some.length) {
-        await database.delete(table).where(inArray(idOf(table), some));
+        await writeAs(actor, (transaction) =>
+          transaction.delete(table).where(inArray(idOf(table), some)),
+        );
       }
       return some;
     },

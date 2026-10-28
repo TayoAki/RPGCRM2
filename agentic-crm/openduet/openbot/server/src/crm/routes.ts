@@ -9,6 +9,10 @@ import type { CrmMail } from "./mail";
 import { createMailRoutes } from "./mail-routes";
 import { CrmRefusal, createCrmRecords } from "./records";
 import { globalSearch, SEARCH_RESOURCES, type SearchResource } from "./search";
+import {
+  type AutomationDeps,
+  createAutomationRoutes,
+} from "./workflows/routes";
 
 type Variables = { Variables: AppVariables };
 
@@ -36,6 +40,7 @@ export function createCrmRoutes(deps: {
   requireUser: MiddlewareHandler<Variables>;
   database: Database;
   mail?: CrmMail;
+  automation?: AutomationDeps;
 }) {
   const { database } = deps;
   const routes = new Hono<Variables>();
@@ -63,6 +68,8 @@ export function createCrmRoutes(deps: {
   if (deps.mail) {
     routes.route("/mail", createMailRoutes({ mail: deps.mail, records }));
   }
+  if (deps.automation)
+    routes.route("/", createAutomationRoutes(deps.automation));
 
   routes.get("/me", async (context) =>
     context.json({ data: await records.sale(context.var.actor) }),

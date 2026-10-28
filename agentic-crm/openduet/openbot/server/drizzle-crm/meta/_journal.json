@@ -71,6 +71,13 @@
       "when": 1793213697019,
       "tag": "0009_mailboxes",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793214220852,
+      "tag": "0010_workflows",
+      "breakpoints": true
     }
   ]
 }

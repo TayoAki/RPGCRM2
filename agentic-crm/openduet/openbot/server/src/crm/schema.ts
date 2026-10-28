@@ -474,3 +474,105 @@ export const activityLog = crm
     deal_note: json(),
   })
   .existing();
+
+/*
+ * Automations. A database trigger writes every change to a CRM record into record_events; the engine
+ * (workflows/engine.ts) matches each one against the workflows switched on, and runs them.
+ */
+export const recordEvents = crm.table(
+  "record_events",
+  {
+    id: id(),
+    at: createdAt(),
+    object: text().notNull(),
+    record_id: bigint({ mode: "number" }).notNull(),
+    // created, updated, deleted
+    action: text().notNull(),
+    old: json(),
+    new: json(),
+    // user:<id> or workflow:<workflow id>:<run id>
+    actor: text(),
+    processed_at: moment(),
+  },
+  (table) => [
+    index("record_events_unprocessed_idx")
+      .on(table.id)
+      .where(sql`${table.processed_at} is null`),
+  ],
+);
+
+export const workflows = crm.table("workflows", {
+  id: id(),
+  name: text().notNull(),
+  description: text().notNull().default(""),
+  enabled: boolean().notNull().default(false),
+  enabled_at: moment(),
+  trigger: json().notNull(),
+  steps: json().notNull().default([]),
+  version: integer().notNull().default(1),
+  // The ready-made workflow it started as.
+  recipe: text(),
+  // For a webhook trigger: the secret part of its address.
+  webhook_token: text()
+    .notNull()
+    .default(
+      sql`replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')`,
+    ),
+  sales_id: reference().references(() => sales.id, setNull),
+  created_at: createdAt(),
+  updated_at: updatedAt(),
+});
+
+export const workflowRuns = crm.table(
+  "workflow_runs",
+  {
+    id: id(),
+    workflow_id: reference()
+      .notNull()
+      .references(() => workflows.id, cascade),
+    workflow_version: integer().notNull(),
+    // The steps as they were when the run started, so editing a workflow never changes a run.
+    definition: json().notNull(),
+    // queued, running, waiting, completed, failed, canceled
+    status: text().notNull().default("queued"),
+    trigger: json().notNull(),
+    context: json().notNull().default({}),
+    // Where the run is: a path into the steps, such as [2, "then", 0].
+    cursor: json().notNull().default([0]),
+    wake_at: moment().notNull().default(now),
+    lease_until: moment(),
+    claimed_by: text(),
+    attempts: integer().notNull().default(0),
+    // How many automations led to this one, to stop them feeding each other forever.
+    depth: integer().notNull().default(0),
+    error: text(),
+    log: json().notNull().default([]),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+    finished_at: moment(),
+  },
+  (table) => [
+    index("workflow_runs_due_idx").on(table.status, table.wake_at),
+    index("workflow_runs_workflow_id_idx").on(table.workflow_id),
+  ],
+);
+
+// What a date or schedule trigger already fired for, so each moment fires once.
+export const workflowFirings = crm.table(
+  "workflow_firings",
+  {
+    workflow_id: reference()
+      .notNull()
+      .references(() => workflows.id, cascade),
+    record_id: bigint({ mode: "number" }).notNull(),
+    moment: text().notNull(),
+    created_at: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("workflow_firings_once_idx").on(
+      table.workflow_id,
+      table.record_id,
+      table.moment,
+    ),
+  ],
+);
