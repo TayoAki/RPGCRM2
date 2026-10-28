@@ -105,7 +105,7 @@ agentic-crm/deploy/up.sh acme
 
 ### On Railway
 
-Railway builds from the repository root with `agentic-crm/deploy/railway/Dockerfile` as the Dockerfile path. `deploy/railway/make-dockerfile.ts` generates it and its ignore file from OpenDuet's (rerun it after a vendor sync). It carries the default Magpie tenant in `tenant/`. Add a pgvector Postgres to the project and set on the app:
+Railway builds from the repository root with `agentic-crm/deploy/railway/Dockerfile` as the Dockerfile path. `deploy/railway/make-dockerfile.ts` generates it and its ignore file from OpenDuet's (rerun it after a vendor sync). It builds the default Magpie tenant with `scripts/make-tenant.ts`. Add a pgvector Postgres to the project and set on the app:
 
 - `DATABASE_URL`, the database's private URL, and `PORT=3001`.
 - `OPENBOT_PUBLIC_URL`, `BETTER_AUTH_URL` and `TRUSTED_ORIGINS`, all the service's public URL.

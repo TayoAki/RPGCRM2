@@ -23,8 +23,14 @@ FROM oven/bun:1.4.3@sha256:ec06c3b6cea04192ae6770c434f668ca41d343ad19fa6472216c7
 
 # The tenant package the product is named from. A deployment passes its own with
 # `--build-context tenant=<dir>`; agentic-crm/scripts/make-tenant.ts writes one.
+FROM bun-toolchain AS magpie-tenant
+COPY agentic-crm/scripts/make-tenant.ts /src/agentic-crm/scripts/make-tenant.ts
+COPY agentic-crm/brand /src/agentic-crm/brand
+COPY agentic-crm/openduet/openbot/examples/openduet /src/agentic-crm/openduet/openbot/examples/openduet
+RUN bun /src/agentic-crm/scripts/make-tenant.ts --out /tenant
+
 FROM scratch AS tenant
-COPY agentic-crm/tenant /
+COPY --from=magpie-tenant /tenant /
 
 FROM scratch AS atomic-crm
 COPY agentic-crm/atomic-crm/package.json agentic-crm/atomic-crm/package-lock.json agentic-crm/atomic-crm/.npmrc /

@@ -31,10 +31,22 @@ export function railwayDockerfile(upstream: string): string {
   const lines = upstream.split("\n").flatMap((line) => {
     const from = line.match(/^FROM\s+\S+\s+AS\s+(\S+)/i);
     if (from) stage = from[1];
+    // agentic-crm/tenant is generated and gitignored, so the default Magpie tenant is made here.
+    if (from && stage === "tenant") {
+      return [
+        "FROM bun-toolchain AS magpie-tenant",
+        `COPY ${CRM}/scripts/make-tenant.ts /src/${CRM}/scripts/make-tenant.ts`,
+        `COPY ${CRM}/brand /src/${CRM}/brand`,
+        `COPY ${OPENBOT}/examples/openduet /src/${OPENBOT}/examples/openduet`,
+        `RUN bun /src/${CRM}/scripts/make-tenant.ts --out /tenant`,
+        "",
+        line,
+      ];
+    }
     if (!/^COPY\s/.test(line) || line.includes("--from=")) return [line];
     if (stage === "tenant") {
       return [
-        `COPY ${CRM}/tenant /`,
+        "COPY --from=magpie-tenant /tenant /",
         "",
         "FROM scratch AS atomic-crm",
         `COPY ${CRM}/atomic-crm/package.json ${CRM}/atomic-crm/package-lock.json ${CRM}/atomic-crm/.npmrc /`,
