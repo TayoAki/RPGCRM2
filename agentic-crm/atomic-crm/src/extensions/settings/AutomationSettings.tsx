@@ -121,11 +121,12 @@ export const AutomationSettings = () => {
       <Card id="data-model">
         <CardContent className="space-y-2">
           <h2 className="text-xl font-semibold text-muted-foreground">
-            Data model and roles
+            Data model, roles and API
           </h2>
           <p className="text-sm text-muted-foreground">
             Add fields to contacts, companies and deals, add objects of your
-            own, and choose what each person can see and change.
+            own, choose what each person can see and change, and connect other
+            software.
           </p>
           <div className="flex gap-2">
             <Button type="button" variant="outline" asChild>
@@ -133,6 +134,9 @@ export const AutomationSettings = () => {
             </Button>
             <Button type="button" variant="outline" asChild>
               <Link to="/settings/roles">Roles</Link>
+            </Button>
+            <Button type="button" variant="outline" asChild>
+              <Link to="/settings/api">API keys</Link>
             </Button>
           </div>
         </CardContent>

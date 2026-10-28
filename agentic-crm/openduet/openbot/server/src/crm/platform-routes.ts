@@ -90,7 +90,7 @@ export function createPlatformRoutes(deps: {
       .parse(await context.req.json().catch(() => null));
     const sale = await records.sale(context.var.actor);
     const { key, row } = await createApiKey(database, sale.id, name);
-    return context.json({ data: row, key }, 201);
+    return context.json({ data: { ...row, key } }, 201);
   });
 
   routes.delete("/api-keys/:id", async (context) => {

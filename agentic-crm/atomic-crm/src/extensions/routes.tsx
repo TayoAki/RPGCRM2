@@ -3,11 +3,14 @@ import { Route } from "react-router";
 import { AutomationEditor } from "./automations/AutomationEditor";
 import { AutomationsPage } from "./automations/AutomationsPage";
 import { RunsPage } from "./automations/RunsPage";
+import { DashboardPage } from "./dashboards/DashboardPage";
+import { DashboardsPage } from "./dashboards/DashboardsPage";
 import { MeetingsPage } from "./meetings/MeetingsPage";
 import { useAccess, useMetadata } from "./objects/model";
 import { ObjectListPage } from "./objects/ObjectListPage";
 import { ObjectsIndex } from "./objects/ObjectsIndex";
 import { RecordPage } from "./objects/RecordPage";
+import { ApiKeysPage } from "./settings/ApiKeysPage";
 import { DataModelPage } from "./settings/DataModelPage";
 import { RolesPage } from "./settings/RolesPage";
 
@@ -30,11 +33,15 @@ export const EXTENSION_ROUTES = [
     element={<DataModelPage />}
   />,
   <Route key="roles" path="/settings/roles" element={<RolesPage />} />,
+  <Route key="api-keys" path="/settings/api" element={<ApiKeysPage />} />,
+  <Route key="reports" path="/reports" element={<DashboardsPage />} />,
+  <Route key="report" path="/reports/:id" element={<DashboardPage />} />,
 ];
 
 const FIXED_TABS = [
   { label: "Meetings", to: "/meetings" },
   { label: "Automations", to: "/automations" },
+  { label: "Reports", to: "/reports" },
 ];
 
 /**

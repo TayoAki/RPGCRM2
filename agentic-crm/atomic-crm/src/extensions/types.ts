@@ -241,3 +241,41 @@ export type Role = {
     fields: Record<string, Record<string, "hidden" | "read_only">>;
   };
 };
+
+export type Aggregate = "count" | "sum" | "avg" | "min" | "max";
+export type DateBucket = "day" | "week" | "month" | "quarter" | "year";
+
+export type Widget = {
+  id: string;
+  title: string;
+  type: "number" | "bar" | "line" | "list";
+  object: string;
+  filter?: Record<string, unknown>;
+  group_by?: string;
+  bucket?: DateBucket;
+  fn: Aggregate;
+  field?: string;
+  width: 1 | 2 | 3;
+};
+
+export type Dashboard = {
+  id: number;
+  name: string;
+  widgets: Widget[];
+  shared: boolean;
+  sales_id: number | null;
+};
+
+export type ReportRow = { key: unknown; value: number };
+
+export type ApiKey = {
+  id: number;
+  name: string;
+  prefix: string;
+  sales_id: number;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  owner_first_name: string;
+  owner_last_name: string;
+};

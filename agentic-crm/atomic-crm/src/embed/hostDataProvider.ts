@@ -194,8 +194,12 @@ export function createHostDataProvider(
       );
       return data;
     },
-    async mergeContacts(): Promise<never> {
-      throw new Error("Merging contacts isn't available yet.");
+    async mergeContacts(sourceId: Identifier, targetId: Identifier) {
+      const { data } = await request(`/contacts/${targetId}/merge`, {
+        method: "POST",
+        body: { duplicate_id: Number(sourceId) },
+      });
+      return data;
     },
     async getConfiguration(): Promise<ConfigurationContextValue> {
       const { data } = await base.getOne("configuration", { id: 1 });

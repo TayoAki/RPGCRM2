@@ -488,7 +488,7 @@ export function createCrmRecords(
       const rows = await database
         .select({ key, value })
         .from(source)
-        .where(where)
+        .where(params.bucket ? and(where, sql`${grouped} is not null`) : where)
         .groupBy(sql`1`)
         .orderBy(params.bucket ? sql`1` : sql`2 desc`)
         .limit(MAX_GROUPS);

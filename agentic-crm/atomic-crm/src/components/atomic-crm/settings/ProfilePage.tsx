@@ -21,7 +21,7 @@ import { TextInput } from "@/components/admin/text-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useHost } from "../../../embed/host";
-import { MailboxCard } from "../../../extensions/mail/MailboxCard";
+import { ProfileExtras } from "../../../extensions/settings/ProfileExtras";
 import {
   Select,
   SelectContent,
@@ -239,7 +239,7 @@ const ProfileForm = ({
           </div>
         </CardContent>
       </Card>
-      {host ? <MailboxCard scope="mine" /> : null}
+      {host ? <ProfileExtras /> : null}
       {import.meta.env.VITE_INBOUND_EMAIL && (
         <Card>
           <CardContent>

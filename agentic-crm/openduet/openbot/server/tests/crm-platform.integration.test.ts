@@ -44,7 +44,7 @@ async function v1(method: string, path: string, key: string, body?: unknown) {
 const keyFor = async (as: "admin" | "member", name = `Key ${run}`) => {
   const { status, json } = await call("POST", "/api-keys", { name }, as);
   if (status !== 201) throw new Error(JSON.stringify(json));
-  return { key: String(json.key), row: json.data as Json };
+  return { key: String((json.data as Json).key), row: json.data as Json };
 };
 
 const withRole = async (rules: Json) => {
