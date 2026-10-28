@@ -725,7 +725,7 @@ test("a proposal marked ready goes out after the wait", async () => {
   ).toMatchObject({ status: "sent" });
 });
 
-test("a manual automation runs on the record it was started from", async () => {
+test("a manual automation runs on the record it was started from, by someone who could change it", async () => {
   const workflow = await automation("won-deal-to-clients", {
     trigger: { type: "manual", object: "contacts" },
     steps: [
@@ -739,6 +739,23 @@ test("a manual automation runs on the record it was started from", async () => {
   });
   const contact = await contactWith("Manny");
 
+  const role = (
+    await call("POST", "/roles", {
+      name: `Own contacts ${run}`,
+      rules: { objects: { contacts: { update: "own" } } },
+    })
+  ).json.data as Json;
+  const member = (await call("GET", "/me", undefined, "member")).json
+    .data as Json;
+  await update("sales", member.id, { role_id: role.id });
+  const notTheirs = await call(
+    "POST",
+    `/automation/workflows/${workflow.id}/run`,
+    { record_id: contact.id },
+    "member",
+  );
+  await update("sales", member.id, { role_id: null });
+
   const started = await call(
     "POST",
     `/automation/workflows/${workflow.id}/run`,
@@ -748,6 +765,7 @@ test("a manual automation runs on the record it was started from", async () => {
   );
   await settle();
 
+  expect(notTheirs.status).toBe(404);
   expect(started.status).toBe(201);
   expect(
     (await call("GET", `/contacts/${contact.id}`)).json.data,

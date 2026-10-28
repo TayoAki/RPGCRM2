@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 
 import type { Contact, Deal } from "../components/atomic-crm/types";
 import { EmailsSection } from "./mail/EmailsSection";
+import { RunAutomationButton } from "./automations/RunAutomationButton";
 import { MeetingsSection } from "./meetings/MeetingsSection";
 import { CustomFieldsAside, HistoryButton } from "./objects/CustomFields";
 import { ProposalsSection } from "./proposals/ProposalsSection";
@@ -53,7 +54,10 @@ export const DealExtras = () => {
         ) : (
           <span />
         )}
-        <HistoryButton resource="deals" />
+        <span className="flex">
+          <RunAutomationButton object="deals" />
+          <HistoryButton resource="deals" />
+        </span>
       </div>
       <CustomFieldsAside resource="deals" />
       <Separator />

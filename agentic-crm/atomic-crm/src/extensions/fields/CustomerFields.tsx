@@ -19,6 +19,7 @@ import {
 
 import { AsideSection } from "../../components/atomic-crm/misc/AsideSection";
 import { RelativeDate } from "../../components/atomic-crm/misc/RelativeDate";
+import { RunAutomationButton } from "../automations/RunAutomationButton";
 import {
   CustomFieldInputs,
   CustomFieldsAside,
@@ -172,7 +173,10 @@ const CustomerSection = ({
           <span>
             Updated <RelativeDate date={record.updated_at} />
           </span>
-          <HistoryButton resource={resource} />
+          <span className="flex">
+            <RunAutomationButton object={resource} />
+            <HistoryButton resource={resource} />
+          </span>
         </div>
       ) : null}
     </AsideSection>

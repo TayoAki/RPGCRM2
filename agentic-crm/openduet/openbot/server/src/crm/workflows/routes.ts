@@ -111,14 +111,30 @@ export function createAutomationRoutes(deps: AutomationDeps) {
     return context.json({ data: null });
   });
 
+  // A person runs an automation on a record they could change themselves; the run then acts for the CRM.
   routes.post("/automation/workflows/:id/run", async (context) => {
     const body = (await context.req.json().catch(() => ({}))) as {
       record_id?: unknown;
     };
-    const runId = await engine.runManually(
-      idParam(context.req.param("id")),
-      idParam(String(body.record_id)),
-    );
+    const workflowId = idParam(context.req.param("id"));
+    const recordId = idParam(String(body.record_id));
+    const trigger = (await workflows.get(workflowId)).trigger as {
+      type: string;
+      object?: string;
+    };
+    if (
+      trigger.type !== "manual" ||
+      !trigger.object ||
+      !(await records.reaches(
+        context.var.actor,
+        trigger.object,
+        recordId,
+        "update",
+      ))
+    ) {
+      throw new CrmRefusal("Not found.", 404);
+    }
+    const runId = await engine.runManually(workflowId, recordId);
     return context.json({ data: { run_id: runId } }, 201);
   });
 

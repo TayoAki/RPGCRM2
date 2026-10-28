@@ -539,6 +539,9 @@ export function createWorkflowEngine(
       if (!workflow || trigger?.type !== "manual") {
         throw new CrmRefusal("That automation isn't run by hand.", 400);
       }
+      if (!workflow.enabled) {
+        throw new CrmRefusal("That automation is switched off.", 400);
+      }
       return startRun(workflow, {
         object: trigger.object,
         recordId,
