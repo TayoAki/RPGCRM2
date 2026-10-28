@@ -21,6 +21,7 @@
  */
 import { join } from "node:path";
 import postgres, { type Sql } from "postgres";
+import { applyCrmMigrations } from "../src/crm/migrations";
 import { applyMigrations } from "../src/db/apply-migrations";
 
 /**
@@ -84,5 +85,13 @@ if (import.meta.main) {
    * statements that must be ordered land on different connections.
    */
   const client = postgres(databaseUrl, { max: 1, onnotice: () => {} });
-  await runMigrations(client, join(import.meta.dir, "..", "drizzle"));
+  // OpenDuet's schema first, then the CRM's, which references its users.
+  await runMigrations(
+    client,
+    join(import.meta.dir, "..", "drizzle"),
+    async (sql, folder) => {
+      await applyMigrations(sql, folder);
+      await applyCrmMigrations(sql);
+    },
+  );
 }

@@ -40,12 +40,17 @@ OpenDuet's app compiles Atomic's screens into itself and serves them at `/crm`, 
 |---|---|
 | Mount point: a `/crm/*` route, its screen, and the menu entry | `openduet/openbot/app/src/routes/_authed/_app/crm.$.tsx`, `openduet/openbot/app/src/crm/`, `menu-sheet.tsx` |
 | Build wiring: resolves Atomic's `@/` imports and packages, keeps one React | `openduet/openbot/app/vite-crm.ts`, used by `vite.config.ts` |
-| Embed entry: runs Atomic's `<CRM>` on OpenDuet's URL, user and theme | `atomic-crm/src/embed/` |
+| Embed entry: runs Atomic's `<CRM>` on OpenDuet's URL, user, theme and data | `atomic-crm/src/embed/` |
+| CRM data: tables, views, API, search | `openduet/openbot/server/src/crm/`, migrations in `openduet/openbot/server/drizzle-crm/` |
+| Routes this product adds to OpenDuet's server | `openduet/openbot/server/src/extra-routes.ts` |
 
 - **Routing.** Atomic keeps its own react-router, which reads and writes the URL through OpenDuet's TanStack Router history (`hostHistory.ts`). Links, deep links, Back and Forward work across both routers.
 - **Sign-in.** It's OpenDuet's: the CRM identifies the signed-in user and never shows its own login (`hostAuthProvider.ts`).
 - **Theme.** OpenDuet's theme tokens style the CRM, and its light or dark mode drives the CRM's.
-- **Data.** Fake for now: Atomic's in-browser FakeRest data, with the signed-in user as the CRM user. Phase 1 replaces it with a data provider for OpenDuet's server.
+- **Data.** In OpenDuet's Postgres, in a separate `crm` schema with its own migrations. OpenDuet's migrate script applies them after its own. The tables and views follow Atomic's Supabase schema, and `/api/crm` speaks the filter language Atomic's screens already use (`hostDataProvider.ts`). So the screens didn't change.
+- **Who sees what.** Everybody signed in reads and edits all records, as in Atomic. Only admins change the CRM's settings or other people's CRM profiles. Each person's CRM user is created on their first visit, with their OpenDuet role.
+- **Files.** Attachments, logos and avatars are stored inside their records for now, up to 7 MB each.
+- **Changing the CRM's tables.** Edit `server/src/crm/schema.ts`, then run `bunx drizzle-kit generate --config=drizzle-crm.config.ts` from `openduet/openbot/server`. Never add CRM tables to OpenDuet's own `drizzle/` folder.
 
 ### Running it locally
 

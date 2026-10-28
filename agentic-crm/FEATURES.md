@@ -16,10 +16,10 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 
 | ID | Feature | Tier | Starts from | Status | Notes |
 |---|---|---|---|---|---|
-| A1 | One app: OpenDuet hosts the CRM area | MVP | Build | In progress | Phase 0 spike: CRM screens run at `/crm` inside OpenDuet's app, on fake data |
+| A1 | One app: OpenDuet hosts the CRM area | MVP | Build | In progress | CRM screens run at `/crm` inside OpenDuet's app on real data. Open: phone layout, one header instead of two |
 | A2 | One login for agent and CRM | MVP | OpenDuet | Done | The CRM uses OpenDuet's session. Email and password sign-in with admin-issued set-password links (`SIGNIN_EMAIL_PASSWORD`). No mail needed. |
-| A3 | One database: CRM tables in OpenDuet's Postgres | MVP | Build | Not started | Drizzle schema; Supabase removed |
-| A4 | CRM API on OpenDuet's server | MVP | Build | Not started | Hono routes behind Atomic's data provider |
+| A3 | One database: CRM tables in OpenDuet's Postgres | MVP | Build | Done | `crm` schema with its own migrations (`server/drizzle-crm/`); Supabase removed from the data path |
+| A4 | CRM API on OpenDuet's server | MVP | Build | Done | `/api/crm`: lists with Atomic's filter language, reads, writes, bulk updates and deletes, admin-only settings |
 | A5 | White-label branding (name, logo, colors) | MVP | OpenDuet | Not started | OpenDuet keeps its identity in one folder |
 | A6 | One-command deploy per customer | MVP | OpenDuet | Not started | Extend OpenDuet's start scripts or Helm chart |
 | A7 | SSO (SAML, OIDC) and SCIM provisioning | P1 | OpenDuet | Not started | Already in OpenDuet via Better Auth plugins; verify and expose |
@@ -30,14 +30,14 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 
 | ID | Feature | Tier | Starts from | Status | Notes |
 |---|---|---|---|---|---|
-| B1 | Companies, contacts, deals, tasks, notes | MVP | Atomic | Not started | |
-| B2 | Deals pipeline kanban, configurable stages | MVP | Atomic | Not started | |
-| B3 | Tags and bulk tagging | MVP | Atomic | Not started | |
-| B4 | Global search | MVP | Atomic | Not started | Backend becomes Postgres full-text search |
-| B5 | CSV import and export | MVP | Atomic | Not started | |
-| B6 | Activity log | MVP | Atomic | Not started | |
-| B7 | Attachments on notes | MVP | Atomic | Not started | Storage moves from Supabase Storage to S3 or local disk |
-| B8 | Merge duplicate contacts | P1 | Atomic | Not started | Port the Supabase edge function |
+| B1 | Companies, contacts, deals, tasks, notes | MVP | Atomic | Done | On real data, checked in a browser |
+| B2 | Deals pipeline kanban, configurable stages | MVP | Atomic | Done | |
+| B3 | Tags and bulk tagging | MVP | Atomic | In progress | API done and tested; check the screens |
+| B4 | Global search | MVP | Atomic | Done | Postgres full-text search, prefix matching. Add indexes when data grows |
+| B5 | CSV import and export | MVP | Atomic | In progress | Check against the real API |
+| B6 | Activity log | MVP | Atomic | Done | |
+| B7 | Attachments on notes | MVP | Atomic | In progress | Stored inside the note for now, up to 7 MB; move to S3 or local disk |
+| B8 | Merge duplicate contacts | P1 | Atomic | Not started | The merge button says it isn't available yet |
 | B9 | Capture emails sent or forwarded to the CRM | Out | Atomic | Dropped | Replaced by C4 (the agent reads the mailbox) |
 
 ## C. Agent (the differentiator)

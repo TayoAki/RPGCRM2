@@ -2,12 +2,10 @@ import { localStorageStore } from "ra-core";
 import { useLayoutEffect, useMemo, useState } from "react";
 import { unstable_HistoryRouter as HistoryRouter } from "react-router";
 
-import { createDataProvider } from "../components/atomic-crm/providers/fakerest/dataProvider";
-import generateData from "../components/atomic-crm/providers/fakerest/dataGenerator";
 import { CRM } from "../components/atomic-crm/root/CRM";
 import { createHostAuthProvider, type HostUser } from "./hostAuthProvider";
+import { createHostDataProvider, fetchCurrentSale } from "./hostDataProvider";
 import { createHostRouterHistory, type HostHistory } from "./hostHistory";
-import { withHostSale } from "./hostSale";
 import "./embed.css";
 
 export type { HostHistory, HostUser };
@@ -17,11 +15,10 @@ export type CrmEmbedProps = {
   history: HostHistory;
   user: HostUser;
   theme: "light" | "dark";
-  // Keep it stable: a new function rebuilds the providers and resets the fake data.
+  // Keep it stable: a new function rebuilds the auth provider.
   onSignOut?: () => Promise<void>;
 };
 
-const HOST_SALE_ID = 0;
 const THEME_STORE_KEY = "theme";
 
 export const CrmEmbed = ({
@@ -35,17 +32,15 @@ export const CrmEmbed = ({
     () => createHostRouterHistory(history),
     [history],
   );
+  const dataProvider = useMemo(() => createHostDataProvider(), []);
   const authProvider = useMemo(
-    () => createHostAuthProvider({ user, saleId: HOST_SALE_ID, onSignOut }),
-    [user, onSignOut],
-  );
-  const dataProvider = useMemo(
     () =>
-      createDataProvider({
-        db: withHostSale(generateData(), user, HOST_SALE_ID),
-        authProvider,
+      createHostAuthProvider({
+        user,
+        currentSale: () => fetchCurrentSale(),
+        onSignOut,
       }),
-    [user, authProvider],
+    [user, onSignOut],
   );
   // The host owns the theme; seeding the store before the first render avoids a flash.
   const [store] = useState(() => {

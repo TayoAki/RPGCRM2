@@ -2794,6 +2794,7 @@ const app = createApp(
   identityStore,
   identityGithubCallback,
   createExtraRoutes({
+    database,
     ...(ownAuth && config.auth?.emailPassword
       ? { passwordPeople: createPasswordPeople(ownAuth) }
       : {}),

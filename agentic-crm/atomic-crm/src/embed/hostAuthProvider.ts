@@ -1,6 +1,7 @@
 import type { AuthProvider } from "ra-core";
 
 import { canAccess } from "../components/atomic-crm/providers/commons/canAccess";
+import type { CurrentSale } from "./hostDataProvider";
 
 export type HostUser = {
   id: string;
@@ -12,14 +13,14 @@ export type HostUser = {
 
 export type HostAuthProviderOptions = {
   user: HostUser;
-  saleId: number;
+  currentSale: () => Promise<CurrentSale>;
   onSignOut?: () => Promise<void>;
 };
 
 // The host has already signed the person in, so the CRM never shows its own login.
 export const createHostAuthProvider = ({
   user,
-  saleId,
+  currentSale,
   onSignOut,
 }: HostAuthProviderOptions): AuthProvider => ({
   login: async () => undefined,
@@ -29,11 +30,18 @@ export const createHostAuthProvider = ({
   },
   checkAuth: async () => undefined,
   checkError: async () => undefined,
-  getIdentity: async () => ({
-    id: saleId,
-    fullName: user.name || user.email,
-    avatar: user.image ?? undefined,
-  }),
+  // The CRM's own profile, which a person can rename, and the host's picture when it has none.
+  getIdentity: async () => {
+    const sale = await currentSale();
+    return {
+      id: sale.id,
+      fullName:
+        `${sale.first_name} ${sale.last_name}`.trim() ||
+        user.name ||
+        user.email,
+      avatar: sale.avatar?.src ?? user.image ?? undefined,
+    };
+  },
   canAccess: async ({ signal: _signal, ...params }) =>
     canAccess(user.role, params),
 });
