@@ -19,6 +19,7 @@ const REPLACED_MODULES = new Set(
     "components/supabase/oauth-consent-page.tsx",
     "components/supabase/set-password-page.tsx",
     "components/admin/theme-mode-toggle.tsx",
+    "components/atomic-crm/misc/ChangelogPage.tsx",
   ].map((file) => normalizePath(path.join(ATOMIC_CRM_SOURCE, file))),
 );
 

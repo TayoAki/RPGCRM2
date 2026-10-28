@@ -2,8 +2,10 @@ import { localStorageStore } from "ra-core";
 import { useLayoutEffect, useMemo, useState } from "react";
 import { unstable_HistoryRouter as HistoryRouter } from "react-router";
 
+import { i18nProvider } from "../components/atomic-crm/providers/commons/i18nProvider";
 import { CRM } from "../components/atomic-crm/root/CRM";
-import { AskAgentContext, type CrmRecordRef } from "./askAgent";
+import { brandedI18nProvider } from "./brandedI18n";
+import { type CrmRecordRef, HostContext } from "./host";
 import { createHostAuthProvider, type HostUser } from "./hostAuthProvider";
 import { createHostDataProvider, fetchCurrentSale } from "./hostDataProvider";
 import { createHostRouterHistory, type HostHistory } from "./hostHistory";
@@ -20,6 +22,8 @@ export type CrmEmbedProps = {
   onSignOut?: () => Promise<void>;
   // Shows "Ask the agent" on contacts, companies and deals.
   onAskAgent?: (record: CrmRecordRef) => void;
+  // The host's product, until an admin sets the CRM's own in its settings.
+  brand?: { title: string; lightModeLogo: string; darkModeLogo: string };
 };
 
 const THEME_STORE_KEY = "theme";
@@ -31,6 +35,7 @@ export const CrmEmbed = ({
   theme,
   onSignOut,
   onAskAgent,
+  brand,
 }: CrmEmbedProps) => {
   const routerHistory = useMemo(
     () => createHostRouterHistory(history),
@@ -46,6 +51,12 @@ export const CrmEmbed = ({
       }),
     [user, onSignOut],
   );
+  const host = useMemo(() => ({ onAskAgent }), [onAskAgent]);
+  const product = brand?.title;
+  const brandedI18n = useMemo(
+    () => (product ? brandedI18nProvider(i18nProvider, product) : undefined),
+    [product],
+  );
   // The host owns the theme; seeding the store before the first render avoids a flash.
   const [store] = useState(() => {
     const crmStore = localStorageStore(undefined, "CRM");
@@ -58,14 +69,16 @@ export const CrmEmbed = ({
 
   return (
     <HistoryRouter basename={basename} history={routerHistory}>
-      <AskAgentContext.Provider value={onAskAgent ?? null}>
+      <HostContext.Provider value={host}>
         <CRM
           dataProvider={dataProvider}
           authProvider={authProvider}
           store={store}
           disableTelemetry
+          {...brand}
+          {...(brandedI18n ? { i18nProvider: brandedI18n } : {})}
         />
-      </AskAgentContext.Provider>
+      </HostContext.Provider>
     </HistoryRouter>
   );
 };

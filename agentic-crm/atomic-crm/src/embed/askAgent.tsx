@@ -1,19 +1,8 @@
 import { Sparkles } from "lucide-react";
 import { useRecordContext, useTranslate } from "ra-core";
-import { createContext, useContext } from "react";
-
 import { Button } from "@/components/ui/button";
 
-export type CrmRecordRef = {
-  resource: "contacts" | "companies" | "deals";
-  id: number;
-  title: string;
-};
-
-// Provided by the host; without it, as in Atomic on its own, the button doesn't show.
-export const AskAgentContext = createContext<
-  ((record: CrmRecordRef) => void) | null
->(null);
+import { type CrmRecordRef, useHost } from "./host";
 
 type Named = {
   id: number;
@@ -31,7 +20,7 @@ export const AskAgentButton = ({
 }: {
   resource: CrmRecordRef["resource"];
 }) => {
-  const ask = useContext(AskAgentContext);
+  const ask = useHost()?.onAskAgent;
   const record = useRecordContext<Named>();
   const translate = useTranslate();
   if (!ask || !record) return null;

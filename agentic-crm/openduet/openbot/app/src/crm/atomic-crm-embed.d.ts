@@ -18,6 +18,7 @@ declare module "atomic-crm/embed" {
     theme: "light" | "dark";
     onSignOut?: () => Promise<void>;
     onAskAgent?: (record: CrmRecordRef) => void;
+    brand?: { title: string; lightModeLogo: string; darkModeLogo: string };
   };
 
   export const CrmEmbed: ComponentType<CrmEmbedProps>;

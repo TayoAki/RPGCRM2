@@ -10,9 +10,11 @@ import { useConfigurationContext } from "../root/ConfigurationContext";
 import { ImportPage } from "../misc/ImportPage";
 import { ChangelogPage } from "../misc/ChangelogPage";
 import { GlobalSearchButton } from "../search/GlobalSearchButton";
+import { useHost } from "../../../embed/host";
 
 const Header = () => {
   const { darkModeLogo, lightModeLogo, title } = useConfigurationContext();
+  const host = useHost();
   const location = useLocation();
   const translate = useTranslate();
 
@@ -94,7 +96,8 @@ const Header = () => {
                     <SettingsMenu />
                   </CanAccess>
                   <ImportFromJsonMenuItem />
-                  <ChangelogMenuItem />
+                  {/* Atomic's own release notes, not the host product's. */}
+                  {host ? null : <ChangelogMenuItem />}
                 </UserMenu>
               </div>
             </div>

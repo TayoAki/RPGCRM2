@@ -20,7 +20,7 @@ Twenty is a behavior reference only. Never copy its code: it's AGPL with Enterpr
 | A2 | One login for agent and CRM | MVP | OpenDuet | Done | The CRM uses OpenDuet's session. Email and password sign-in with admin-issued set-password links (`SIGNIN_EMAIL_PASSWORD`). No mail needed. |
 | A3 | One database: CRM tables in OpenDuet's Postgres | MVP | Build | Done | `crm` schema with its own migrations (`server/drizzle-crm/`); Supabase removed from the data path |
 | A4 | CRM API on OpenDuet's server | MVP | Build | Done | `/api/crm`: lists with Atomic's filter language, reads, writes, bulk updates and deletes, admin-only settings |
-| A5 | White-label branding (name, logo, colors) | MVP | OpenDuet | Not started | OpenDuet keeps its identity in one folder |
+| A5 | White-label branding (name, logo, colors) | MVP | OpenDuet | In progress | Name: `scripts/make-tenant.ts` writes a tenant package per deployment, and the CRM follows it. No Atomic name or changelog in the CRM. Open: a logo and colors (OpenDuet's tenant package has neither), and the product's own name |
 | A6 | One-command deploy per customer | MVP | OpenDuet | Not started | Extend OpenDuet's start scripts or Helm chart |
 | A7 | SSO (SAML, OIDC) and SCIM provisioning | P1 | OpenDuet | Not started | Already in OpenDuet via Better Auth plugins; verify and expose |
 | A8 | Languages: English and French | MVP | Atomic | Not started | More languages in P2 |

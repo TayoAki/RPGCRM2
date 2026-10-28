@@ -12,6 +12,7 @@ import { currentUserQueryOptions } from "@/lib/auth/queries";
 import { deploymentCapabilitiesQueryOptions } from "@/lib/deployment/queries";
 import { queryClient } from "@/query-client";
 import { askAgentContext } from "./ask-agent";
+import { crmBrand } from "./brand";
 import "./crm-screen.css";
 
 const CrmEmbed = lazy(() =>
@@ -19,6 +20,7 @@ const CrmEmbed = lazy(() =>
 );
 
 const CRM_BASENAME = "/crm";
+const CRM_BRAND = crmBrand();
 
 /*
  * Not a PageShell screen: the CRM is a whole app of tables and boards with its own navigation, so it
@@ -49,6 +51,7 @@ export function CrmScreen() {
       <Suspense fallback={null}>
         <CrmEmbed
           basename={CRM_BASENAME}
+          brand={CRM_BRAND}
           history={history}
           onSignOut={
             capabilities?.localEvaluation === false

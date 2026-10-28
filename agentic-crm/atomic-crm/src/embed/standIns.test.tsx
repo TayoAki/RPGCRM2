@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 
 import * as themeModeToggle from "../components/admin/theme-mode-toggle";
+import * as changelogPage from "../components/atomic-crm/misc/ChangelogPage";
 import * as supabaseProviders from "../components/atomic-crm/providers/supabase";
 import * as forgotPasswordPage from "../components/supabase/forgot-password-page";
 import * as oauthConsentPage from "../components/supabase/oauth-consent-page";
@@ -15,6 +16,7 @@ const replaced = {
   forgotPasswordPage,
   oauthConsentPage,
   setPasswordPage,
+  changelogPage,
 };
 
 describe("standIns", () => {
@@ -27,7 +29,7 @@ describe("standIns", () => {
     },
   );
 
-  it("answers on the routes of the Supabase pages it replaces", () => {
+  it("answers on the routes of the pages it replaces", () => {
     expect(standIns.SetPasswordPage.path).toBe(
       setPasswordPage.SetPasswordPage.path,
     );
@@ -37,6 +39,7 @@ describe("standIns", () => {
     expect(standIns.OAuthConsentPage.path).toBe(
       oauthConsentPage.OAuthConsentPage.path,
     );
+    expect(standIns.ChangelogPage.path).toBe(changelogPage.ChangelogPage.path);
   });
 
   it("sends a visit to a Supabase page back to the CRM's start", async () => {

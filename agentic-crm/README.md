@@ -71,6 +71,21 @@ OpenDuet's app compiles Atomic's screens into itself and serves them at `/crm`, 
 5. Start the app: in `openduet/openbot/app`, run `bun run dev`.
 6. Open `http://127.0.0.1:3010/crm`, after finishing OpenDuet's onboarding once.
 
+## Branding a deployment
+
+Each deployment carries its own name, through an OpenDuet tenant package. `scripts/make-tenant.ts` writes one from OpenDuet's own (`openduet/openbot/examples/openduet`), with the product's name everywhere in the app and the assistant's name in chat:
+
+```bash
+bun agentic-crm/scripts/make-tenant.ts --name "Acme CRM" --assistant "Ava" --out <dir>
+```
+
+- **Using it.** Set `TENANT_PACKAGE_DIR=<dir>` in `openduet/openbot/.env`, then build or start the app. The name is read when the app is built.
+- **The CRM.** Its header shows the product's name with a letter mark, and its setup checklist names the product. An admin can still set the CRM's own name and logos in its Settings.
+- **After a vendor sync,** run the script again with `--force`, so OpenDuet's changes to its package come through. It stops if a line it rewrites has moved.
+- **Still OpenDuet's or CopilotKit's,** until the paid plans are in place:
+  - The "Self-host OpenDuet" banner shows until the deployment's CopilotKit Intelligence plan is a paid one.
+  - CopilotKit's "Powered by CopilotKit" badge shows until a CopilotKit license key is set.
+
 ## Kept apart from the Twenty product
 
 This folder is excluded from Twenty's Nx workspace (`.nxignore`) and from Twenty's Docker build context (`.dockerignore`). Twenty's CI and license checks only look at `packages/`.
