@@ -86,7 +86,7 @@ One instance per customer, on a machine with Docker, from this checkout. `deploy
 |---|---|
 | `new-customer.ts` | Writes `deploy/customers/<customer>/`: an `.env` with fresh secrets, and the customer's tenant package (see "Branding a deployment"). Git ignores the folder; keep it private and backed up. |
 | `up.sh` | Builds and starts the deployment, or updates it to this checkout. The first time, it prints the link the first admin opens to set a password. |
-| `compose.yml` | The services: Postgres with pgvector, a migration step that runs before every start, OpenDuet's image with the CRM in it, and Caddy, which gets the HTTPS certificate. |
+| `compose.yml` | The services: Postgres with pgvector, a migration step that runs before every start, OpenDuet's image with the CRM in it, the assistant's computer, and Caddy, which gets the HTTPS certificate. |
 
 ```bash
 bun agentic-crm/deploy/new-customer.ts --customer acme --name "Acme CRM" \
@@ -99,6 +99,7 @@ agentic-crm/deploy/up.sh acme
 - **Sign-in** is by email and password. The first admin adds the others from Admin, People.
 - **Turned off for every customer:** OpenDuet's self-hosting banner and CopilotKit's telemetry.
 - **Ports.** Caddy takes 80 and 443. To run several customers on one machine, set `HTTP_PORT` and `HTTPS_PORT` in each `.env` and put your own proxy in front.
+- **The assistant's computer** (its browser and shell, for research and anything it runs) is a container of its own on a network without the database. It reaches the internet and the app, and changes the CRM only through the CRM's tools under the person's role, never Postgres directly. All Bots of one customer share it; a computer per Bot needs OpenDuet's supervisor, which holds the Docker socket, so it is left out here.
 - **Backups.** The data is in the `db` volume: `docker compose -p crm-acme exec db pg_dump -U crm crm`.
 - **Building the image** needs Atomic's sources beside OpenDuet's. Compose passes them as the `atomic-crm` build context, and the customer's tenant package as `tenant`. Without a `tenant` context, OpenDuet's own package is used.
 

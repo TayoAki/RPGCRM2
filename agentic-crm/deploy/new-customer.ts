@@ -68,6 +68,7 @@ TRUSTED_ORIGINS=${url}
 BETTER_AUTH_SECRET=${secret()}
 KEY_ENCRYPTION_KEY=${secret()}
 AGENT_TOOL_TOKEN=${hex()}
+COMPUTER_TOKEN=${hex()}
 INITIAL_ADMIN_EMAILS=${admin}
 
 # CopilotKit Intelligence (docs/deployment.md in openduet/openbot): the managed service by default.

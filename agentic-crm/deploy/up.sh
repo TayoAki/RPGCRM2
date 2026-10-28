@@ -15,6 +15,11 @@ grep -q '^INTELLIGENCE_API_KEY=.' "$envfile" || {
   exit 1
 }
 
+# Deployments made before the computer had its own container have no token for it yet.
+if ! grep -q '^COMPUTER_TOKEN=.' "$envfile"; then
+  printf '\nCOMPUTER_TOKEN=%s\n' "$(openssl rand -hex 32)" >>"$envfile"
+fi
+
 compose=(docker compose --project-name "crm-$customer" --env-file "$envfile" -f "$here/compose.yml")
 "${compose[@]}" up --detach --build --wait
 

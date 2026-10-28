@@ -1,4 +1,5 @@
-# One customer's deployment: the database, its migrations, the app, and Caddy for HTTPS.
+# One customer's deployment: the database, its migrations, the app, the assistant's computer, and
+# Caddy for HTTPS.
 # Run it through ./up.sh <customer>, which reads customers/<customer>/.env (written by new-customer.ts).
 
 x-app: &app
@@ -11,6 +12,8 @@ x-app: &app
   env_file: ./customers/${CUSTOMER}/.env
   environment:
     DATABASE_URL: postgres://crm:${POSTGRES_PASSWORD:?}@db:5432/crm
+    EMBEDDED_COMPUTER: "off"
+    AGENT_COMPUTER_URL: http://computer:4100
     SIGNIN_EMAIL_PASSWORD: "true"
     OPENBOT_SELF_HOST_BANNER: "false"
     COPILOTKIT_TELEMETRY_DISABLED: "true"
@@ -48,11 +51,28 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      computer:
+        condition: service_started
+    restart: unless-stopped
+    networks: [data, web, bots]
+
+  # The assistant's browser and shell, in a container of its own on a network without the database:
+  # what a Bot runs can reach the internet and the app, never Postgres. It gets only its token, not
+  # the deployment's secrets.
+  computer:
+    image: agentic-crm-computer-${CUSTOMER:?}
+    build:
+      context: ../openduet/openbot
+      dockerfile: agent-computer/Dockerfile
+    environment:
+      COMPUTER_TOKEN: ${COMPUTER_TOKEN:?}
+      COMPUTER_BROWSER_MODE: headed
     volumes:
       - workspace:/workspace
       - profiles:/profiles
+    stop_grace_period: 30s
     restart: unless-stopped
-    networks: [data, web]
+    networks: [bots]
 
   caddy:
     image: caddy:2.10
@@ -74,3 +94,4 @@ volumes:
 networks:
   data:
   web:
+  bots:
