@@ -248,7 +248,7 @@ export type DateBucket = "day" | "week" | "month" | "quarter" | "year";
 export type Widget = {
   id: string;
   title: string;
-  type: "number" | "bar" | "line" | "list";
+  type: "number" | "bar" | "line" | "pie" | "list";
   object: string;
   filter?: Record<string, unknown>;
   group_by?: string;

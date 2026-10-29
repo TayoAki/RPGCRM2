@@ -8,7 +8,7 @@ import {
   useUpdate,
 } from "ra-core";
 import { FileText, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +23,13 @@ import { RelativeDate } from "../../components/atomic-crm/misc/RelativeDate";
 import { crmApi, errorMessage } from "../api";
 import { useAutomationInfo } from "../queries";
 import type { Email, Proposal } from "../types";
-import { ProposalDialog } from "./ProposalDialog";
+
+// The editor is heavy, so it loads when a proposal is opened.
+const ProposalDialog = lazy(() =>
+  import("./ProposalDialog").then((module) => ({
+    default: module.ProposalDialog,
+  })),
+);
 
 const STATUS: Record<Proposal["status"], string> = {
   draft: "Draft",
@@ -190,7 +196,9 @@ const ProposalItem = ({ proposal }: { proposal: Proposal }) => {
         </div>
       ) : null}
       {open ? (
-        <ProposalDialog proposal={proposal} onClose={() => setOpen(false)} />
+        <Suspense fallback={null}>
+          <ProposalDialog proposal={proposal} onClose={() => setOpen(false)} />
+        </Suspense>
       ) : null}
     </li>
   );

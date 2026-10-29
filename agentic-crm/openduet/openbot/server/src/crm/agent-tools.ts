@@ -184,14 +184,17 @@ const TOOLS: readonly McpTool[] = Object.freeze([
     name: "make_chart",
     description: [
       "Add a chart to one of the person's reports, or to a new report, in the CRM's Reports. The person approves it first.",
-      'type is "number" (one figure), "bar" (groups compared, or periods with a bucket), "line" (a value over time; group by a date field with a bucket) or "list" (groups as a table).',
+      'type is "number" (one figure), "bar" (groups compared, or periods with a bucket), "line" (a value over time; group by a date field with a bucket), "pie" (shares of a whole: a count or sum grouped by a non-date field) or "list" (groups as a table).',
       "Check the numbers with run_report first. Returns the report's address to give the person.",
     ].join(" "),
     inputSchema: {
       type: "object",
       properties: {
         title: { type: "string" },
-        type: { type: "string", enum: ["number", "bar", "line", "list"] },
+        type: {
+          type: "string",
+          enum: ["number", "bar", "line", "pie", "list"],
+        },
         object: { type: "string" },
         fn: { type: "string", enum: ["count", "sum", "avg", "min", "max"] },
         field: { type: "string" },

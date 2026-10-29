@@ -33,6 +33,7 @@ const TYPES: Record<Widget["type"], string> = {
   number: "A number",
   bar: "Bars",
   line: "A line over time",
+  pie: "Shares of a whole",
   list: "A list",
 };
 
@@ -57,6 +58,9 @@ const WIDTHS: Record<Widget["width"], string> = {
   2: "Medium",
   3: "Full width",
 };
+
+// Only counts and sums are parts of a whole.
+const ADDS_UP: Aggregate[] = ["count", "sum"];
 
 const isDate = (field: FieldDefinition | undefined) =>
   field?.type === "date" || field?.type === "datetime";
@@ -139,7 +143,9 @@ export const WidgetDialog = ({
   );
   const grouped = fields.find((each) => keyOf(each) === groupBy);
   const groupChoices = fields.filter((each) =>
-    type === "line" ? isDate(each) : canGroup(each),
+    type === "line"
+      ? isDate(each)
+      : canGroup(each) && !(type === "pie" && isDate(each)),
   );
   const numeric = fields.filter(isNumeric);
   const needsGroup = type !== "number";
@@ -209,13 +215,16 @@ export const WidgetDialog = ({
               onChange={(next) => {
                 setType(next as Widget["type"]);
                 setGroupBy("");
+                if (next === "pie" && !ADDS_UP.includes(fn)) setFn("count");
               }}
             />
             <Choose
               label="Measure"
               value={fn}
               options={Object.entries(AGGREGATES).filter(
-                ([each]) => each === "count" || numeric.length,
+                ([each]) =>
+                  (each === "count" || numeric.length) &&
+                  (type !== "pie" || ADDS_UP.includes(each as Aggregate)),
               )}
               onChange={(next) => setFn(next as Aggregate)}
             />

@@ -10,13 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 
 import { Markdown } from "../../components/atomic-crm/misc/Markdown";
+import { RichTextEditor } from "../editor/RichTextEditor";
 import type { Proposal } from "../types";
 
-/** Reading and changing a proposal before it goes out. Markdown, with a preview. */
+/** Reading and changing a proposal before it goes out. */
 export const ProposalDialog = ({
   proposal,
   onClose,
@@ -104,28 +103,16 @@ export const ProposalDialog = ({
                   />
                 </div>
               </div>
-              <Tabs defaultValue="write">
-                <TabsList>
-                  <TabsTrigger value="write">Write</TabsTrigger>
-                  <TabsTrigger value="preview">Preview</TabsTrigger>
-                </TabsList>
-                <TabsContent value="write">
-                  <Textarea
-                    aria-label="Proposal"
-                    rows={18}
-                    className="font-mono text-sm"
-                    value={body}
-                    onChange={(event) => setBody(event.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Markdown: # for headings, - for lists, **bold**. Fill in
-                    anything in [square brackets] before sending.
-                  </p>
-                </TabsContent>
-                <TabsContent value="preview" className="border rounded-md p-4">
-                  <Markdown>{body}</Markdown>
-                </TabsContent>
-              </Tabs>
+              <div className="flex flex-col gap-1">
+                <RichTextEditor
+                  label="Proposal"
+                  value={body}
+                  onChange={setBody}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Fill in anything in [square brackets] before sending.
+                </p>
+              </div>
             </>
           )}
           <DialogFooter>

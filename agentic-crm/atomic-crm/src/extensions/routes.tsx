@@ -1,9 +1,9 @@
+import { lazy, Suspense } from "react";
 import { Route } from "react-router";
 
 import { AutomationEditor } from "./automations/AutomationEditor";
 import { AutomationsPage } from "./automations/AutomationsPage";
 import { RunsPage } from "./automations/RunsPage";
-import { DashboardPage } from "./dashboards/DashboardPage";
 import { DashboardsPage } from "./dashboards/DashboardsPage";
 import { MeetingsPage } from "./meetings/MeetingsPage";
 import { ObjectListPage } from "./objects/ObjectListPage";
@@ -13,6 +13,13 @@ import { ApiKeysPage } from "./settings/ApiKeysPage";
 import { DataModelPage } from "./settings/DataModelPage";
 import { RolesPage } from "./settings/RolesPage";
 import { SignInPage } from "./settings/SignInPage";
+
+// Charts load with the first report opened, not with every CRM page.
+const DashboardPage = lazy(() =>
+  import("./dashboards/DashboardPage").then((module) => ({
+    default: module.DashboardPage,
+  })),
+);
 
 /** The pages this fork adds to the CRM, inside its layout. */
 export const EXTENSION_ROUTES = [
@@ -36,5 +43,13 @@ export const EXTENSION_ROUTES = [
   <Route key="api-keys" path="/settings/api" element={<ApiKeysPage />} />,
   <Route key="sign-in" path="/settings/sign-in" element={<SignInPage />} />,
   <Route key="reports" path="/reports" element={<DashboardsPage />} />,
-  <Route key="report" path="/reports/:id" element={<DashboardPage />} />,
+  <Route
+    key="report"
+    path="/reports/:id"
+    element={
+      <Suspense fallback={null}>
+        <DashboardPage />
+      </Suspense>
+    }
+  />,
 ];

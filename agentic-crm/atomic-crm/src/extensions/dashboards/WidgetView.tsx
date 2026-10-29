@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 import type { Widget } from "../types";
-import { BarList, Columns, LineChart } from "./Charts";
+import { BarList, Columns, Donut, Trend } from "./Charts";
 import {
   fillPeriods,
   useGroupLabels,
@@ -21,7 +21,7 @@ type WidgetViewProps = {
   onRemove?: () => void;
 };
 
-/** One widget: a headline number, a bar list, columns or a line, over the records its owner may see. */
+/** One widget: a headline number, a bar list, columns, a line or a donut, over the records its owner may see. */
 export const WidgetView = ({ widget, onEdit, onRemove }: WidgetViewProps) => {
   const { data = [], error, isPending, isPlaceholderData } = useReport(widget);
   const { groupField, measuredField } = useWidgetFields(widget);
@@ -53,10 +53,13 @@ export const WidgetView = ({ widget, onEdit, onRemove }: WidgetViewProps) => {
       );
     }
     if (widget.type === "line" && widget.bucket) {
-      return <LineChart rows={rows} label={label} format={format} />;
+      return <Trend rows={rows} label={label} format={format} />;
     }
     if (widget.bucket) {
       return <Columns rows={rows} label={label} format={format} />;
+    }
+    if (widget.type === "pie" && additive) {
+      return <Donut rows={rows} label={label} format={format} />;
     }
     if (widget.type === "list") {
       return (
@@ -83,7 +86,7 @@ export const WidgetView = ({ widget, onEdit, onRemove }: WidgetViewProps) => {
     <Card className={cn("gap-3", WIDTHS[widget.width])}>
       <CardContent
         className={cn(
-          "flex flex-col gap-3 transition-opacity",
+          "@container flex flex-col gap-3 transition-opacity",
           isPlaceholderData && "opacity-60",
         )}
       >
