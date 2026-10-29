@@ -82,7 +82,7 @@ if (login) {
 const welcome = document.querySelector("[data-welcome]");
 if (welcome) {
   const id = welcome.dataset.welcome;
-  const order = ["project", "database", "app", "building", "ready"];
+  const order = ["project", "database", "app", "building"];
   const render = (state) => {
     const current = state.status === "ready" ? "ready" : state.step;
     const at = order.indexOf(current);
@@ -93,6 +93,10 @@ if (welcome) {
     showError(welcome, state.status === "failed" || state.step === "waiting" ? state.error : "");
     if (state.status === "ready") {
       welcome.querySelector("[data-ready]").hidden = false;
+      welcome.querySelector(".progress-steps").hidden = true;
+      const title = document.querySelector("[data-title]");
+      title.textContent = `${title.dataset.title} is ready`;
+      welcome.querySelector("[data-owner-email]").textContent = state.owner_email;
       const link = welcome.querySelector("[data-owner-link]");
       const appLink = welcome.querySelector("[data-app-link]");
       appLink.href = `${state.app_url}/sign`;
@@ -103,7 +107,9 @@ if (welcome) {
         link.href = `${state.app_url}/sign`;
         link.firstChild.textContent = state.signed_in ? "Sign in " : "Open your CRM ";
       }
-      document.querySelector("[data-summary]").textContent = "Your CRM is ready.";
+      document.querySelector("[data-summary]").textContent = state.owner_link
+        ? "Set a password to finish. You'll be the admin."
+        : "Sign in with the email below.";
     }
     return state.status === "ready" || state.status === "failed";
   };

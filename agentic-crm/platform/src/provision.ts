@@ -93,7 +93,7 @@ export function createProvisioning(deps: {
       await deps.store.update(workspace.id, {
         status: "queued",
         step: "waiting",
-        error: "Setup is paused until the operator connects hosting.",
+        error: "Your workspace is in the queue and will start shortly. You can leave this page.",
       });
       return;
     }

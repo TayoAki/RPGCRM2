@@ -151,6 +151,7 @@ export function createApp(deps: {
       step: workspace.step,
       error: workspace.error,
       app_url: workspace.app_url,
+      owner_email: workspace.owner_email,
     };
     if (workspace.status !== "ready" || !workspace.app_url) return context.json(base);
     const owner = await ownerLink(

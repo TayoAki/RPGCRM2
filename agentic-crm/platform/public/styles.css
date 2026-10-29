@@ -293,11 +293,16 @@ img { display: block; }
 .progress { margin: 1.5rem 0; padding: 1.5rem; }
 .progress-steps { margin: 0 0 1rem; padding: 0; list-style: none; }
 .progress-steps li { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0; color: #9aa1ad; }
-.marker { width: 14px; height: 14px; border: 2px solid #d3d1c9; border-radius: 50%; }
+.marker { width: 16px; height: 16px; border: 2px solid #d3d1c9; border-radius: 50%; }
 .progress-steps li[data-state="active"] { color: var(--ink); font-weight: 600; }
 .progress-steps li[data-state="active"] .marker { border-color: var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
 .progress-steps li[data-state="done"] { color: var(--ink); }
-.progress-steps li[data-state="done"] .marker { border-color: var(--accent); background: var(--accent); }
+.progress-steps li[data-state="done"] .marker { border-color: var(--accent); background: var(--accent); color: #fff; }
+.marker { display: grid; place-items: center; flex: none; }
+.marker svg { visibility: hidden; stroke-width: 3.5; }
+.progress-steps li[data-state="done"] .marker svg { visibility: visible; }
+.signin-as { display: flex; flex-direction: column; gap: 0.2rem; margin: 0; color: var(--muted); font-size: 0.9rem; }
+.signin-as strong { color: var(--ink); font-size: 1rem; overflow-wrap: anywhere; }
 .ready-actions { display: flex; flex-direction: column; gap: 0.75rem; }
 
 @media (max-width: 1000px) {

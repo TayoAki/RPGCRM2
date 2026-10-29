@@ -62,6 +62,7 @@ test("signing up starts a workspace, and only the person who signed up sees its 
   expect(started).toContain(id);
   expect(await mine.json()).toMatchObject({
     status: "ready",
+    owner_email: "dana@acme.test",
     owner_link: "https://acme.example/set-password?token=abc",
   });
   expect(theirs.status).toBe(404);

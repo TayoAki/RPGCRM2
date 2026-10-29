@@ -32,17 +32,17 @@ export const signupPage = (prefill: { slug?: string; email?: string }) =>
 export const welcomePage = (id: string, company: string) =>
   shell(
     "Setting up",
-    `<h1 class="flow-title">Setting up ${escape(company)}</h1>
+    `<h1 class="flow-title" data-title="${escape(company)}">Setting up ${escape(company)}</h1>
 <p class="muted" data-summary>This takes a few minutes. You can leave this page open, or come back to it later from this browser.</p>
 <div class="card progress" data-welcome="${escape(id)}">
   <ol class="progress-steps">
-    ${STEPS.map((step) => `<li data-step="${step.key}"><span class="marker"></span>${escape(step.label)}</li>`).join("")}
-    <li data-step="ready"><span class="marker"></span>Ready</li>
+    ${STEPS.map((step) => `<li data-step="${step.key}"><span class="marker">${icon("check", 10)}</span>${escape(step.label)}</li>`).join("")}
   </ol>
   <p class="form-error" role="alert" data-error></p>
   <div class="ready-actions" data-ready hidden>
+    <p class="signin-as">Your sign-in email<strong data-owner-email></strong></p>
     <a class="button dark block" data-owner-link href="#">Set your password ${icon("arrow", 14)}</a>
-    <p class="small muted">Then sign in at <a data-app-link href="#"></a> and add your team from Admin, People.</p>
+    <p class="small muted">Your CRM's address is <a data-app-link href="#"></a>. Bookmark it. Add your team from Admin, People.</p>
   </div>
 </div>`,
   );
