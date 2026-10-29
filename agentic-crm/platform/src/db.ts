@@ -17,6 +17,7 @@ export type RailwayIds = {
   variablesSet?: boolean;
   deployStarted?: boolean;
   image?: string;
+  fleet?: string;
 };
 
 export type Workspace = {

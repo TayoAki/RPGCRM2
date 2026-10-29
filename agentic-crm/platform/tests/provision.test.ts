@@ -58,6 +58,8 @@ test("a sign-up becomes a running workspace whose owner is its admin", async () 
     WORKSPACE_SETUP_TOKEN: "setup-token",
     BETTER_AUTH_URL: "https://magpie-test.up.railway.app",
     OPENAI_API_KEY: "sk-test",
+    DEPLOYMENT_ID: `magpie-ready-${run}`,
+    OPENBOT_LEARNING_AUTO_ASSIGN: "false",
   });
 });
 
@@ -132,5 +134,32 @@ test("a new release reaches each running workspace once", async () => {
   expect((await store.get(workspace.id))?.railway.image).toBe("ghcr.io/example/magpie-crm:1.1.0");
   expect(first.images).toContain("ghcr.io/example/magpie-crm:1.1.0");
   expect(first.calls).toContain("deploy");
+  expect(again.calls).toEqual([]);
+});
+
+test("a key shared from the sign-up service reaches running workspaces once", async () => {
+  const store = createWorkspaceStore(sql);
+  const workspace = await newWorkspace(store, "shared");
+  await createProvisioning({
+    config: testConfig(),
+    store,
+    provisioner: fakeProvisioner().provisioner,
+    probe: async () => true,
+  }).start(workspace.id);
+  const keyed = testConfig({
+    sharedWorkspaceVariables: { OPENAI_API_KEY: "sk-test", INTELLIGENCE_API_KEY: "cpk-test" },
+  });
+
+  const first = fakeProvisioner();
+  await createProvisioning({ config: keyed, store, provisioner: first.provisioner }).rollout();
+  const again = fakeProvisioner();
+  await createProvisioning({ config: keyed, store, provisioner: again.provisioner }).rollout();
+
+  expect(first.variables).toContainEqual({
+    DEPLOYMENT_ID: `magpie-shared-${run}`,
+    OPENBOT_LEARNING_AUTO_ASSIGN: "false",
+    OPENAI_API_KEY: "sk-test",
+    INTELLIGENCE_API_KEY: "cpk-test",
+  });
   expect(again.calls).toEqual([]);
 });

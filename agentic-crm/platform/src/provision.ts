@@ -36,7 +36,26 @@ export const isLive: Probe = (url) =>
     () => false,
   );
 
-/** Everything a new workspace's app needs, apart from what all workspaces share. */
+/**
+ * What every workspace gets from the operator, kept in step on running workspaces by rollout().
+ * Workspaces share one Intelligence project, so each names its own threads and none adopts the
+ * project's Learning container, which would carry one client's learned skills into another's.
+ */
+export function fleetVariables(
+  workspace: Workspace,
+  shared: Record<string, string>,
+): Record<string, string> {
+  return {
+    DEPLOYMENT_ID: `magpie-${workspace.slug}`,
+    OPENBOT_LEARNING_AUTO_ASSIGN: "false",
+    ...shared,
+  };
+}
+
+const fingerprintOf = (secret: string, variables: Record<string, string>) =>
+  hmacHex(secret, JSON.stringify(Object.entries(variables).sort()));
+
+/** Everything a new workspace's app needs. */
 export function appVariables(input: {
   workspace: Workspace;
   setupToken: string;
@@ -66,7 +85,7 @@ export function appVariables(input: {
     INTELLIGENCE_GATEWAY_WS_URL: "wss://realtime.intelligence.copilotkit.ai",
     // The app refuses to start without one; the assistant stays off until a real key is set.
     INTELLIGENCE_API_KEY: "not-configured",
-    ...input.shared,
+    ...fleetVariables(input.workspace, input.shared),
   };
 }
 
@@ -157,7 +176,13 @@ export function createProvisioning(deps: {
           shared: deps.config.sharedWorkspaceVariables,
         }),
       );
-      await save("app", { variablesSet: true });
+      await save("app", {
+        variablesSet: true,
+        fleet: fingerprintOf(
+          deps.config.secret,
+          fleetVariables(workspace, deps.config.sharedWorkspaceVariables),
+        ),
+      });
     }
     if (!ids.deployStarted) {
       await provisioner.deploy(placement, appServiceId);
@@ -207,8 +232,8 @@ export function createProvisioning(deps: {
     },
 
     /**
-     * Moves running workspaces to the configured image, one at a time. Changing WORKSPACE_IMAGE is
-     * how a release reaches existing customers; new sign-ups get it straight away.
+     * Brings running workspaces up to the configured image and shared settings, one at a time.
+     * Changing WORKSPACE_IMAGE or a shared key on this service is how it reaches existing customers.
      */
     async rollout(): Promise<void> {
       const provisioner = deps.provisioner;
@@ -216,14 +241,18 @@ export function createProvisioning(deps: {
       if (!provisioner || !image) return;
       for (const workspace of await deps.store.ready()) {
         const { environmentId, projectId, appServiceId } = workspace.railway;
-        if (workspace.railway.image === image || !environmentId || !projectId || !appServiceId) {
-          continue;
-        }
+        if (!environmentId || !projectId || !appServiceId) continue;
+        const variables = fleetVariables(workspace, deps.config.sharedWorkspaceVariables);
+        const fleet = fingerprintOf(deps.config.secret, variables);
+        const newImage = workspace.railway.image !== image;
+        const newSettings = workspace.railway.fleet !== fleet;
+        if (!newImage && !newSettings) continue;
         try {
           const placement = { projectId, environmentId };
-          await provisioner.setImage(placement, appServiceId, image);
+          if (newSettings) await provisioner.setVariables(placement, appServiceId, variables);
+          if (newImage) await provisioner.setImage(placement, appServiceId, image);
           await provisioner.deploy(placement, appServiceId);
-          await deps.store.update(workspace.id, { railway: { image } });
+          await deps.store.update(workspace.id, { railway: { image, fleet } });
         } catch (error) {
           console.error(
             JSON.stringify({ type: "rollout-failed", id: workspace.id, error: String(error) }),
