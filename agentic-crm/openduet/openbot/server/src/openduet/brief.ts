@@ -2,6 +2,7 @@ import { MORNING_BRIEF_TOOL } from "@openbot/shared/morning-brief";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import type { AuditInitiator } from "../audit";
 import { z } from "zod";
+import { composioInbox, composioToday } from "./composio-mail";
 import {
   type Complete,
   type TriageMessage,
@@ -234,9 +235,17 @@ export async function buildMorningBrief(
 
   let messages: z.infer<typeof searchedMessage>[] = [];
   const gmailProblems: MorningBrief["couldNotCheck"] = [];
+  const query = `in:inbox newer_than:${input.since ?? "1d"}`;
+  const noteCap = (matched: number | null | undefined) => {
+    if (messages.length >= BRIEF_MAIL_CAP && (matched ?? 0) > messages.length)
+      couldNotCheck.push({
+        source: "Gmail",
+        why: `Only the newest ${messages.length} of about ${matched} messages from this window were sorted. Older ones were not checked.`,
+      });
+  };
   try {
     const result = await call(GMAIL_SEARCH, {
-      query: `in:inbox newer_than:${input.since ?? "1d"}`,
+      query,
       maxResults: BRIEF_MAIL_CAP,
     });
     if (result.isError)
@@ -244,18 +253,21 @@ export async function buildMorningBrief(
     else {
       const found = searchResult.parse(JSON.parse(result.text));
       messages = found.messages;
-      const matched = found.resultSizeEstimate ?? 0;
-      if (messages.length >= BRIEF_MAIL_CAP && matched > messages.length)
-        couldNotCheck.push({
-          source: "Gmail",
-          why: `Only the newest ${messages.length} of about ${matched} messages from this window were sorted. Older ones were not checked.`,
-        });
+      noteCap(found.resultSizeEstimate);
     }
   } catch (error) {
     gmailProblems.push({ source: "Gmail", why: why(error) });
   }
+  // Without the built-in connector, the person's Gmail through Composio, when they connected it there.
+  const composio = gmailProblems.length
+    ? await composioInbox(call, query, BRIEF_MAIL_CAP).catch(() => null)
+    : null;
+  if (composio) {
+    messages = composio.messages;
+    noteCap(composio.resultSizeEstimate);
+  }
   const other =
-    gmailProblems.length && deps.otherMail
+    gmailProblems.length && !composio && deps.otherMail
       ? await deps
           .otherMail(
             input.actorId,
@@ -268,7 +280,7 @@ export async function buildMorningBrief(
           })
       : null;
   if (other) messages = z.array(searchedMessage).parse(other.messages);
-  else couldNotCheck.push(...gmailProblems);
+  else if (!composio) couldNotCheck.push(...gmailProblems);
 
   const owner = inboxOwner(input.person.email, messages);
   const person: TriagePerson = {
@@ -345,13 +357,19 @@ export async function buildMorningBrief(
       why: `${failures.length} of ${messages.length} messages could not be sorted (${failures[0]}). They are listed under needs you.`,
     });
 
+  let calendarProblem: string | null = null;
   try {
     const result = await call(CALENDAR_LIST, {});
-    if (result.isError)
-      couldNotCheck.push({ source: "Google Calendar", why: why(result.text) });
+    if (result.isError) calendarProblem = why(result.text);
     else brief.calendar = calendarResult.parse(JSON.parse(result.text)).events;
   } catch (error) {
-    couldNotCheck.push({ source: "Google Calendar", why: why(error) });
+    calendarProblem = why(error);
+  }
+  if (calendarProblem !== null) {
+    const today = await composioToday(call, now).catch(() => null);
+    if (today) brief.calendar = today;
+    else
+      couldNotCheck.push({ source: "Google Calendar", why: calendarProblem });
   }
   return brief;
 }

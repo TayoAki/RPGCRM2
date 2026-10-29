@@ -44,7 +44,7 @@ The bottom tabs on phones, and the main area on desktop.
 | Reaching you | Push, SMS and Slack links, so a Bot can reach you away from the app | Everyone |
 | Approval rules | What a Bot may do without asking you each time | Everyone |
 | Settings | Appearance, notifications, saved passwords, memory, Check your setup | Everyone |
-| Morning brief | Each morning: mail that needs you, today's calendar, and a Follow up section from the CRM | Everyone with mail connected |
+| Morning brief | Each morning: mail that needs you, today's calendar, and a Follow up section from the CRM. Reads Gmail and Calendar through the built-in connector, or through Composio, or a CRM mailbox | Everyone with mail connected |
 
 ## 4. The CRM (`/crm`)
 

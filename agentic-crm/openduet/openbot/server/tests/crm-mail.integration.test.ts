@@ -371,7 +371,7 @@ test("the morning brief sorts the person's own IMAP mailbox when Gmail isn't con
     buildMorningBrief(
       {
         callTool: async ({ ref }) =>
-          ref === GMAIL_SEARCH
+          ref === GMAIL_SEARCH || ref.startsWith("composio-")
             ? { text: "Connect Google Workspace first.", isError: true }
             : { text: JSON.stringify({ events: [] }), isError: false },
         complete: async () =>

@@ -1260,7 +1260,7 @@ function wallClockIn(timeZone: string): (at: number) => number {
  * gives. On an ordinary day, DST days included, both land on midnight. Where the clocks change at
  * midnight itself the two differ, and the earlier one that falls on the next day is its start.
  */
-function endOfDayIn(instant: Date, timeZone: string): Date {
+export function endOfDayIn(instant: Date, timeZone: string): Date {
   const wall = wallClockIn(timeZone);
   /** The local date at `at`, as the UTC milliseconds of its midnight. */
   const dateOf = (at: number) => Math.floor(wall(at) / DAY_MS) * DAY_MS;

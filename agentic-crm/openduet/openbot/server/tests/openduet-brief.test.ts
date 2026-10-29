@@ -10,6 +10,10 @@ import {
   inboxOwner,
   openduetTools,
 } from "../src/openduet/brief";
+import {
+  COMPOSIO_CALENDAR,
+  COMPOSIO_GMAIL,
+} from "../src/openduet/composio-mail";
 
 const NOW = new Date("2026-10-22T14:30:00Z");
 const INITIATOR = { kind: "person" } as const;
@@ -203,6 +207,101 @@ describe("morning brief", () => {
         why: "The calendar could not be read (403).",
       },
     ]);
+  });
+
+  test("without the built-in Google connector, mail and today's calendar come through Composio", async () => {
+    const notConnected = async () => {
+      throw new Error(
+        "Refused. Gmail and Google Calendar is not connected for this person.",
+      );
+    };
+    const { callTool } = connector({
+      [GMAIL_SEARCH]: notConnected,
+      [CALENDAR_LIST]: notConnected,
+      [COMPOSIO_GMAIL]: async () => ({
+        text: JSON.stringify(
+          {
+            messages: [
+              {
+                messageId: "c2",
+                threadId: "t2",
+                sender: "Ceramics Monthly <news@ceramicsmonthly.example>",
+                to: MAYA,
+                subject: "10 glazes for fall",
+                messageTimestamp: "2026-10-22T13:00:00Z",
+                labelIds: ["INBOX", "CATEGORY_PROMOTIONS"],
+                preview: { body: "This month: ten glazes." },
+              },
+              {
+                messageId: "c1",
+                threadId: "t1",
+                sender: "Ana Pereira <ana@hearthandco.com>",
+                to: `"Okafor, Maya" <${MAYA}>`,
+                subject: "Friday ship date?",
+                messageTimestamp: "2026-10-22T14:10:00Z",
+                labelIds: ["INBOX"],
+                preview: {
+                  body: "Can you confirm the mugs still ship Friday?",
+                },
+              },
+            ],
+            nextPageToken: "",
+            resultSizeEstimate: 2,
+          },
+          null,
+          2,
+        ),
+        isError: false,
+      }),
+      [COMPOSIO_CALENDAR]: async () => ({
+        text: JSON.stringify({
+          timeZone: "America/Los_Angeles",
+          items: [
+            {
+              id: "e1",
+              summary: "Studio visit with Hearth & Co",
+              start: { dateTime: "2026-10-22T15:00:00-07:00" },
+              end: { dateTime: "2026-10-22T16:00:00-07:00" },
+            },
+            {
+              id: "e2",
+              summary: "Cancelled call",
+              status: "cancelled",
+              start: { dateTime: "2026-10-22T11:00:00-07:00" },
+              end: { dateTime: "2026-10-22T11:30:00-07:00" },
+            },
+            {
+              id: "e3",
+              summary: "Tomorrow's standup",
+              start: { dateTime: "2026-10-23T09:00:00-07:00" },
+              end: { dateTime: "2026-10-23T09:15:00-07:00" },
+            },
+          ],
+        }),
+        isError: false,
+      }),
+    });
+    const brief = await buildMorningBrief(
+      {
+        callTool,
+        model: "test-model",
+        now: () => NOW,
+        complete: async () =>
+          '{"verdict":"needs_you","reason":"Ana needs the date today."}',
+      },
+      input,
+    );
+
+    expect(brief.needsYou).toEqual([
+      expect.objectContaining({ id: "c1", from: "Ana Pereira" }),
+    ]);
+    expect(brief.canWait).toEqual([
+      expect.objectContaining({ id: "c2", decidedBy: "rule:category" }),
+    ]);
+    expect(brief.calendar.map((event) => event.summary)).toEqual([
+      "Studio visit with Hearth & Co",
+    ]);
+    expect(brief.couldNotCheck).toEqual([]);
   });
 
   test("a message the model could not sort is shown as needing the person, and the failure is said", async () => {
