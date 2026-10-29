@@ -18,7 +18,7 @@ bun run check:railway          # checks the provisioner's queries against Railwa
 | `RAILWAY_API_TOKEN` | An account or workspace token. Without it, sign-ups are recorded and wait. |
 | `RAILWAY_WORKSPACE_ID` | The Railway workspace new projects go in. |
 | `WORKSPACE_IMAGE` | The CRM release workspaces run. Defaults to `ghcr.io/tayoaki/magpie-crm:edge`, the latest build; pin a tag such as `:sha-5f6bfe1` to choose when customers update. |
-| `OPENAI_API_KEY`, `INTELLIGENCE_API_KEY`, ... | Copied into every workspace, so they share the operator's keys. Changing one here updates running workspaces when the service restarts. |
+| `OPENAI_API_KEY`, `INTELLIGENCE_API_KEY`, `COMPOSIO_API_KEY`, ... | Copied into every workspace, so they share the operator's keys. Changing one here updates running workspaces when the service restarts. |
 | `MAX_WORKSPACES`, `CONTACT_EMAIL` | A cap on sign-ups (default 50), and the address the Enterprise plan links to. |
 
 Every step records what it made, so a restart carries on instead of making a second project.
