@@ -17,6 +17,7 @@ if (!config.railway) {
   console.warn("RAILWAY_API_TOKEN is not set: sign-ups are recorded but no workspace is created.");
 }
 await provisioning.resume();
+void provisioning.rollout();
 
 const app = createApp({
   config,

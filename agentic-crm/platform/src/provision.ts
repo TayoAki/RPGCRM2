@@ -3,14 +3,14 @@ import type { RailwayIds, Workspace, WorkspaceStore } from "./db";
 import type { Placement } from "./railway";
 import { decrypt, hmacHex, randomBase64, randomHex } from "./secrets";
 
-const BUILD_TIMEOUT_MS = 45 * 60 * 1000;
+const START_TIMEOUT_MS = 20 * 60 * 1000;
 const CHECK_EVERY_MS = 15_000;
 
 export const STEPS = [
   { key: "project", label: "Creating your workspace" },
   { key: "database", label: "Setting up your database" },
   { key: "app", label: "Configuring your CRM" },
-  { key: "building", label: "Building your CRM (about 15 minutes)" },
+  { key: "building", label: "Starting your CRM" },
 ] as const;
 
 export type StepKey = (typeof STEPS)[number]["key"];
@@ -21,10 +21,11 @@ export type Provisioner = {
   createDatabaseService(placement: Placement, password: string): Promise<string>;
   addDatabaseVolume(placement: Placement, serviceId: string): Promise<void>;
   createAppService(placement: Placement): Promise<string>;
-  configureApp(placement: Placement, serviceId: string): Promise<void>;
+  configureApp(placement: Placement, serviceId: string, image: string): Promise<void>;
+  setImage(placement: Placement, serviceId: string, image: string): Promise<void>;
   addDomain(placement: Placement, serviceId: string, slug: string): Promise<string>;
   setVariables(placement: Placement, serviceId: string, variables: Record<string, string>): Promise<void>;
-  deployFromRepo(serviceId: string): Promise<void>;
+  deploy(placement: Placement, serviceId: string): Promise<void>;
 };
 
 export type Probe = (url: string) => Promise<boolean>;
@@ -80,7 +81,7 @@ export function createProvisioning(deps: {
   provisioner?: Provisioner;
   probe?: Probe;
   sleep?: (ms: number) => Promise<void>;
-  buildTimeoutMs?: number;
+  startTimeoutMs?: number;
 }) {
   const running = new Set<string>();
   const sleep = deps.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -97,6 +98,7 @@ export function createProvisioning(deps: {
       return;
     }
     const ids: RailwayIds = { ...workspace.railway };
+    const image = deps.config.railway?.image ?? "";
     const save = async (step: StepKey, found: RailwayIds = {}) => {
       Object.assign(ids, found);
       await deps.store.update(workspace.id, {
@@ -135,8 +137,8 @@ export function createProvisioning(deps: {
     }
     const appServiceId = ids.appServiceId as string;
     if (!ids.appConfigured) {
-      await provisioner.configureApp(placement, appServiceId);
-      await save("app", { appConfigured: true });
+      await provisioner.configureApp(placement, appServiceId, image);
+      await save("app", { appConfigured: true, image });
     }
     if (!ids.domain) {
       await save("app", {
@@ -158,13 +160,13 @@ export function createProvisioning(deps: {
       await save("app", { variablesSet: true });
     }
     if (!ids.deployStarted) {
-      await provisioner.deployFromRepo(appServiceId);
+      await provisioner.deploy(placement, appServiceId);
       await save("app", { deployStarted: true });
     }
 
     await save("building");
     const url = `https://${ids.domain}`;
-    const deadline = Date.now() + (deps.buildTimeoutMs ?? BUILD_TIMEOUT_MS);
+    const deadline = Date.now() + (deps.startTimeoutMs ?? START_TIMEOUT_MS);
     while (!(await probe(url))) {
       if (Date.now() > deadline) {
         throw new Error("Your CRM didn't come up in time. We've been told and will finish it for you.");
@@ -202,6 +204,32 @@ export function createProvisioning(deps: {
     },
     async resume(): Promise<void> {
       for (const workspace of await deps.store.unfinished()) void this.start(workspace.id);
+    },
+
+    /**
+     * Moves running workspaces to the configured image, one at a time. Changing WORKSPACE_IMAGE is
+     * how a release reaches existing customers; new sign-ups get it straight away.
+     */
+    async rollout(): Promise<void> {
+      const provisioner = deps.provisioner;
+      const image = deps.config.railway?.image;
+      if (!provisioner || !image) return;
+      for (const workspace of await deps.store.ready()) {
+        const { environmentId, projectId, appServiceId } = workspace.railway;
+        if (workspace.railway.image === image || !environmentId || !projectId || !appServiceId) {
+          continue;
+        }
+        try {
+          const placement = { projectId, environmentId };
+          await provisioner.setImage(placement, appServiceId, image);
+          await provisioner.deploy(placement, appServiceId);
+          await deps.store.update(workspace.id, { railway: { image } });
+        } catch (error) {
+          console.error(
+            JSON.stringify({ type: "rollout-failed", id: workspace.id, error: String(error) }),
+          );
+        }
+      }
     },
   };
 }

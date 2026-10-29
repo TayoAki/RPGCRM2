@@ -16,6 +16,7 @@ export type RailwayIds = {
   domain?: string;
   variablesSet?: boolean;
   deployStarted?: boolean;
+  image?: string;
 };
 
 export type Workspace = {
@@ -86,6 +87,9 @@ export function createWorkspaceStore(sql: Database) {
     async count(): Promise<number> {
       const [row] = await sql<{ count: number }[]>`SELECT count(*)::int AS count FROM platform.workspaces`;
       return row?.count ?? 0;
+    },
+    async ready(): Promise<Workspace[]> {
+      return sql<Workspace[]>`SELECT * FROM platform.workspaces WHERE status = 'ready' ORDER BY created_at`;
     },
     async unfinished(): Promise<Workspace[]> {
       return sql<Workspace[]>`SELECT * FROM platform.workspaces WHERE status IN ('queued', 'provisioning') ORDER BY created_at`;

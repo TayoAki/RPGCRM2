@@ -96,7 +96,7 @@ ${header()}
       <button class="button light" type="submit">Start free ${icon("arrow", 14)}</button>
     </div>
   </form>
-  <p class="trust mono small muted">No credit card · Your own database · Ready in about 15 minutes</p>
+  <p class="trust mono small muted">No credit card · Your own database · Ready in minutes</p>
 </section>
 </div>
 

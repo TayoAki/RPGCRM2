@@ -18,6 +18,7 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   publicUrl: "http://localhost",
   secret: "a-test-platform-secret-of-enough-length",
   maxWorkspaces: 1000,
+  railway: { token: "test-token", image: "ghcr.io/example/magpie-crm:1.0.0" },
   sharedWorkspaceVariables: { OPENAI_API_KEY: "sk-test" },
   ...overrides,
 });
@@ -26,6 +27,7 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
 export function fakeProvisioner(failOnceAt?: keyof Provisioner) {
   const calls: string[] = [];
   const variables: Record<string, string>[] = [];
+  const images: string[] = [];
   let failed = false;
   const step = <TResult>(name: keyof Provisioner, result: TResult) => async () => {
     calls.push(name);
@@ -41,13 +43,20 @@ export function fakeProvisioner(failOnceAt?: keyof Provisioner) {
     createDatabaseService: step("createDatabaseService", "database-1"),
     addDatabaseVolume: step("addDatabaseVolume", undefined),
     createAppService: step("createAppService", "app-1"),
-    configureApp: step("configureApp", undefined),
+    configureApp: async (_placement, _service, image) => {
+      await step("configureApp", undefined)();
+      images.push(image);
+    },
+    setImage: async (_placement, _service, image) => {
+      await step("setImage", undefined)();
+      images.push(image);
+    },
     addDomain: step("addDomain", "magpie-test.up.railway.app"),
     setVariables: async (_placement, _service, values) => {
       await step("setVariables", undefined)();
       variables.push(values);
     },
-    deployFromRepo: step("deployFromRepo", undefined),
+    deploy: step("deploy", undefined),
   };
-  return { provisioner, calls, variables };
+  return { provisioner, calls, variables, images };
 }

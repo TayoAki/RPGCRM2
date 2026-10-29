@@ -10,9 +10,7 @@ const SHARED_WORKSPACE_VARIABLES = [
 export type RailwaySettings = {
   token: string;
   workspaceId?: string;
-  repo: string;
-  branch: string;
-  dockerfilePath: string;
+  image: string;
 };
 
 export type Config = {
@@ -49,11 +47,7 @@ export function loadConfig(
           railway: {
             token,
             workspaceId: env.RAILWAY_WORKSPACE_ID?.trim() || undefined,
-            repo: env.WORKSPACE_REPO?.trim() || "TayoAki/RPGCRM2",
-            branch: env.WORKSPACE_BRANCH?.trim() || "main",
-            dockerfilePath:
-              env.WORKSPACE_DOCKERFILE?.trim() ||
-              "agentic-crm/deploy/railway/Dockerfile",
+            image: env.WORKSPACE_IMAGE?.trim() || "ghcr.io/tayoaki/magpie-crm:edge",
           },
         }
       : {}),

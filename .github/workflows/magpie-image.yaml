@@ -1,0 +1,68 @@
+name: Magpie image
+
+# One build per commit; every customer workspace runs one of these images. Which one is chosen on
+# the sign-up service with WORKSPACE_IMAGE (agentic-crm/platform/README.md).
+on:
+  push:
+    branches: ['**']
+    paths:
+      - agentic-crm/**
+      - '!agentic-crm/**/*.md'
+      - '!agentic-crm/platform/**'
+      - .github/workflows/magpie-image.yaml
+    tags: ['magpie-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: magpie-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      # The image carries a browser and two toolchains; the runner's preinstalled SDKs don't fit beside it.
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - uses: actions/checkout@v4
+
+      - name: Image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/magpie-crm" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=sha
+            type=raw,value=edge,enable={{is_default_branch}}
+            type=match,pattern=magpie-v(.*),group=1
+          labels: |
+            org.opencontainers.image.title=magpie-crm
+            org.opencontainers.image.description=Magpie CRM, one workspace per container
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: agentic-crm/deploy/railway/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

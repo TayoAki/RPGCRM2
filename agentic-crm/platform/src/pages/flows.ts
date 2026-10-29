@@ -33,7 +33,7 @@ export const welcomePage = (id: string, company: string) =>
   shell(
     "Setting up",
     `<h1 class="flow-title">Setting up ${escape(company)}</h1>
-<p class="muted" data-summary>This takes about 15 minutes. You can leave this page open, or come back to it later from this browser.</p>
+<p class="muted" data-summary>This takes a few minutes. You can leave this page open, or come back to it later from this browser.</p>
 <div class="card progress" data-welcome="${escape(id)}">
   <ol class="progress-steps">
     ${STEPS.map((step) => `<li data-step="${step.key}"><span class="marker"></span>${escape(step.label)}</li>`).join("")}

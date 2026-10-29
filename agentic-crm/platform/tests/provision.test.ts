@@ -49,8 +49,9 @@ test("a sign-up becomes a running workspace whose owner is its admin", async () 
     "configureApp",
     "addDomain",
     "setVariables",
-    "deployFromRepo",
+    "deploy",
   ]);
+  expect(fake.images).toEqual(["ghcr.io/example/magpie-crm:1.0.0"]);
   expect(fake.variables[0]).toMatchObject({
     INITIAL_ADMIN_EMAILS: `dana-${run}@acme.test`,
     WORKSPACE_OWNER_EMAIL: `dana-${run}@acme.test`,
@@ -91,7 +92,7 @@ test("a build that never comes up is reported, not waited on for ever", async ()
     provisioner: fakeProvisioner().provisioner,
     probe: async () => false,
     sleep: async () => {},
-    buildTimeoutMs: 0,
+    startTimeoutMs: 0,
   });
   const workspace = await newWorkspace(store, "slow");
 
@@ -108,4 +109,28 @@ test("without hosting connected, a sign-up waits instead of failing", async () =
   await provisioning.start(workspace.id);
 
   expect(await store.get(workspace.id)).toMatchObject({ status: "queued", step: "waiting" });
+});
+
+test("a new release reaches each running workspace once", async () => {
+  const store = createWorkspaceStore(sql);
+  const workspace = await newWorkspace(store, "release");
+  await createProvisioning({
+    config: testConfig(),
+    store,
+    provisioner: fakeProvisioner().provisioner,
+    probe: async () => true,
+  }).start(workspace.id);
+  const release = testConfig({
+    railway: { token: "test-token", image: "ghcr.io/example/magpie-crm:1.1.0" },
+  });
+
+  const first = fakeProvisioner();
+  await createProvisioning({ config: release, store, provisioner: first.provisioner }).rollout();
+  const again = fakeProvisioner();
+  await createProvisioning({ config: release, store, provisioner: again.provisioner }).rollout();
+
+  expect((await store.get(workspace.id))?.railway.image).toBe("ghcr.io/example/magpie-crm:1.1.0");
+  expect(first.images).toContain("ghcr.io/example/magpie-crm:1.1.0");
+  expect(first.calls).toContain("deploy");
+  expect(again.calls).toEqual([]);
 });

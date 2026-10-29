@@ -29,8 +29,8 @@ export const QUERIES = {
   variableCollectionUpsert: `mutation ($input: VariableCollectionUpsertInput!) {
     variableCollectionUpsert(input: $input)
   }`,
-  serviceConnect: `mutation ($id: String!, $input: ServiceConnectInput!) {
-    serviceConnect(id: $id, input: $input) { id }
+  serviceInstanceDeployV2: `mutation ($serviceId: String!, $environmentId: String!) {
+    serviceInstanceDeployV2(serviceId: $serviceId, environmentId: $environmentId)
   }`,
 } as const;
 
@@ -119,19 +119,26 @@ export function createRailway(settings: RailwaySettings, fetcher: Fetch = fetch)
       return serviceCreate.id;
     },
 
-    async configureApp(placement: Placement, serviceId: string): Promise<void> {
+    async configureApp(placement: Placement, serviceId: string, image: string): Promise<void> {
       await call("serviceInstanceUpdate", {
         serviceId,
         environmentId: placement.environmentId,
         input: {
-          rootDirectory: "/",
-          dockerfilePath: settings.dockerfilePath,
+          source: { image },
+          // A release that never turns healthy is not switched to; the previous one keeps serving.
           healthcheckPath: "/health",
           healthcheckTimeout: 600,
           restartPolicyType: "ON_FAILURE",
           restartPolicyMaxRetries: 3,
-          watchPatterns: ["/agentic-crm/**", "!/agentic-crm/**/*.md", "/.dockerignore"],
         },
+      });
+    },
+
+    async setImage(placement: Placement, serviceId: string, image: string): Promise<void> {
+      await call("serviceInstanceUpdate", {
+        serviceId,
+        environmentId: placement.environmentId,
+        input: { source: { image } },
       });
     },
 
@@ -167,11 +174,10 @@ export function createRailway(settings: RailwaySettings, fetcher: Fetch = fetch)
       });
     },
 
-    /** Connecting the repository is what starts the first build. */
-    async deployFromRepo(serviceId: string): Promise<void> {
-      await call("serviceConnect", {
-        id: serviceId,
-        input: { repo: settings.repo, branch: settings.branch },
+    async deploy(placement: Placement, serviceId: string): Promise<void> {
+      await call("serviceInstanceDeployV2", {
+        serviceId,
+        environmentId: placement.environmentId,
       });
     },
   };
