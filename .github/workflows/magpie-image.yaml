@@ -9,6 +9,7 @@ on:
       - agentic-crm/**
       - '!agentic-crm/**/*.md'
       - '!agentic-crm/platform/**'
+      - '!agentic-crm/sample-data/**'
       - .github/workflows/magpie-image.yaml
     tags: ['magpie-v*']
   workflow_dispatch:
