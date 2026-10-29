@@ -181,7 +181,7 @@ function useHeldTitle(
 /** A sentence where the conversation would be, under the page's chrome. */
 function PageNotice({ children, alert }: { children: string; alert: boolean }) {
   return (
-    <div className="flex flex-1 items-center justify-center px-6 pt-[88px] text-center">
+    <div className="flex flex-1 items-center justify-center px-6 pt-[var(--duet-head-space,88px)] text-center">
       <p
         className={
           alert ? "type-sub text-duet-red" : "type-sub text-duet-ink-2"

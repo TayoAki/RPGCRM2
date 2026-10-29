@@ -14,7 +14,7 @@ export function ScreenScroll({
 }) {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-[100px] pb-[calc(var(--duet-tab-space,0px)+32px)]">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-[var(--duet-head-space,100px)] pb-[calc(var(--duet-tab-space,0px)+32px)]">
         {children}
       </div>
       {overlay}

@@ -3,6 +3,7 @@ import { useCanAccess } from "ra-core";
 import type { ReactNode } from "react";
 import { useLocation } from "react-router";
 
+import { useHost } from "../../embed/host";
 import { crmApi } from "../api";
 import { dashboardsKey } from "../dashboards/report";
 import { groupable } from "../objects/choices";
@@ -52,6 +53,7 @@ export const CrmFrame = ({ children }: { children: ReactNode }) => {
     enabled: section.key === "reports",
   });
   const { total: due = 0 } = useDueTasks();
+  const hostFrame = useHost()?.hostFrame === true;
 
   let tabs: Tab[] = HOME_TABS;
   let more: Tab[] = [];
@@ -79,6 +81,21 @@ export const CrmFrame = ({ children }: { children: ReactNode }) => {
     tabs = settingsTabs(isAdmin);
   }
   const active = activeTab([...tabs, ...more], pathname, search);
+  const page = (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <TabStrip tabs={tabs} more={more} active={active} />
+      <main
+        id="main-content"
+        className="min-h-0 flex-1 overflow-y-auto px-6 py-4"
+      >
+        <div className="mx-auto max-w-screen-2xl">{children}</div>
+      </main>
+    </div>
+  );
+
+  if (hostFrame) {
+    return <div className="flex h-full min-h-0 bg-background">{page}</div>;
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
@@ -98,15 +115,7 @@ export const CrmFrame = ({ children }: { children: ReactNode }) => {
             viewId={new URLSearchParams(search).get("view")}
           />
         ) : null}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TabStrip tabs={tabs} more={more} active={active} />
-          <main
-            id="main-content"
-            className="min-h-0 flex-1 overflow-y-auto px-6 py-4"
-          >
-            <div className="mx-auto max-w-screen-2xl">{children}</div>
-          </main>
-        </div>
+        {page}
         {todayOpen ? <TodayPanel /> : null}
       </div>
       <StatusBar />

@@ -1,7 +1,11 @@
 import { IconChevronLeft } from "@tabler/icons-react";
 import { Link, type LinkProps } from "@tanstack/react-router";
 import type * as React from "react";
-import { useInPageChrome, usePageChrome } from "@/components/shell/page-chrome";
+import {
+  useInPageChrome,
+  usePageChrome,
+  usePageChromeDocked,
+} from "@/components/shell/page-chrome";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { SidebarToggle, useSidebarToggleVisible } from "./sidebar-toggle";
@@ -80,12 +84,14 @@ export function PageShell({
    * this draws neither: no bar, and the heading kept for screen readers only. The Back link this page
    * was given becomes where the disc goes when there is no history to go back through.
    */
-  const inChrome = useInPageChrome();
+  const underChrome = useInPageChrome();
+  const docked = usePageChromeDocked();
+  const inChrome = underChrome && !docked;
   usePageChrome({
     title,
     ...(backButton ? { backTo: backButton.linkProps } : {}),
   });
-  const bar = !inChrome && (showToggle || !!backButton);
+  const bar = !underChrome && (showToggle || !!backButton);
 
   return (
     <>
@@ -128,7 +134,11 @@ export function PageShell({
             "mx-auto flex w-full flex-col px-4 pb-12",
             // Under the chrome the page starts below its floating header. Without a bar above it
             // the heading keeps the full original space.
-            inChrome ? "pt-[92px]" : bar ? "pt-8" : "pt-12",
+            inChrome
+              ? "pt-[var(--duet-head-space,92px)]"
+              : bar
+                ? "pt-8"
+                : "pt-12",
             WIDTHS[width],
             className,
           )}

@@ -24,6 +24,7 @@ export type CrmEmbedProps = {
   onAskAgent?: (record: CrmRecordRef) => void;
   // The host's product, until an admin sets the CRM's own in its settings.
   brand?: { title: string; lightModeLogo: string; darkModeLogo: string };
+  hostFrame?: boolean;
 };
 
 const THEME_STORE_KEY = "theme";
@@ -36,6 +37,7 @@ export const CrmEmbed = ({
   onSignOut,
   onAskAgent,
   brand,
+  hostFrame = false,
 }: CrmEmbedProps) => {
   const routerHistory = useMemo(
     () => createHostRouterHistory(history),
@@ -51,7 +53,10 @@ export const CrmEmbed = ({
       }),
     [user, onSignOut],
   );
-  const host = useMemo(() => ({ onAskAgent }), [onAskAgent]);
+  const host = useMemo(
+    () => ({ onAskAgent, hostFrame }),
+    [onAskAgent, hostFrame],
+  );
   const product = brand?.title;
   const brandedI18n = useMemo(
     () => (product ? brandedI18nProvider(i18nProvider, product) : undefined),

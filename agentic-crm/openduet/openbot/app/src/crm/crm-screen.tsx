@@ -5,12 +5,14 @@ import { lazy, Suspense, useCallback, useState } from "react";
 import { NewTaskSheet } from "@/components/shell/new-task-sheet";
 import { usePageChrome } from "@/components/shell/page-chrome";
 import { useTheme } from "@/components/theme-provider";
+import { useIsDesktop } from "@/hooks/use-desktop";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { primaryBot } from "@/lib/agents/primary-bot";
 import { agentListQueryOptions } from "@/lib/agents/queries";
 import { signOutMutationOptions } from "@/lib/auth/mutations";
 import { currentUserQueryOptions } from "@/lib/auth/queries";
 import { deploymentCapabilitiesQueryOptions } from "@/lib/deployment/queries";
+import { cn } from "@/lib/utils";
 import { queryClient } from "@/query-client";
 import { askAgentContext } from "./ask-agent";
 import { crmBrand } from "./brand";
@@ -31,6 +33,7 @@ const CRM_BRAND = crmBrand();
 export function CrmScreen() {
   // On a phone the CRM's own header names the page, beside the back disc (crm-screen.css).
   usePageChrome({ title: useIsMobile() ? null : "CRM" });
+  const desktop = useIsDesktop();
   const { history } = useRouter();
   const { resolved } = useTheme();
   const navigate = useNavigate();
@@ -49,12 +52,18 @@ export function CrmScreen() {
   if (!user) return null;
 
   return (
-    <div className="crm-screen min-h-0 flex-1 overflow-y-auto bg-background pt-[92px] text-foreground">
+    <div
+      className={cn(
+        "crm-screen min-h-0 flex-1 overflow-y-auto bg-background text-foreground",
+        desktop ? "pt-0" : "pt-[var(--duet-head-space,92px)]",
+      )}
+    >
       <Suspense fallback={null}>
         <CrmEmbed
           basename={CRM_BASENAME}
           brand={CRM_BRAND}
           history={history}
+          hostFrame={desktop}
           onSignOut={
             capabilities?.localEvaluation === false
               ? signOutAndLeave

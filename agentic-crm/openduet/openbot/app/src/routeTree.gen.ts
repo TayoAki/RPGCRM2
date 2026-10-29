@@ -32,6 +32,7 @@ import { Route as AuthedAppSkillsRouteImport } from './routes/_authed/_app/skill
 import { Route as AuthedAppStartRouteImport } from './routes/_authed/_app/start'
 import { Route as AuthedAppTasksRouteImport } from './routes/_authed/_app/tasks'
 import { Route as AuthedAppTeamBotsRouteImport } from './routes/_authed/_app/team-bots'
+import { Route as AuthedAppTodayRouteImport } from './routes/_authed/_app/today'
 import { Route as AuthedAdminIndexRouteImport } from './routes/_authed/admin/index'
 import { Route as AuthedAdminApprovalsRouteImport } from './routes/_authed/admin/approvals'
 import { Route as AuthedAdminAuditRouteImport } from './routes/_authed/admin/audit'
@@ -203,6 +204,11 @@ const AuthedAppTasksRoute = AuthedAppTasksRouteImport.update({
 const AuthedAppTeamBotsRoute = AuthedAppTeamBotsRouteImport.update({
   id: '/team-bots',
   path: '/team-bots',
+  getParentRoute: () => AuthedAppRoute,
+} as any)
+const AuthedAppTodayRoute = AuthedAppTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
   getParentRoute: () => AuthedAppRoute,
 } as any)
 const AuthedAdminIndexRoute = AuthedAdminIndexRouteImport.update({
@@ -546,6 +552,7 @@ export interface FileRoutesByFullPath {
   '/start': typeof AuthedAppStartRoute
   '/tasks': typeof AuthedAppTasksRouteWithChildren
   '/team-bots': typeof AuthedAppTeamBotsRoute
+  '/today': typeof AuthedAppTodayRoute
   '/admin/approvals': typeof AuthedAdminApprovalsRoute
   '/admin/audit': typeof AuthedAdminAuditRoute
   '/admin/boundaries': typeof AuthedAdminBoundariesRoute
@@ -624,6 +631,7 @@ export interface FileRoutesByTo {
   '/start': typeof AuthedAppStartRoute
   '/tasks': typeof AuthedAppTasksRouteWithChildren
   '/team-bots': typeof AuthedAppTeamBotsRoute
+  '/today': typeof AuthedAppTodayRoute
   '/admin/approvals': typeof AuthedAdminApprovalsRoute
   '/admin/audit': typeof AuthedAdminAuditRoute
   '/admin/boundaries': typeof AuthedAdminBoundariesRoute
@@ -707,6 +715,7 @@ export interface FileRoutesById {
   '/_authed/_app/start': typeof AuthedAppStartRoute
   '/_authed/_app/tasks': typeof AuthedAppTasksRouteWithChildren
   '/_authed/_app/team-bots': typeof AuthedAppTeamBotsRoute
+  '/_authed/_app/today': typeof AuthedAppTodayRoute
   '/_authed/admin/approvals': typeof AuthedAdminApprovalsRoute
   '/_authed/admin/audit': typeof AuthedAdminAuditRoute
   '/_authed/admin/boundaries': typeof AuthedAdminBoundariesRoute
@@ -791,6 +800,7 @@ export interface FileRouteTypes {
     | '/start'
     | '/tasks'
     | '/team-bots'
+    | '/today'
     | '/admin/approvals'
     | '/admin/audit'
     | '/admin/boundaries'
@@ -869,6 +879,7 @@ export interface FileRouteTypes {
     | '/start'
     | '/tasks'
     | '/team-bots'
+    | '/today'
     | '/admin/approvals'
     | '/admin/audit'
     | '/admin/boundaries'
@@ -951,6 +962,7 @@ export interface FileRouteTypes {
     | '/_authed/_app/start'
     | '/_authed/_app/tasks'
     | '/_authed/_app/team-bots'
+    | '/_authed/_app/today'
     | '/_authed/admin/approvals'
     | '/_authed/admin/audit'
     | '/_authed/admin/boundaries'
@@ -1180,6 +1192,13 @@ declare module '@tanstack/react-router' {
       path: '/team-bots'
       fullPath: '/team-bots'
       preLoaderRoute: typeof AuthedAppTeamBotsRouteImport
+      parentRoute: typeof AuthedAppRoute
+    }
+    '/_authed/_app/today': {
+      id: '/_authed/_app/today'
+      path: '/today'
+      fullPath: '/today'
+      preLoaderRoute: typeof AuthedAppTodayRouteImport
       parentRoute: typeof AuthedAppRoute
     }
     '/_authed/admin/': {
@@ -1732,6 +1751,7 @@ interface AuthedAppRouteChildren {
   AuthedAppStartRoute: typeof AuthedAppStartRoute
   AuthedAppTasksRoute: typeof AuthedAppTasksRouteWithChildren
   AuthedAppTeamBotsRoute: typeof AuthedAppTeamBotsRoute
+  AuthedAppTodayRoute: typeof AuthedAppTodayRoute
   AuthedAppIndexRoute: typeof AuthedAppIndexRoute
   AuthedAppChannelChannelIdRoute: typeof AuthedAppChannelChannelIdRoute
   AuthedAppChannelNewRoute: typeof AuthedAppChannelNewRoute
@@ -1771,6 +1791,7 @@ const AuthedAppRouteChildren: AuthedAppRouteChildren = {
   AuthedAppStartRoute: AuthedAppStartRoute,
   AuthedAppTasksRoute: AuthedAppTasksRouteWithChildren,
   AuthedAppTeamBotsRoute: AuthedAppTeamBotsRoute,
+  AuthedAppTodayRoute: AuthedAppTodayRoute,
   AuthedAppIndexRoute: AuthedAppIndexRoute,
   AuthedAppChannelChannelIdRoute: AuthedAppChannelChannelIdRoute,
   AuthedAppChannelNewRoute: AuthedAppChannelNewRoute,

@@ -588,7 +588,7 @@ export function ConversationView({
             {...(inShell
               ? {
                   contentClassName:
-                    "max-w-none gap-[14px] px-4 pt-[100px] pb-[calc(var(--duet-dock,0px)+24px)]",
+                    "max-w-none gap-[14px] px-4 pt-[var(--duet-head-space,100px)] pb-[calc(var(--duet-dock,0px)+24px)]",
                 }
               : {})}
             folded={folded}

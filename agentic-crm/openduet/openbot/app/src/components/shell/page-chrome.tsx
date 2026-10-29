@@ -51,15 +51,31 @@ const ClaimContext = createContext<Dispatch<
   SetStateAction<Claim | null>
 > | null>(null);
 
-export function PageChromeProvider({ children }: { children: ReactNode }) {
+// On desktop the title sits in the shell's header bar, not over the page, so a page keeps its heading.
+const DockedContext = createContext(false);
+
+export function PageChromeProvider({
+  children,
+  docked = false,
+}: {
+  children: ReactNode;
+  docked?: boolean;
+}) {
   const [claim, setClaim] = useState<Claim | null>(null);
   return (
     <ClaimContext.Provider value={setClaim}>
       <ChromeContext.Provider value={claim ?? NOTHING}>
-        {children}
+        <DockedContext.Provider value={docked}>
+          {children}
+        </DockedContext.Provider>
       </ChromeContext.Provider>
     </ClaimContext.Provider>
   );
+}
+
+/** Whether the chrome is the desktop's header bar rather than one floating over the page. */
+export function usePageChromeDocked(): boolean {
+  return useContext(DockedContext);
 }
 
 /** What the chrome shows now. Outside the shell there is no chrome, and this is null. */

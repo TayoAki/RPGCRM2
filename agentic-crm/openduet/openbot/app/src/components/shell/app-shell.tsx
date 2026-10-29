@@ -8,9 +8,12 @@ import {
   useState,
 } from "react";
 import { AttentionNotifier } from "@/components/bot-profile/attention";
+import { DesktopShell } from "@/components/desktop/desktop-shell";
 import { SelfHostBanner } from "@/components/layout/self-host-banner";
+import { useIsDesktop } from "@/hooks/use-desktop";
 import { useChannelEvents } from "@/lib/channels/use-channel-events";
 import { useDuetChannels } from "@/lib/duet-channels/use-channel";
+import { cn } from "@/lib/utils";
 import { ChannelSheet } from "./channel-sheet";
 import {
   ChatPresenceProvider,
@@ -36,6 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     select: (state) => state.location.pathname,
   });
   const tab = tabForPath(pathname);
+  const desktop = useIsDesktop();
   const [menuOpen, setMenuOpen] = useState(false);
   // New channel, pressed in the menu: the sheet stands on its own once the menu has closed.
   const [newChannel, setNewChannel] = useState(false);
@@ -56,11 +60,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <ChatPresenceProvider serverWork={chatServerWork}>
       {/* `duet-touch`: every control drawn in the shell is a 44px target (styles.css). */}
-      <div className="duet-touch flex h-svh flex-col overflow-hidden bg-duet-surface">
+      <div
+        className={cn(
+          "flex h-svh flex-col overflow-hidden bg-duet-surface",
+          !desktop && "duet-touch",
+        )}
+      >
         <AttentionNotifier />
         <FinishedForYou />
         <SelfHostBanner />
-        {tab ? (
+        {desktop ? (
+          <DesktopShell onConversations={() => setMenuOpen(true)} tab={tab}>
+            {children}
+          </DesktopShell>
+        ) : tab ? (
           <TabColumn tab={tab}>
             <ShellHeader
               floating

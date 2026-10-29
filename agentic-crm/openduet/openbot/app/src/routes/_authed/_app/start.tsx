@@ -50,7 +50,7 @@ function RouteComponent() {
 
   return (
     // Starts under the page chrome's floating header; the pill already names the page.
-    <div className="flex w-full flex-1 flex-col items-center justify-center-safe overflow-y-auto px-4 pt-[88px] pb-4">
+    <div className="flex w-full flex-1 flex-col items-center justify-center-safe overflow-y-auto px-4 pt-[var(--duet-head-space,88px)] pb-4">
       <h1 className="sr-only">Start a conversation</h1>
       <div className="mt-8 w-full flex flex-col items-center">
         <Composer

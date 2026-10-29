@@ -330,7 +330,7 @@ export function ScreenNotice({
   alert?: boolean;
 }) {
   return (
-    <div className="flex flex-1 items-center justify-center px-6 pt-[100px] text-center">
+    <div className="flex flex-1 items-center justify-center px-6 pt-[var(--duet-head-space,100px)] text-center">
       <p
         className={
           alert ? "type-sub text-duet-red" : "type-sub text-duet-ink-2"
