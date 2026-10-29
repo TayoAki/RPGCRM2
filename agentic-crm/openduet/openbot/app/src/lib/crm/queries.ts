@@ -117,6 +117,7 @@ export const crmKeys = {
   configuration: ["crm", "home", "configuration"] as const,
   activity: ["crm", "home", "activity"] as const,
   sales: ["crm", "home", "sales"] as const,
+  contactCount: ["crm", "home", "contact-count"] as const,
   search: (text: string) => ["crm", "home", "search", text] as const,
 };
 
@@ -233,6 +234,21 @@ export const crmActivityQueryOptions = () =>
         { sort: "date", perPage: 15 },
         "Couldn't load the team's activity.",
       ),
+    staleTime: 60_000,
+  });
+
+/** How many contacts the workspace has, for the first-run checklist. */
+export const crmContactCountQueryOptions = () =>
+  queryOptions({
+    queryKey: crmKeys.contactCount,
+    queryFn: async () =>
+      (
+        await crmList<{ id: number }>(
+          "contacts",
+          { perPage: 1 },
+          "Couldn't count your contacts.",
+        )
+      ).total,
     staleTime: 60_000,
   });
 

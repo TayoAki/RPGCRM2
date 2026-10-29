@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, type LinkProps } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import type { WorkspaceSummary } from "@/components/desktop/use-workspace-summary";
 import { describeApproval } from "@/lib/approval-view";
@@ -78,126 +78,136 @@ type AttentionItem = {
   key: string;
   title: string;
   line: string;
+  status: string;
   tone: "needs" | "problem" | "done";
-  link: ReactNode;
+  action: string;
+  link: LinkProps;
 };
 
-const ITEM_LINK =
-  "type-caption shrink-0 rounded-lg border border-duet-hair px-2 py-1 font-medium text-duet-ink hover:bg-duet-tile";
+const TONE: Record<AttentionItem["tone"], string> = {
+  needs: "bg-duet-status-needs-soft text-duet-status-needs",
+  problem: "bg-duet-status-problem-soft text-duet-status-problem",
+  done: "bg-duet-status-done-soft text-duet-status-done",
+};
 
 /** Everything waiting on the person: approvals, a Bot's questions, finished work, late follow-ups. */
-export function NeedsAttention({
-  summary,
-  now,
-  limit = 6,
-}: {
-  summary: WorkspaceSummary;
-  now: Date;
-  limit?: number;
-}) {
-  const items: AttentionItem[] = [
+export function attentionItems(
+  summary: WorkspaceSummary,
+  now: Date,
+): AttentionItem[] {
+  return [
     ...summary.approvals.map((request) => {
       const view = describeApproval(request);
       return {
         key: `approval-${request.id}`,
         title: view.title,
-        line: view.app
-          ? `Approval for ${view.app}`
-          : "Waiting for your approval",
+        line: view.app ? `A Bot wants to use ${view.app}` : "A Bot is asking",
+        status: "Approval",
         tone: "needs" as const,
-        link: (
-          <Link className={ITEM_LINK} to="/tasks">
-            Review
-          </Link>
-        ),
+        action: "Review",
+        link: { to: "/tasks" } as LinkProps,
       };
     }),
     ...summary.questions.map((question) => ({
       key: `question-${question.id}`,
       title: question.question,
       line: "A Bot asked you",
+      status: "Question",
       tone: "needs" as const,
-      link: (
-        <Link className={ITEM_LINK} to="/tasks">
-          Answer
-        </Link>
-      ),
+      action: "Answer",
+      link: { to: "/tasks" } as LinkProps,
     })),
     ...summary.forReview.map((task) => ({
       key: `task-${task.id}`,
       title: task.title,
-      line: TASK_STATUS_LABEL[task.status],
+      line: task.next || TASK_STATUS_LABEL[task.status],
+      status: task.status === "needs_input" ? "Needs input" : "Ready",
       tone:
         task.status === "needs_input" ? ("needs" as const) : ("done" as const),
-      link: (
-        <Link
-          className={ITEM_LINK}
-          params={{ taskId: task.id }}
-          to="/tasks/$taskId"
-        >
-          Open
-        </Link>
-      ),
+      action: task.status === "needs_input" ? "Open" : "View",
+      link: { to: "/tasks/$taskId", params: { taskId: task.id } } as LinkProps,
     })),
     ...summary.followUpsLate.map((task) => ({
       key: `follow-up-${task.id}`,
       title: task.text || "Follow-up",
-      line: dueLine(task.due_date, now),
+      line: "Follow-up on a contact",
+      status: dueLine(task.due_date, now),
       tone: "problem" as const,
-      link: (
-        <Link
-          className={ITEM_LINK}
-          params={{ _splat: `contacts/${task.contact_id}/show` }}
-          to="/crm/$"
-        >
-          Open
-        </Link>
-      ),
+      action: "Open",
+      link: {
+        to: "/crm/$",
+        params: { _splat: `contacts/${task.contact_id}/show` },
+      } as LinkProps,
     })),
   ];
+}
+
+export function NeedsAttention({
+  summary,
+  now,
+  limit = 5,
+}: {
+  summary: WorkspaceSummary;
+  now: Date;
+  limit?: number;
+}) {
+  const items = attentionItems(summary, now);
   return (
-    <Card
-      action={
-        items.length > limit ? (
-          <Link
-            className="type-caption text-duet-ink-2 hover:text-duet-ink"
-            to="/tasks"
-          >
-            See all {items.length}
-          </Link>
-        ) : null
-      }
-      title="Needs your attention"
-    >
+    <section className="rounded-2xl border border-duet-hair bg-duet-card">
+      <div className="flex items-center justify-between gap-2 px-5 pt-4 pb-2">
+        <h2 className="type-label flex items-center gap-2 font-semibold text-duet-ink">
+          Needs your attention
+          {items.length ? (
+            <span className="type-caption rounded-full bg-duet-status-needs-soft px-2 font-semibold text-duet-status-needs tabular-nums">
+              {items.length}
+            </span>
+          ) : null}
+        </h2>
+        <Link
+          className="type-caption font-medium text-duet-accent hover:underline"
+          to="/tasks"
+        >
+          Open Inbox
+        </Link>
+      </div>
       {items.length ? (
-        <ul className="-mx-2 flex flex-col">
-          {items.slice(0, limit).map((item) => (
-            <li className={ROW} key={item.key}>
-              <span
-                aria-hidden
-                className={cn(
-                  "size-2 shrink-0 rounded-full",
-                  item.tone === "needs" && "bg-duet-status-needs",
-                  item.tone === "problem" && "bg-duet-status-problem",
-                  item.tone === "done" && "bg-duet-status-done",
-                )}
-              />
+        <ul className="divide-y divide-duet-hair">
+          {items.slice(0, limit).map((item, index) => (
+            <li className="flex items-center gap-4 px-5 py-3" key={item.key}>
               <span className="min-w-0 flex-1">
-                <span className="type-label block truncate text-duet-ink">
+                <span className="type-label block truncate font-medium text-duet-ink">
                   {item.title}
                 </span>
                 <span className="type-caption block truncate text-duet-ink-2">
                   {item.line}
                 </span>
               </span>
-              {item.link}
+              <span
+                className={cn(
+                  "type-caption shrink-0 rounded-full px-2.5 py-0.5 font-medium",
+                  TONE[item.tone],
+                )}
+              >
+                {item.status}
+              </span>
+              <Link
+                {...item.link}
+                className={cn(
+                  "type-label inline-flex h-9 w-20 shrink-0 items-center justify-center rounded-lg font-medium",
+                  index === 0
+                    ? "bg-duet-accent text-duet-on-accent hover:brightness-110"
+                    : "border border-duet-hair text-duet-ink hover:bg-duet-tile",
+                )}
+              >
+                {item.action}
+              </Link>
             </li>
           ))}
         </ul>
       ) : (
         <Empty>You're all caught up.</Empty>
       )}
-    </Card>
+    </section>
   );
 }
 

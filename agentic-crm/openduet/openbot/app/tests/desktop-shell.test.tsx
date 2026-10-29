@@ -7,7 +7,13 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import { cleanup, render, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { daySummary } from "@/components/desktop/assistant-panel";
@@ -16,6 +22,7 @@ import {
   DesktopShell,
 } from "@/components/desktop/desktop-shell";
 import type { WorkspaceSummary } from "@/components/desktop/use-workspace-summary";
+import { ThemeProvider } from "@/components/theme-provider";
 import { TodayScreen } from "@/components/today/today-screen";
 import { agentKeys } from "@/lib/agents/queries";
 import { authKeys } from "@/lib/auth/queries";
@@ -41,7 +48,7 @@ const inAnHour = new Date(NOW.getTime() + 3_600_000).toISOString();
 
 let started: unknown = null;
 
-function serving({ empty = false } = {}) {
+function serving({ empty = false, apps = !empty } = {}) {
   started = null;
   global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -174,11 +181,13 @@ function serving({ empty = false } = {}) {
       });
     if (path === "/api/crm/activity_log" || path === "/api/crm/sales")
       return Response.json({ data: [], total: 0 });
+    if (path === "/api/crm/contacts")
+      return Response.json({ data: [], total: empty ? 0 : 12 });
     if (path === "/api/plugins/connections")
       return Response.json({
-        connections: [
-          { serverId: "composio-gmail", scope: "", connectedAt: yesterday },
-        ],
+        connections: !apps
+          ? []
+          : [{ serverId: "composio-gmail", scope: "", connectedAt: yesterday }],
         redirectUri: null,
       });
     return Response.json({});
@@ -211,7 +220,9 @@ function draw(ui: ReactNode, path = "/today") {
   });
   return render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router as never} />
+      <ThemeProvider>
+        <RouterProvider router={router as never} />
+      </ThemeProvider>
     </QueryClientProvider>,
   );
 }
@@ -221,7 +232,7 @@ test("the breadcrumb names the area and the page", () => {
   expect(breadcrumbFor("/", "chat", null)).toEqual(["Workspace", "Chat"]);
   expect(breadcrumbFor("/tasks/t1", "tasks", null)).toEqual([
     "Workspace",
-    "Bot work",
+    "Inbox",
   ]);
   expect(breadcrumbFor("/crm/deals", null, "CRM")).toEqual(["CRM", "Deals"]);
   expect(breadcrumbFor("/crm/contacts/4/show", null, "CRM")).toEqual([
@@ -265,25 +276,64 @@ test("Today greets the person and shows the pipeline, what needs them and what's
   serving();
   const view = draw(<TodayScreen view="overview" />);
   expect(await view.findByRole("heading", { name: /, Alex\.$/ })).toBeDefined();
-  // Won deals are out of the pipeline: 9,000 + 1,000 open.
+  // Won deals are out of the pipeline: 9,000 + 1,000 open, 9,000 of it added this month.
   expect(await view.findByText("$10,000")).toBeDefined();
-  expect(view.getByText("2 deals, 1 new this month")).toBeDefined();
-  const attention = view.getByRole("heading", { name: "Needs your attention" })
-    .parentElement?.parentElement as HTMLElement;
+  expect(view.getByText("+900% this month")).toBeDefined();
+  const attention = view.getByRole("heading", {
+    name: /^Needs your attention/,
+  }).parentElement?.parentElement as HTMLElement;
   expect(await within(attention).findByText("Call Ana back")).toBeDefined();
   expect(within(attention).getByText("1 day late")).toBeDefined();
+  expect(within(attention).getByRole("link", { name: "Review" })).toBeDefined();
   expect(view.getByText("Proposal sent")).toBeDefined();
   expect(view.getByText("Opportunity")).toBeDefined();
   expect(view.queryByText("Won")).toBeNull();
   expect(view.getByText("Acme kickoff")).toBeDefined();
+  // Set up already: an app, contacts and deals.
+  expect(
+    view.queryByText("Start with the people you already know."),
+  ).toBeNull();
 });
 
-test("Today says so when nothing needs the person", async () => {
+test("a workspace with data but no app connected gets a one-line reminder", async () => {
+  serving({ apps: false });
+  const view = draw(<TodayScreen view="overview" />);
+  const reminder = await view.findByRole("link", { name: /Finish setting up/ });
+  expect(reminder.textContent).toContain("2 of 3 done");
+  expect(reminder.textContent).toContain("Connect an app");
+  expect(
+    view.queryByText("Start with the people you already know."),
+  ).toBeNull();
+});
+
+test("a new workspace gets its first steps and work to start, not a page of zeroes", async () => {
   serving({ empty: true });
   const view = draw(<TodayScreen view="overview" />);
-  expect(await view.findByText("You're all caught up.")).toBeDefined();
-  expect(view.getByText("No open deals yet. Add one in Deals.")).toBeDefined();
-  expect(view.getByText("No meetings coming up.")).toBeDefined();
+  expect(
+    await view.findByRole("heading", {
+      name: "Start with the people you already know.",
+    }),
+  ).toBeDefined();
+  expect(view.getByText("0 of 3 done")).toBeDefined();
+  expect(view.getAllByRole("link", { name: /Connect an app/ })).toHaveLength(2);
+  expect(view.getByRole("heading", { name: /^Put .+ to work$/ })).toBeDefined();
+  expect(view.getByText("Your day, in one place")).toBeDefined();
+  expect(view.queryByText("$0")).toBeNull();
+  expect(view.queryByRole("navigation", { name: "Today" })).toBeNull();
+
+  await userEvent.click(
+    view.getByRole("button", { name: /Turn notes into follow-ups/ }),
+  );
+  await userEvent.type(
+    await view.findByLabelText("Your notes"),
+    "Call with Maya, send pricing Friday",
+  );
+  await userEvent.click(view.getByRole("button", { name: "Start" }));
+  await waitFor(() => expect(started).not.toBeNull());
+  const ask = started as { botId: string; instruction: string };
+  expect(ask.botId).toBe("magpie");
+  expect(ask.instruction).toStartWith("Turn these notes into");
+  expect(ask.instruction).toEndWith("Call with Maya, send pricing Friday");
 });
 
 test("the desktop shell lists the places, counts what's waiting, and asks the Bot from the panel", async () => {
@@ -295,14 +345,16 @@ test("the desktop shell lists the places, counts what's waiting, and asks the Bo
   );
   const main = await view.findByRole("navigation", { name: "Main" });
   expect(within(main).getByRole("link", { name: "Today" })).toBeDefined();
+  expect(within(main).getByRole("link", { name: /^Inbox/ })).toBeDefined();
   expect(within(main).getByRole("link", { name: "Contacts" })).toBeDefined();
   expect(await within(main).findByText("Acme Studio")).toBeDefined();
   expect(await within(main).findByText("1 app connected")).toBeDefined();
   expect(view.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe(
-    "Workspace/Today",
+    "Today",
   );
   const panel = view.getByRole("complementary", { name: "Magpie" });
   expect(await within(panel).findByText("Research Acme")).toBeDefined();
+  expect(within(panel).getByText("Suggested next steps")).toBeDefined();
   expect(await view.findByText("1 Bot working")).toBeDefined();
 
   await userEvent.type(
@@ -313,6 +365,47 @@ test("the desktop shell lists the places, counts what's waiting, and asks the Bo
   await waitFor(() =>
     expect(started).toEqual({ botId: "magpie", instruction: "Find new leads" }),
   );
+});
+
+test("search opens from the header and with Cmd+K", async () => {
+  serving();
+  const view = draw(
+    <DesktopShell onConversations={() => {}} tab={null}>
+      <p>Page</p>
+    </DesktopShell>,
+  );
+  await userEvent.click(
+    await view.findByRole("button", { name: /Search workspace/ }),
+  );
+  const field = await view.findByLabelText("Search the CRM");
+  fireEvent.keyDown(field, { key: "Escape" });
+  await waitFor(() =>
+    expect(view.queryByLabelText("Search the CRM")).toBeNull(),
+  );
+  fireEvent.keyDown(window, { key: "k", metaKey: true });
+  expect(await view.findByLabelText("Search the CRM")).toBeDefined();
+});
+
+test("in a new workspace the assistant offers setup help", async () => {
+  serving({ empty: true });
+  const view = draw(
+    <DesktopShell onConversations={() => {}} tab={null}>
+      <p>Page</p>
+    </DesktopShell>,
+  );
+  const panel = await view.findByRole("complementary", { name: "Magpie" });
+  expect(await within(panel).findByText("Getting started")).toBeDefined();
+  expect(
+    within(panel).getByText(/Let's start with your contacts/),
+  ).toBeDefined();
+  expect(within(panel).getByText("Track Bot work in Inbox")).toBeDefined();
+  expect(view.getByText("No apps connected")).toBeDefined();
+  await userEvent.click(
+    within(panel).getByRole("button", { name: /Plan my sales stages/ }),
+  );
+  expect(
+    await view.findByRole("heading", { name: "Shape your sales pipeline" }),
+  ).toBeDefined();
 });
 
 test("the assistant panel can be hidden and stays hidden", async () => {

@@ -25,12 +25,17 @@ Behind it, per sign-up: a Railway project with the CRM app and its database. Sha
 
 ## 3. The assistant (OpenDuet)
 
-On phones: Chat, Tasks and Make as bottom tabs. On desktop (1024px and wider), one frame around everything: a rail of shortcuts and search, a sidebar of places (assistant, CRM, workspace), a breadcrumb header with Customize, the assistant panel on the right and a status bar.
+On phones: Chat, Tasks and Make as bottom tabs. On desktop (1024px and wider), one frame around everything:
+- one sidebar: Today, Inbox, Chat and Make; the CRM's records; Tools (Bots, Connections, Routines, More tools); then apps connected, Settings and you;
+- a header with the page name, search (Cmd+K), New and the bell;
+- the assistant panel on the right, and a status bar.
+
+On desktop, Tasks is called **Inbox**: Bot work, questions and approvals together.
 
 | Area | What it does | Who |
 |---|---|---|
-| **Today** | Desktop home: greeting, pipeline value, follow-ups due, meetings today, Bot work; what needs you, pipeline by stage, upcoming meetings, recent activity. Tabs for My work and Team activity | Everyone |
-| Assistant panel | Desktop, beside every page: a one-line summary of the day, suggested next steps, work running in the background, and a box to ask the Bot | Everyone |
+| **Today** | Desktop home. A new workspace sees three setup steps (connect an app, bring in contacts, create a deal), work a Bot can start from pasted notes, and where the day will appear. Once there's data: pipeline, follow-ups and Bot work; what needs you; pipeline by stage; meetings; recent activity; tabs for My work and Team activity | Everyone |
+| Assistant panel | Desktop, beside every page. Setup help in a new workspace; after that a summary of the day, suggested next steps and work running in the background. A box to ask the Bot | Everyone |
 | **Chat** | One ongoing conversation with the main Bot. It answers, uses tools, asks before risky actions, and can draw charts, tables and forms | Everyone |
 | Start | Message any other Bot, picked with `@` | Everyone |
 | Groups | A conversation with several Bots and people | Everyone |

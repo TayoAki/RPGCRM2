@@ -1,23 +1,35 @@
-import { IconAdjustments } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { type ReactNode, useEffect, useState } from "react";
+import {
+  IconBell,
+  IconLayoutSidebarRightExpand,
+  IconPlus,
+  IconSearch,
+} from "@tabler/icons-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   PageChromeProvider,
   usePageChromeState,
 } from "@/components/shell/page-chrome";
 import type { ShellTab } from "@/components/shell/tab-bar";
+import { StarterDialog, type StarterId } from "@/components/today/starters";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { currentUserQueryOptions } from "@/lib/auth/queries";
 import { agoShort } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 import { AssistantPanel } from "./assistant-panel";
-import { DesktopRail, DesktopSidebar } from "./desktop-nav";
+import { DesktopSidebar } from "./desktop-nav";
+import { SearchDialog } from "./search-dialog";
 import {
   useWorkspaceSummary,
   type WorkspaceSummary,
@@ -27,7 +39,7 @@ const PANEL_STORAGE_KEY = "magpie.desktop-assistant";
 
 const TAB_NAMES: Record<ShellTab, string> = {
   chat: "Chat",
-  tasks: "Bot work",
+  tasks: "Inbox",
   make: "Make",
 };
 
@@ -43,7 +55,7 @@ const CRM_SECTIONS: Record<string, string> = {
   profile: "Profile",
 };
 
-/** Where the page sits, as the header's breadcrumb: the area, then the page. */
+/** Where the page sits: the area, then the page. */
 export function breadcrumbFor(
   pathname: string,
   tab: ShellTab | null,
@@ -83,8 +95,8 @@ function rememberPanel(open: boolean) {
 }
 
 /**
- * The app on a wide screen: a rail of shortcuts, a sidebar of places, the page under a header with
- * its breadcrumb, the assistant on the right, and a status bar along the foot.
+ * The app on a wide screen: one sidebar for every place, the page under a header with search and
+ * New, the assistant on the right, and a status bar along the foot.
  */
 export function DesktopShell({
   tab,
@@ -97,23 +109,39 @@ export function DesktopShell({
 }) {
   const summary = useWorkspaceSummary();
   const [panelOpen, setPanelOpen] = useState(rememberedPanel);
+  const [searching, setSearching] = useState(false);
+  const [starter, setStarter] = useState<StarterId | null>(null);
+  const askRef = useRef<HTMLTextAreaElement>(null);
   const togglePanel = (open: boolean) => {
     rememberPanel(open);
     setPanelOpen(open);
   };
+  const askBot = () => {
+    togglePanel(true);
+    // The panel may only now be mounting; focus once it has.
+    window.requestAnimationFrame(() => askRef.current?.focus());
+  };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearching(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <PageChromeProvider docked>
       <div className="duet-face flex min-h-0 flex-1 flex-col text-duet-ink">
         <div className="flex min-h-0 flex-1">
-          <DesktopRail
-            onConversations={onConversations}
-            onTogglePanel={() => togglePanel(!panelOpen)}
-            panelOpen={panelOpen}
-            summary={summary}
-          />
-          <DesktopSidebar summary={summary} />
+          <DesktopSidebar onConversations={onConversations} summary={summary} />
           <DesktopMain
-            onClosePanel={() => togglePanel(false)}
+            askRef={askRef}
+            onAskBot={askBot}
+            onPanel={togglePanel}
+            onSearch={() => setSearching(true)}
+            onStarter={setStarter}
             panelOpen={panelOpen}
             summary={summary}
             tab={tab}
@@ -123,6 +151,8 @@ export function DesktopShell({
         </div>
         <StatusBar summary={summary} />
       </div>
+      <SearchDialog onOpenChange={setSearching} open={searching} />
+      <StarterDialog onClose={() => setStarter(null)} starter={starter} />
     </PageChromeProvider>
   );
 }
@@ -131,13 +161,21 @@ function DesktopMain({
   tab,
   summary,
   panelOpen,
-  onClosePanel,
+  onPanel,
+  onSearch,
+  onAskBot,
+  onStarter,
+  askRef,
   children,
 }: {
   tab: ShellTab | null;
   summary: WorkspaceSummary;
   panelOpen: boolean;
-  onClosePanel: () => void;
+  onPanel: (open: boolean) => void;
+  onSearch: () => void;
+  onAskBot: () => void;
+  onStarter: (starter: StarterId) => void;
+  askRef: RefObject<HTMLTextAreaElement | null>;
   children: ReactNode;
 }) {
   const pathname = useRouterState({
@@ -150,18 +188,22 @@ function DesktopMain({
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col bg-duet-surface">
-        <header className="flex h-12 shrink-0 items-center gap-3 border-duet-hair border-b bg-duet-card px-5">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-duet-hair border-b bg-duet-card px-6">
           <nav
             aria-label="Breadcrumb"
-            className="type-label flex min-w-0 flex-1 items-center gap-1.5"
+            className="flex min-w-0 flex-1 items-center gap-1.5"
           >
-            <span className="text-duet-ink-2">{area}</span>
-            <span aria-hidden className="text-duet-ink-3">
-              /
-            </span>
+            {area === "Workspace" ? null : (
+              <>
+                <span className="type-label text-duet-ink-2">{area}</span>
+                <span aria-hidden className="type-label text-duet-ink-3">
+                  /
+                </span>
+              </>
+            )}
             <span
               aria-current="page"
-              className="truncate font-medium text-duet-ink"
+              className="type-label truncate font-semibold text-duet-ink"
             >
               {page}
             </span>
@@ -169,7 +211,42 @@ function DesktopMain({
           {chrome?.actions ? (
             <div className="shrink-0 scale-75">{chrome.actions}</div>
           ) : null}
-          <CustomizeMenu />
+          <button
+            className="type-label flex h-9 w-64 items-center gap-2 rounded-lg border border-duet-hair bg-duet-surface px-3 text-duet-ink-3 hover:border-duet-ink-3"
+            onClick={onSearch}
+            type="button"
+          >
+            <IconSearch className="shrink-0" size={16} stroke={1.75} />
+            <span className="flex-1 text-left">Search workspace…</span>
+            <kbd className="type-caption rounded border border-duet-hair px-1 font-sans text-duet-ink-3">
+              ⌘K
+            </kbd>
+          </button>
+          <NewMenu onAskBot={onAskBot} />
+          <Link
+            aria-label={
+              summary.waiting
+                ? `Inbox, ${summary.waiting} waiting`
+                : "Inbox, nothing waiting"
+            }
+            className="relative grid size-9 place-items-center rounded-lg text-duet-ink-2 hover:bg-duet-tile hover:text-duet-ink"
+            to="/tasks"
+          >
+            <IconBell size={19} stroke={1.75} />
+            {summary.waiting ? (
+              <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-duet-red ring-2 ring-duet-card" />
+            ) : null}
+          </Link>
+          {panelOpen ? null : (
+            <button
+              aria-label="Show the assistant"
+              className="grid size-9 place-items-center rounded-lg text-duet-ink-2 hover:bg-duet-tile hover:text-duet-ink"
+              onClick={() => onPanel(true)}
+              type="button"
+            >
+              <IconLayoutSidebarRightExpand size={19} stroke={1.75} />
+            </button>
+          )}
         </header>
         <main
           className={cn(
@@ -181,52 +258,47 @@ function DesktopMain({
         </main>
       </div>
       {panelOpen ? (
-        <AssistantPanel onClose={onClosePanel} place={page} summary={summary} />
+        <AssistantPanel
+          askRef={askRef}
+          onClose={() => onPanel(false)}
+          onStarter={onStarter}
+          place={page}
+          summary={summary}
+        />
       ) : null}
     </>
   );
 }
 
-/** Ways to shape the workspace: a page a Bot builds, a report, or a field and object of your own. */
-function CustomizeMenu() {
+/** Make something new: a record, a page, a report, or work for a Bot. */
+function NewMenu({ onAskBot }: { onAskBot: () => void }) {
   const navigate = useNavigate();
-  const { data: user } = useQuery(currentUserQueryOptions());
+  const crm = (path: string) =>
+    void navigate({ to: "/crm/$", params: { _splat: path } });
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="type-label flex h-8 items-center gap-1.5 rounded-lg border border-duet-hair px-2.5 text-duet-ink hover:bg-duet-tile">
-        <IconAdjustments size={16} stroke={1.75} />
-        Customize
+      <DropdownMenuTrigger className="type-label flex h-9 items-center gap-1.5 rounded-lg border border-duet-accent/30 px-3 font-medium text-duet-accent hover:bg-duet-accent-soft">
+        <IconPlus size={16} stroke={2} />
+        New
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => crm("contacts/create")}>
+          Contact
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => crm("companies/create")}>
+          Company
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => crm("deals/create")}>
+          Deal
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onAskBot}>Task for a Bot</DropdownMenuItem>
         <DropdownMenuItem onClick={() => void navigate({ to: "/make" })}>
-          Build a page with a Bot
+          Page made by a Bot
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() =>
-            void navigate({ to: "/crm/$", params: { _splat: "reports" } })
-          }
-        >
-          New report
+        <DropdownMenuItem onClick={() => crm("reports")}>
+          Report
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() =>
-            void navigate({ to: "/crm/$", params: { _splat: "o" } })
-          }
-        >
-          Saved views
-        </DropdownMenuItem>
-        {user?.role === "admin" ? (
-          <DropdownMenuItem
-            onClick={() =>
-              void navigate({
-                to: "/crm/$",
-                params: { _splat: "settings/data-model" },
-              })
-            }
-          >
-            Fields and objects
-          </DropdownMenuItem>
-        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -244,8 +316,10 @@ function useNow(everyMs: number) {
 function StatusBar({ summary }: { summary: WorkspaceSummary }) {
   const now = useNow(30_000);
   const working = summary.working.length;
+  let state = summary.empty ? "Workspace ready" : "Workspace synced";
+  if (summary.syncFailed) state = "Can't reach the workspace";
   return (
-    <footer className="type-caption flex h-7 shrink-0 items-center gap-4 border-duet-hair border-t bg-duet-card px-4 text-duet-ink-2">
+    <footer className="type-caption flex h-8 shrink-0 items-center gap-4 border-duet-hair border-t bg-duet-card px-4 text-duet-ink-2">
       <span className="flex items-center gap-1.5">
         <span
           aria-hidden
@@ -254,13 +328,19 @@ function StatusBar({ summary }: { summary: WorkspaceSummary }) {
             summary.syncFailed ? "bg-duet-amber" : "bg-duet-green",
           )}
         />
-        {summary.syncFailed ? "Can't reach the workspace" : "Workspace synced"}
+        {state}
       </span>
-      <span>{working === 1 ? "1 Bot working" : `${working} Bots working`}</span>
+      {working ? (
+        <span>
+          {working === 1 ? "1 Bot working" : `${working} Bots working`}
+        </span>
+      ) : null}
       <span className="ml-auto">
-        {summary.syncedAt
-          ? `Last synced ${agoShort(new Date(summary.syncedAt).toISOString(), now)}`
-          : null}
+        {summary.appsConnected === 0
+          ? "No apps connected"
+          : summary.syncedAt
+            ? `Last synced ${agoShort(new Date(summary.syncedAt).toISOString(), now)}`
+            : null}
       </span>
     </footer>
   );

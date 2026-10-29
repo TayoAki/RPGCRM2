@@ -3,11 +3,16 @@ import { approvalInboxOptions, waitingOnYou } from "@/lib/approvals";
 import {
   closedStages,
   crmConfigurationQueryOptions,
+  crmContactCountQueryOptions,
   crmDealsQueryOptions,
   crmFollowUpsQueryOptions,
   crmMeetingsQueryOptions,
   crmMeQueryOptions,
 } from "@/lib/crm/queries";
+import {
+  connectionsQueryOptions,
+  personalConnections,
+} from "@/lib/plugins/queries";
 import { needsInputCount } from "@/lib/tasks/groups";
 import { taskListQueryOptions } from "@/lib/tasks/queries";
 
@@ -30,6 +35,8 @@ export function useWorkspaceSummary(now: Date = new Date()) {
   const meetings = useQuery(crmMeetingsQueryOptions());
   const deals = useQuery(crmDealsQueryOptions());
   const configuration = useQuery(crmConfigurationQueryOptions());
+  const contactCount = useQuery(crmContactCountQueryOptions());
+  const connections = useQuery(connectionsQueryOptions());
 
   const allTasks = tasks.data ?? [];
   const working = allTasks.filter((task) => task.status === "working");
@@ -52,6 +59,23 @@ export function useWorkspaceSummary(now: Date = new Date()) {
   const meetingsToday = (meetings.data?.data ?? []).filter((meeting) =>
     sameDay(meeting.start_at, now),
   );
+  const openValue = openDeals.reduce(
+    (sum, deal) => sum + (deal.amount ?? 0),
+    0,
+  );
+  const addedThisMonth = newThisMonth.reduce(
+    (sum, deal) => sum + (deal.amount ?? 0),
+    0,
+  );
+  const appsConnected = personalConnections(
+    connections.data?.connections ?? [],
+  ).filter((connection) => !connection.revoked).length;
+  const setup = {
+    loaded: connections.isSuccess && contactCount.isSuccess && deals.isSuccess,
+    appConnected: appsConnected > 0,
+    hasContacts: (contactCount.data ?? 0) > 0,
+    hasDeal: (deals.data?.total ?? 0) > 0,
+  };
 
   return {
     queries: { tasks, inbox, followUps, meetings, deals, configuration },
@@ -64,8 +88,18 @@ export function useWorkspaceSummary(now: Date = new Date()) {
     approvals: waitingOnYou(inbox.data).requests,
     questions: waitingOnYou(inbox.data).questions,
     openDeals,
-    pipelineValue: openDeals.reduce((sum, deal) => sum + (deal.amount ?? 0), 0),
+    pipelineValue: openValue,
+    // Growth of the open pipeline from deals added this month, or null with nothing to compare to.
+    pipelineGrowth:
+      openValue > addedThisMonth && addedThisMonth > 0
+        ? addedThisMonth / (openValue - addedThisMonth)
+        : null,
     newThisMonth,
+    appsConnected,
+    setup,
+    setupDone: [setup.appConnected, setup.hasContacts, setup.hasDeal].filter(
+      Boolean,
+    ).length,
     followUpsDue: due,
     followUpsLate: due.filter(
       (task) => task.due_date && new Date(task.due_date) < startOfDay(now),
@@ -74,6 +108,13 @@ export function useWorkspaceSummary(now: Date = new Date()) {
     meetingsToday,
     syncedAt: Math.max(tasks.dataUpdatedAt, inbox.dataUpdatedAt),
     syncFailed: tasks.isError || inbox.isError,
+    // Nothing yet to show as numbers: no deals, meetings, follow-ups or Bot work.
+    empty:
+      !openDeals.length &&
+      !due.length &&
+      !(meetings.data?.data ?? []).length &&
+      !allTasks.length &&
+      !waitingOnYou(inbox.data).count,
   };
 }
 
