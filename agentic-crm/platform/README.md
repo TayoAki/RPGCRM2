@@ -30,3 +30,7 @@ Every step records what it made, so a restart carries on instead of making a sec
 Workspaces share one CopilotKit Intelligence project. Each gets its own `DEPLOYMENT_ID` so it only sees its own conversations, and automatic Learning is off so one client's learned skills never reach another. The separation is kept by the app, not by Intelligence: every workspace's server holds a key that can read the whole project. Give a client its own Intelligence project when they need it enforced.
 
 To ship a release to customers, try the image on your own CRM, then set `WORKSPACE_IMAGE` to it. The service restarts and moves running workspaces over one at a time. Railway only switches a workspace once the new release passes its health check, so a release that doesn't start leaves customers on the old one.
+
+## Planned
+
+[OAUTH_RELAY.md](OAUTH_RELAY.md): one Google return address on this site that forwards to the right workspace, for Sign in with Google and the Gmail and Calendar connector.
