@@ -137,7 +137,7 @@ Covers E1 to E7, F1, F2, C7 and H1.
 
 ### Phase 4: P2 backlog
 
-Prioritized by what pilot customers ask for.
+Prioritized by what pilot customers ask for. The first item is modules, where the assistant builds the objects, feeds, charts and documents a customer asks for: see [MODULES.md](MODULES.md).
 
 **Total to the end of Phase 3:** about 4 months for one senior engineer with agents, or roughly 2.5 to 3 months for two.
 
