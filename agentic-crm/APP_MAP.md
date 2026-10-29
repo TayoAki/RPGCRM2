@@ -25,10 +25,12 @@ Behind it, per sign-up: a Railway project with the CRM app and its database. Sha
 
 ## 3. The assistant (OpenDuet)
 
-The bottom tabs on phones, and the main area on desktop.
+On phones: Chat, Tasks and Make as bottom tabs. On desktop (1024px and wider), one frame around everything: a rail of shortcuts and search, a sidebar of places (assistant, CRM, workspace), a breadcrumb header with Customize, the assistant panel on the right and a status bar.
 
 | Area | What it does | Who |
 |---|---|---|
+| **Today** | Desktop home: greeting, pipeline value, follow-ups due, meetings today, Bot work; what needs you, pipeline by stage, upcoming meetings, recent activity. Tabs for My work and Team activity | Everyone |
+| Assistant panel | Desktop, beside every page: a one-line summary of the day, suggested next steps, work running in the background, and a box to ask the Bot | Everyone |
 | **Chat** | One ongoing conversation with the main Bot. It answers, uses tools, asks before risky actions, and can draw charts, tables and forms | Everyone |
 | Start | Message any other Bot, picked with `@` | Everyone |
 | Groups | A conversation with several Bots and people | Everyone |
@@ -48,12 +50,7 @@ The bottom tabs on phones, and the main area on desktop.
 
 ## 4. The CRM (`/crm`)
 
-Desktop frame:
-- an icon rail: home, search, notifications, reports, automations, settings;
-- a sidebar of records and saved views;
-- tabs for the current section;
-- a Today panel: tasks due, meetings coming up, deals that moved;
-- a status bar.
+Inside the app's desktop frame, the CRM draws only its tabs and the page; its records are in the app's sidebar. Run on its own, the CRM keeps its own frame: an icon rail, a sidebar of records and saved views, tabs, a Today panel and a status bar.
 
 Phones get a compact header.
 
@@ -110,4 +107,4 @@ Phones get a compact header.
 - **Approvals in three places:** Approvals, Approval rules, and Admin, Approvals.
 - **Three ways to connect mail:** Connections (built-in Gmail), Composio Gmail and CRM Mailboxes.
 - **Two task lists:** the assistant's Tasks are Bot work, the CRM's Tasks are to-dos on contacts. Same word, different things.
-- **Two homes.** Chat is the app's front door, and the CRM has its own home. People switch between them with the CRM button.
+- **Two homes.** On desktop, Today is now the front door. On phones Chat still is, and the CRM keeps its own dashboard.
