@@ -50,38 +50,53 @@ How much the run price moves a typical seat:
 
 ## 3. What to charge
 
-Targets: **about 70% gross margin at typical use**, and at least **45% on a seat that uses its whole allowance**. Margins below include Stripe's fee and the seat's share of hosting.
+Two plans, priced per seat a month. Margins include Stripe's fee and the seat's share of hosting.
 
 | Plan | Price | Seats | Runs included (pooled across the workspace) | Typical use | Typical margin | Margin at the cap |
 |---|---|---|---|---|---|---|
-| **Starter** | $49 a seat a month | 2 to 5 | 150 a seat | 100 runs | 69% | 58% |
-| **Team** | $89 a seat a month | 3 to 25 | 350 a seat | 230 runs | 67% | 54% |
-| **Business** | $149 a seat a month | 10 or more | 700 a seat | 350 runs | 71% | 48% |
+| **Team** | $99 a seat | 1 to 25 | 400 a seat | 230 runs | 70% | 53% |
+| **Business** | $199 a seat | any number | 800 a seat | 350 runs | 78% | 55% |
 
-- **More runs:** packs of 1,000 runs for $150 ($0.15 a run, a third above cost).
-- **Annual:** two months free.
-- **Trial:** 14 days, up to 3 seats, 100 runs in total. A trial costs about $13 (two weeks of hosting and its runs). Delete trial workspaces 7 days after they lapse.
-- **Break-even:** at Team pricing each typical seat leaves ~$60 after COGS, so two paying seats cover the fixed costs.
+### Revenue and profit, per month
+
+| | Team | Business |
+|---|---|---|
+| Revenue per seat | $99.00 | $199.00 |
+| Cost per seat, typical use | $29.23 | $43.95 |
+| **Profit per seat, typical use** | **$69.77** | **$155.05** |
+| Cost per seat, allowance fully used | $46.23 | $88.95 |
+| **Profit per seat, allowance fully used** | **$52.77** | **$110.05** |
+| Typical customer | 5 seats | 10 seats |
+| Revenue per customer | $495 | $1,990 |
+| **Profit per customer** | **$349** (~$4,190 a year) | **$1,551** (~$18,610 a year) |
+
+Example: 7 Team and 3 Business customers bring in about **$9,400 a month** and leave about **$7,000** after serving them and the fixed costs. That is 65 seats, past the ~40 that CopilotKit's $49 plan likely covers (see section 5).
+
+- **More runs:** packs of 1,000 runs for $150 ($0.15 a run, about $50 profit a pack).
+- **Annual:** two months free. Team's typical margin falls to about 65%.
+- **Trial:** 14 days of Team, up to 3 seats, 100 runs in total. A trial costs about $13 (two weeks of hosting and its runs). Delete trial workspaces 7 days after they lapse.
+- **Break-even:** two typical Team seats cover the fixed costs.
+- **Per seat, not per workspace.** A flat $99 for a workspace doesn't work: a 3-person team costs about $87 a month to serve.
 
 For comparison, Attio Pro is $86 a seat monthly and HubSpot Sales Hub Professional about $100. Neither runs Bots on your mail, calendar and CRM.
 
-If week-one metering shows runs nearer $0.05, Team can drop to $59 and still clear 70%. Don't lower it before you've measured.
+If week-one metering shows runs nearer $0.05, keep the prices and raise the allowances: margins would be near 80%.
 
 ## 4. Limits
 
 None of these are enforced yet. Each exists because of a cost line above.
 
-| Limit | Starter | Team | Business | Why |
-|---|---|---|---|---|
-| Assistant runs a month (pooled) | 150 a seat | 350 a seat | 700 a seat | AI is most of the cost |
-| Steps in one run | 15 | 25 | 40 | Stops a looping Bot from burning a month's budget in one task |
-| Routines per person | 3, at most daily | 10, at most hourly | 25, at most hourly | Each firing is a run, with nobody watching |
-| Composio triggers a month | 500 | 5,000 | 25,000 | $0.003 each, and a busy inbox trigger fires constantly |
-| Web research pages a month | 100 a seat | 500 a seat | 1,500 a seat | Paid per page by Firecrawl, Exa or Parallel |
-| Bot computer | None | 1 browser, stops after 30 idle minutes | 3 browsers | 1 to 2 GB of memory each while running |
-| Storage (records and files) | 5 GB | 25 GB | 100 GB | Disk and backups |
-| Public API requests a day | 10,000 | 50,000 | 200,000 | CPU on a small instance |
-| Single sign-on and SCIM | No | No | Yes | Support load, not cost |
+| Limit | Team | Business | Why |
+|---|---|---|---|
+| Assistant runs a month (pooled) | 400 a seat | 800 a seat | AI is most of the cost |
+| Steps in one run | 25 | 40 | Stops a looping Bot from burning a month's budget in one task |
+| Routines per person | 10, at most hourly | 25, at most hourly | Each firing is a run, with nobody watching |
+| Composio triggers a month | 5,000 | 25,000 | $0.003 each, and a busy inbox trigger fires constantly |
+| Web research pages a month | 500 a seat | 1,500 a seat | Paid per page by Firecrawl, Exa or Parallel |
+| Bot computer | 1 browser, stops after 30 idle minutes | 3 browsers | 1 to 2 GB of memory each while running |
+| Storage (records and files) | 25 GB | 100 GB | Disk and backups |
+| Public API requests a day | 50,000 | 200,000 | CPU on a small instance |
+| Single sign-on and SCIM | No | Yes | Support load, not cost |
 
 **At the cap:**
 - At 80%, tell the admin.
