@@ -1,0 +1,19 @@
+{
+  "name": "magpie-platform",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.ts",
+    "test": "bun test",
+    "check:railway": "bun scripts/check-railway-queries.ts"
+  },
+  "dependencies": {
+    "hono": "^4.10.0",
+    "postgres": "^3.4.9",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "graphql": "^16.11.0"
+  }
+}

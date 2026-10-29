@@ -6,6 +6,7 @@ import { createPublicApi } from "./crm/public-api";
 import { createCrmRoutes } from "./crm/routes";
 import type { CrmServices } from "./crm/services";
 import { createCrmPublicRoutes } from "./crm/workflows/routes";
+import { createWorkspaceSetupRoutes } from "./crm/workspace-setup";
 import type { Database } from "./db/client";
 import { createPasswordPeopleRoutes } from "./people/password-routes";
 import type { PeopleStore } from "./people/store";
@@ -45,6 +46,13 @@ export function createExtraRoutes(deps: {
       : []),
     ...(deps.passwordPeople
       ? ([
+          [
+            "/api/workspace",
+            createWorkspaceSetupRoutes({
+              database: deps.database,
+              passwordPeople: deps.passwordPeople,
+            }),
+          ],
           [
             "/api/admin/people",
             createPasswordPeopleRoutes({

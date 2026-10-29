@@ -633,7 +633,7 @@ export function createApp(
             .catch(() => null)) as { providerId?: unknown } | null)
         : null;
 
-    const answer = await withProviderBeingRegistered(context.req.raw, () =>
+    const answer = await withProviderBeingRegistered(context.req.raw, async () =>
       auth.handler(context.req.raw),
     );
 
