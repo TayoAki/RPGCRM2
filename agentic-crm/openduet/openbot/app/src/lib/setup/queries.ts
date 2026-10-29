@@ -38,7 +38,12 @@ export type SetupFix =
  * `not_checked` is set up, but nobody has asked whether it works, such as a model key added since
  * the server last asked the provider.
  */
-export type SetupStatus = "ready" | "needs_setup" | "not_checked";
+export type SetupStatus =
+  | "ready"
+  | "needs_setup"
+  | "not_checked"
+  /** Not offered on this OpenBot yet. Drawn as coming, with nothing to set up. */
+  | "coming_soon";
 
 export type SetupRow = {
   id: SetupRowId;

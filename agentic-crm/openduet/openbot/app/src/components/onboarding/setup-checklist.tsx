@@ -262,9 +262,11 @@ function SetupItem({
   const tone =
     row.status === "ready"
       ? "green"
-      : row.status === "not_checked" || !row.required
-        ? "amber"
-        : "red";
+      : row.status === "coming_soon"
+        ? "neutral"
+        : row.status === "not_checked" || !row.required
+          ? "amber"
+          : "red";
   return (
     <li
       // The hairline between rows, lined up with the text after the tile as the kit's `Rule` is.
@@ -300,7 +302,9 @@ function SetupItem({
               ? "Ready"
               : row.status === "not_checked"
                 ? "Not checked"
-                : "Needs setup"}
+                : row.status === "coming_soon"
+                  ? "Coming soon"
+                  : "Needs setup"}
           </OutcomePill>
         </div>
         <p className="type-sub mt-1 text-duet-ink-2 [overflow-wrap:anywhere]">

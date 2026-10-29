@@ -40,6 +40,7 @@ export const isLive: Probe = (url) =>
  * What every workspace gets from the operator, kept in step on running workspaces by rollout().
  * Workspaces share one Intelligence project, so each names its own threads and none adopts the
  * project's Learning container, which would carry one client's learned skills into another's.
+ * What Magpie doesn't offer customers yet shows as coming soon on their setup checklist.
  */
 export function fleetVariables(
   workspace: Workspace,
@@ -48,6 +49,7 @@ export function fleetVariables(
   return {
     DEPLOYMENT_ID: `magpie-${workspace.slug}`,
     OPENBOT_LEARNING_AUTO_ASSIGN: "false",
+    OPENBOT_SETUP_COMING_SOON: "google,gmail,chat",
     ...shared,
   };
 }

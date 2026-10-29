@@ -231,6 +231,30 @@ test("Ready and Needs setup rows come from the server's answer", async () => {
   ).toEqual(["gmail", "google-calendar"]);
 });
 
+test("a row not offered yet reads Coming soon, with nothing to set and no count", async () => {
+  serving({
+    audience: "admin",
+    rows: ADMIN.rows.map((row) =>
+      row.id === "chat"
+        ? {
+            ...row,
+            status: "coming_soon",
+            detail: "Until then, you can talk to OpenDuet here.",
+            fix: null,
+          }
+        : row,
+    ),
+  });
+  const view = draw();
+
+  await view.findByRole("list", { name: "Setup" });
+  expect(rowOf(view, "chat").getByText("Coming soon")).not.toBeNull();
+  expect(rowOf(view, "chat").queryByText("OPENTAG_URL")).toBeNull();
+  expect(
+    view.getByText("2 things need setup, and 1 is required."),
+  ).not.toBeNull();
+});
+
 test("an admin is shown the variable to set, the page, and the guide", async () => {
   serving(ADMIN);
   const view = draw();

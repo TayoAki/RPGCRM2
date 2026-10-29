@@ -6,6 +6,7 @@ import type { ModelCheckOutcome } from "../src/model-availability-check";
 import { createComputerCheck } from "../src/openduet/computer-check";
 import {
   type ComputerVerdict,
+  comingSoonRows,
   createSetupSources,
   intelligenceFact,
   modelKeyOf,
@@ -109,6 +110,30 @@ describe("setup rows", () => {
       expect(candidate.ready).toBe(true);
       expect(candidate.fix).toBeNull();
     }
+  });
+
+  test("rows the operator hasn't offered yet say so, with nothing to set up", () => {
+    const comingSoon = comingSoonRows("google, gmail,chat,nonsense");
+    const unset = setupRows(UNSET, {
+      productName: PRODUCT,
+      audience: "admin",
+      comingSoon,
+    });
+    const ready = setupRows(READY, {
+      productName: PRODUCT,
+      audience: "admin",
+      comingSoon,
+    });
+
+    for (const id of ["google", "gmail", "chat"] as const) {
+      expect(row(unset, id).status).toBe("coming_soon");
+      expect(row(unset, id).fix).toBeNull();
+      expect(row(ready, id).status).toBe("ready");
+    }
+    expect(row(unset, "chat").detail).toBe(
+      "Until then, you can talk to OpenDuet here.",
+    );
+    expect(row(unset, "apps").status).toBe("needs_setup");
   });
 
   test("only Intelligence and the model are required", () => {

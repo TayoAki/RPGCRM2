@@ -158,6 +158,7 @@ test("a key shared from the sign-up service reaches running workspaces once", as
   expect(first.variables).toContainEqual({
     DEPLOYMENT_ID: `magpie-shared-${run}`,
     OPENBOT_LEARNING_AUTO_ASSIGN: "false",
+    OPENBOT_SETUP_COMING_SOON: "google,gmail,chat",
     OPENAI_API_KEY: "sk-test",
     INTELLIGENCE_API_KEY: "cpk-test",
   });

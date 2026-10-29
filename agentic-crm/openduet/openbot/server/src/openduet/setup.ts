@@ -97,7 +97,8 @@ export type SetupRow = {
   title: string;
   /** True only where the product cannot answer without it. */
   required: boolean;
-  status: SetupStatus;
+  /** `coming_soon` is a row this OpenBot's operator hasn't offered yet; see OPENBOT_SETUP_COMING_SOON. */
+  status: SetupStatus | "coming_soon";
   /** `status === "ready"`, for a reader that only asks yes or no. */
   ready: boolean;
   /** One sentence: what it gives you when ready, what happens without it when not. */
@@ -185,8 +186,60 @@ const BROKER = {
 /** What a member is told about a dependency that is set up and was never checked. */
 const MEMBER_NOT_CHECKED = "Set up, not checked yet.";
 
+const COMING_SOON_DETAIL: Partial<
+  Record<SetupRowId, (product: string) => string>
+> = {
+  google: () =>
+    "Until then, people can connect Gmail and Calendar from Connections.",
+  gmail: () => "Until then, connect Gmail and Calendar from Connections.",
+  chat: (product) => `Until then, you can talk to ${product} here.`,
+};
+
+/** Rows named in OPENBOT_SETUP_COMING_SOON, unless they are already set up. */
+export function comingSoonRows(
+  value: string | undefined,
+): ReadonlySet<SetupRowId> {
+  const known = new Set<string>([
+    "google",
+    "gmail",
+    "apps",
+    "chat",
+    "computer",
+  ]);
+  return new Set(
+    (value ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id): id is SetupRowId => known.has(id)),
+  );
+}
+
 /** The rows for one reader. Pure, so every branch can be pinned without a server. */
 export function setupRows(
+  facts: SetupFacts,
+  options: {
+    productName: string;
+    audience: "admin" | "member";
+    comingSoon?: ReadonlySet<SetupRowId>;
+  },
+): SetupRow[] {
+  const rows = checklistRows(facts, options);
+  const comingSoon = options.comingSoon;
+  if (!comingSoon?.size) return rows;
+  return rows.map((row) =>
+    comingSoon.has(row.id) && row.status !== "ready"
+      ? {
+          ...row,
+          status: "coming_soon",
+          ready: false,
+          detail: COMING_SOON_DETAIL[row.id]?.(options.productName) ?? "",
+          fix: null,
+        }
+      : row,
+  );
+}
+
+function checklistRows(
   facts: SetupFacts,
   options: { productName: string; audience: "admin" | "member" },
 ): SetupRow[] {
@@ -605,6 +658,7 @@ export function primaryBotIdOf(agentIds: string[], tenantId: string): string {
 /** What the route needs: the product's name, the facts for one reader, and a way to ask again. */
 export type SetupSources = {
   productName: string;
+  comingSoon: ReadonlySet<SetupRowId>;
   /** A local install for one person, whose only reader is the person running it. */
   localEvaluation: boolean;
   facts: (userId: string) => Promise<SetupFacts>;
@@ -708,6 +762,7 @@ export function createSetupSources(input: {
 
   return {
     productName: input.productName,
+    comingSoon: comingSoonRows(input.environment.OPENBOT_SETUP_COMING_SOON),
     localEvaluation: input.config.singleUser,
     facts: async (userId) => {
       const [key, check, intelligenceNow, servers, gmail, computerNow] =
@@ -805,7 +860,11 @@ export function createSetupRoutes(
     return context.json({
       checklist: {
         audience,
-        rows: setupRows(facts, { productName: sources.productName, audience }),
+        rows: setupRows(facts, {
+          productName: sources.productName,
+          audience,
+          comingSoon: sources.comingSoon,
+        }),
       },
     });
   };
