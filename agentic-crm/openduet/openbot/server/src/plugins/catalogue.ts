@@ -510,7 +510,13 @@ const REVIEWED: readonly CatalogueEntry[] = Object.freeze([
     path: "/",
     transport: "builtin-crm",
     auth: Object.freeze({ kind: "builtin" }),
-    writeTools: Object.freeze(["create_record", "update_record", "make_chart"]),
+    writeTools: Object.freeze([
+      "create_record",
+      "update_record",
+      "make_chart",
+      "add_leads",
+      "save_customer_profile",
+    ]),
     docsUrl:
       "https://github.com/TayoAki/RPGCRM2/blob/main/agentic-crm/README.md",
   },

@@ -1,12 +1,18 @@
+import { desc, eq, or } from "drizzle-orm";
 import type { AuthenticatedActor } from "../auth/guards";
 import type { OpenBotRole } from "../auth/roles";
 import type { Database } from "../db/client";
 import { users } from "../db/schema";
 import type { McpCallResult, McpTool } from "../plugins/mcp";
 import { MAX_RESULT_CHARS } from "../plugins/mcp";
-import { desc, eq, or } from "drizzle-orm";
 import { CrmQueryError } from "./filters";
 import { chartInput, runReport } from "./platform-routes";
+import type { ProspectingConfig } from "./prospecting/settings";
+import {
+  PROSPECTING_TOOLS,
+  PROSPECTING_WRITE_TOOLS,
+  runProspectingTool,
+} from "./prospecting/tools";
 import {
   type CrmRecords,
   CrmRefusal,
@@ -30,6 +36,7 @@ export const CRM_WRITE_TOOLS = [
   "create_record",
   "update_record",
   "make_chart",
+  ...PROSPECTING_WRITE_TOOLS,
 ] as const;
 
 const READABLE = [
@@ -251,6 +258,8 @@ const TOOLS: readonly McpTool[] = Object.freeze([
 export type CrmToolDeps = {
   database: Database;
   roleOf: (userId: string) => Promise<OpenBotRole>;
+  prospecting?: ProspectingConfig;
+  fetch?: typeof fetch;
 };
 
 let installed: { deps: CrmToolDeps; records: CrmRecords } | null = null;
@@ -261,7 +270,7 @@ export function useCrmTools(deps: CrmToolDeps | null): void {
 }
 
 export async function listTools(): Promise<McpTool[]> {
-  return TOOLS.map((tool) => ({ ...tool }));
+  return [...TOOLS, ...PROSPECTING_TOOLS].map((tool) => ({ ...tool }));
 }
 
 export const listNeedsCredential = false;
@@ -286,6 +295,16 @@ function asResult(value: unknown): McpCallResult {
     ? { text, isError: false, truncated: false }
     : {
         text: `${text.slice(0, MAX_RESULT_CHARS)}\n\n[truncated: ask for fewer records]`,
+        isError: false,
+        truncated: true,
+      };
+}
+
+function asText(text: string): McpCallResult {
+  return text.length <= MAX_RESULT_CHARS
+    ? { text, isError: false, truncated: false }
+    : {
+        text: `${text.slice(0, MAX_RESULT_CHARS)}\n\n[truncated]`,
         isError: false,
         truncated: true,
       };
@@ -607,8 +626,20 @@ async function run(
     }
     case "make_chart":
       return makeChart(deps, records, actor, args);
-    default:
-      return failure(`The CRM has no tool named ${toolName}.`);
+    default: {
+      const outcome = await runProspectingTool(
+        deps,
+        records,
+        actor,
+        toolName,
+        args,
+      );
+      if (!outcome) return failure(`The CRM has no tool named ${toolName}.`);
+      if (!outcome.ok) return failure(outcome.message);
+      return typeof outcome.value === "string"
+        ? asText(outcome.value)
+        : asResult(outcome.value);
+    }
   }
 }
 

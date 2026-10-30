@@ -1049,6 +1049,7 @@ await installCrmTools({
   pluginStore,
   audit: bootAuditStore,
   roleOf: async (userId) => (await actorFor(userId)).role,
+  prospecting: config.prospecting,
 });
 const responsibilityStore = createResponsibilityStore(database, {
   resolveTarget: async (ownerUserId, agentId, channelId) => {
@@ -2833,6 +2834,12 @@ const app = createApp(
   createExtraRoutes({
     database,
     crm: crmServices,
+    prospecting: {
+      prospecting: config.prospecting,
+      routines: routineStore,
+      directChannel: openDuetDirectChannel,
+      primaryBotId: crmPrimaryBot,
+    },
     ...(ownAuth && config.auth?.emailPassword
       ? { passwordPeople: createPasswordPeople(ownAuth) }
       : {}),

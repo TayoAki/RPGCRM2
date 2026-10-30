@@ -48,7 +48,14 @@ const inAnHour = new Date(NOW.getTime() + 3_600_000).toISOString();
 
 let started: unknown = null;
 
-function serving({ empty = false, apps = !empty } = {}) {
+function serving({
+  empty = false,
+  apps,
+}: {
+  empty?: boolean;
+  apps?: boolean;
+} = {}) {
+  const connected = apps ?? !empty;
   started = null;
   global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -185,7 +192,7 @@ function serving({ empty = false, apps = !empty } = {}) {
       return Response.json({ data: [], total: empty ? 0 : 12 });
     if (path === "/api/plugins/connections")
       return Response.json({
-        connections: !apps
+        connections: !connected
           ? []
           : [{ serverId: "composio-gmail", scope: "", connectedAt: yesterday }],
         redirectUri: null,

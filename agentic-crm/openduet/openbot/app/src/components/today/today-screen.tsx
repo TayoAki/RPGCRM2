@@ -12,6 +12,7 @@ import {
   crmSalesQueryOptions,
 } from "@/lib/crm/queries";
 import { cn } from "@/lib/utils";
+import { LeadLists } from "./lead-lists";
 import { StarterDialog, type StarterId } from "./starters";
 import {
   activityFeed,
@@ -153,6 +154,7 @@ export function TodayScreen({ view }: { view: TodayView }) {
         {fresh ? (
           <>
             <PutToWork botName={botName} onStarter={setStarter} />
+            <LeadLists />
             <EmptyDay />
           </>
         ) : null}
@@ -189,6 +191,7 @@ export function TodayScreen({ view }: { view: TodayView }) {
               />
             </div>
             <NeedsAttention now={now} summary={summary} />
+            <LeadLists />
             <div className="grid gap-4 @3xl:grid-cols-2">
               <PipelineSnapshot summary={summary} />
               <UpcomingMeetings now={now} summary={summary} />

@@ -2,6 +2,7 @@ import type { Hono, MiddlewareHandler } from "hono";
 import type { AuditStore } from "./audit";
 import type { PasswordPeople } from "./auth/email-password";
 import type { AppVariables } from "./auth/guards";
+import { createProspectingRoutes } from "./crm/prospecting/routes";
 import { createPublicApi } from "./crm/public-api";
 import { createCrmRoutes } from "./crm/routes";
 import type { CrmServices } from "./crm/services";
@@ -20,6 +21,10 @@ export function createExtraRoutes(deps: {
   peopleStore: PeopleStore;
   auditStore?: AuditStore;
   crm?: CrmServices;
+  prospecting?: Omit<
+    Parameters<typeof createProspectingRoutes>[0],
+    "requireUser" | "database" | "records"
+  >;
 }) {
   return (
     requireUser: MiddlewareHandler<Variables>,
@@ -42,6 +47,19 @@ export function createExtraRoutes(deps: {
       ? ([
           ["/api/crm-public", createCrmPublicRoutes(deps.crm.automation)],
           ["/api/v1", createPublicApi(deps.crm)],
+        ] as [string, Hono<Variables>][])
+      : []),
+    ...(deps.crm && deps.prospecting
+      ? ([
+          [
+            "/api/prospecting",
+            createProspectingRoutes({
+              requireUser,
+              database: deps.database,
+              records: deps.crm.records,
+              ...deps.prospecting,
+            }),
+          ],
         ] as [string, Hono<Variables>][])
       : []),
     ...(deps.passwordPeople

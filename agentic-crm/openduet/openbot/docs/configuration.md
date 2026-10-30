@@ -72,6 +72,8 @@ at `agent-langgraph` on a laptop.
 | `OPENBOT_SETUP_COMING_SOON` | unset | Setup checklist rows to show as Coming soon until they are set up, as a comma-separated list of `google`, `gmail`, `apps`, `chat` and `computer`. For an operator who hasn't offered a feature on this OpenBot yet. |
 | `OPENBOT_ACCESSIBILITY_DISABLED` | unset | `true` or `1` stops naming OpenDuet on the analytics the runtime already sends. |
 | `COMPOSIO_API_KEY`   | unset                              | One key for the whole deployment, for the broker that holds people's accounts for a few hundred apps. Unset, there is nothing to connect, nothing to grant and no Composio tool for a Bot to call; what remains is one row that goes nowhere, under **More apps** on the admin Plugins page, naming this variable. See [Composio](plugins/composio.md). |
+| `TREG_API_KEY`       | unset                              | The [treg](https://treg.to) token weekly lead lists use to find companies, people and verified emails. Unset, the lead list card on Today is hidden and the prospecting tools say they aren't set up. Bots may only look things up with it: tools that publish, change ad accounts or generate media are refused. |
+| `PROSPECTING_MONTHLY_BUDGET_USD` | `10`                   | What lead list lookups may spend in a calendar month, in US dollars. Each lookup is capped at $0.25 and counted against it, and lookups stop when it runs out. |
 
 **`OPENBOT_GENERATIVE_UI`** enables generated interfaces by default: streamed HTML/CSS/JavaScript
 in a sandboxed iframe, and A2UI interfaces built from the SDK's declarative components. A2UI buttons

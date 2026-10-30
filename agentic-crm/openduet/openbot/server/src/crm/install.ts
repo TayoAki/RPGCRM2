@@ -5,6 +5,8 @@ import type { Database } from "../db/client";
 import { agents, approvalTeamRules, mcpServers } from "../db/schema";
 import type { PluginStore } from "../plugins/store";
 import { listTools, useCrmTools } from "./agent-tools";
+import type { ProspectingConfig } from "./prospecting/settings";
+import { PROSPECTING_TOOL_NAMES } from "./prospecting/tools";
 import { installs } from "./schema";
 
 export const CRM_SERVER = "crm";
@@ -33,9 +35,14 @@ export async function installCrmTools(deps: {
   pluginStore: Pick<PluginStore, "addServer" | "grant" | "refreshTools">;
   audit: AuditStore;
   roleOf: (userId: string) => Promise<OpenBotRole>;
+  prospecting?: ProspectingConfig;
 }): Promise<void> {
   const { database, pluginStore } = deps;
-  useCrmTools({ database, roleOf: deps.roleOf });
+  useCrmTools({
+    database,
+    roleOf: deps.roleOf,
+    ...(deps.prospecting ? { prospecting: deps.prospecting } : {}),
+  });
 
   const [done] = await database
     .select({ name: installs.name })
@@ -109,6 +116,7 @@ const LATER_TOOLS = [
     step: "agent-tools-reports",
     tools: ["run_report", "list_reports", "make_chart"],
   },
+  { step: "agent-tools-prospecting", tools: PROSPECTING_TOOL_NAMES },
 ];
 
 async function grantLaterTools(

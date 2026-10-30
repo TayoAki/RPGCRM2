@@ -35,6 +35,7 @@ On desktop, Tasks is called **Inbox**: Bot work, questions and approvals togethe
 | Area | What it does | Who |
 |---|---|---|
 | **Today** | Desktop home. A new workspace sees three setup steps (connect an app, bring in contacts, create a deal), work a Bot can start from pasted notes, and where the day will appear. Once there's data: pipeline, follow-ups and Bot work; what needs you; pipeline by stage; meetings; recent activity; tabs for My work and Team activity | Everyone |
+| **Lead lists** | On Today: every Monday a Bot finds companies like the ones you've won, with one decision maker each and a verified email, and adds them as leads once you approve the list. Find leads now runs it at once. Uses treg for data, within a monthly budget. Never emails anyone | Everyone, where the operator set `TREG_API_KEY` |
 | Assistant panel | Desktop, beside every page. Setup help in a new workspace; after that a summary of the day, suggested next steps and work running in the background. A box to ask the Bot | Everyone |
 | **Chat** | One ongoing conversation with the main Bot. It answers, uses tools, asks before risky actions, and can draw charts, tables and forms | Everyone |
 | Start | Message any other Bot, picked with `@` | Everyone |
