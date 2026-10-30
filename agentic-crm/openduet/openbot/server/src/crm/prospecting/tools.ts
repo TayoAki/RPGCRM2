@@ -159,6 +159,42 @@ export const PROSPECTING_TOOL_NAMES = PROSPECTING_TOOLS.map(
 );
 export const PROSPECTING_WRITE_TOOLS = ["add_leads", "save_customer_profile"];
 
+/**
+ * What a Bot needs from catalog_get: the inputs, the price and a ready call. The full answer runs to
+ * 20,000+ characters, most of it the ranking of every provider behind a routed tool.
+ */
+export function toolDetails(text: string): unknown {
+  try {
+    const parsed = JSON.parse(text) as {
+      endpoint?: Record<string, unknown>;
+      hints?: unknown;
+    };
+    const endpoint = parsed.endpoint ?? {};
+    const pick = (keys: string[]) =>
+      Object.fromEntries(
+        keys
+          .filter((key) => key in endpoint)
+          .map((key) => [key, endpoint[key]]),
+      );
+    return {
+      ...pick([
+        "id",
+        "name",
+        "summary",
+        "method",
+        "call_template",
+        "cost",
+        "input",
+        "miss",
+        "async",
+      ]),
+      ...(parsed.hints ? { hints: parsed.hints } : {}),
+    };
+  } catch {
+    return text;
+  }
+}
+
 const usd = (micro: number) => Math.round(micro / 10_000) / 100;
 
 async function budget(deps: ProspectingDeps) {
@@ -460,7 +496,10 @@ export async function runProspectingTool(
           return { ok: false, message: "Say what job the tool should do." };
         return {
           ok: true,
-          value: await tregCatalog(token, "catalog_search", { query: job }),
+          value: await tregCatalog(token, "catalog_search", {
+            query: job,
+            limit: 8,
+          }),
         };
       }
       case "data_tool_details": {
@@ -470,7 +509,9 @@ export async function runProspectingTool(
         if (!id) return { ok: false, message: "Give the tool's id." };
         return {
           ok: true,
-          value: await tregCatalog(token, "catalog_get", { id }),
+          value: toolDetails(
+            await tregCatalog(token, "catalog_get", { endpoint_id: id }),
+          ),
         };
       }
       case "look_up_data":

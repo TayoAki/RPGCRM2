@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { domainOf, planLeads } from "../src/crm/prospecting/leads";
 import { profileFacts } from "../src/crm/prospecting/profile";
+import { toolDetails } from "../src/crm/prospecting/tools";
 import { isLookupTool, tregCall } from "../src/crm/prospecting/treg";
 
 describe("treg lookups", () => {
@@ -67,6 +68,32 @@ describe("treg lookups", () => {
       ),
     ).rejects.toThrow("treg refused treg.people.search (402): balance too low");
   });
+});
+
+test("a tool's details keep its inputs, price and call, not the provider ranking", () => {
+  const details = toolDetails(
+    JSON.stringify({
+      endpoint: {
+        id: "treg.people.search",
+        method: "POST",
+        call_template: "treg call treg.people.search --data '{}'",
+        cost: { usd: 0 },
+        input: { body: { company_domain: { type: "str" } } },
+        routed_children: ["a", "b"],
+      },
+      routing: { providers: new Array(50).fill({ name: "p" }) },
+      hints: ["Send what you know"],
+    }),
+  );
+  expect(Object.keys(details as object)).toEqual([
+    "id",
+    "method",
+    "call_template",
+    "cost",
+    "input",
+    "hints",
+  ]);
+  expect(toolDetails("not json")).toBe("not json");
 });
 
 describe("ideal customer profile", () => {
