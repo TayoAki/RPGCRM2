@@ -68,18 +68,28 @@ export async function addSpend(
     where id = 1`);
 }
 
-export async function savedProfile(database: Database): Promise<string | null> {
-  const profile = (await readConfig(database)).prospecting_profile;
-  return typeof profile === "string" && profile.trim() ? profile : null;
+async function readText(database: Database, key: string) {
+  const value = (await readConfig(database))[key];
+  return typeof value === "string" && value.trim() ? value : null;
 }
 
-export async function saveProfile(
-  database: Database,
-  profile: string,
-): Promise<void> {
+async function saveText(database: Database, key: string, value: string) {
   await ensureRow(database);
   await database.execute(sql`
     update crm.configuration
-    set config = jsonb_set(coalesce(config, '{}'::jsonb), '{prospecting_profile}', to_jsonb(${profile}::text))
+    set config = jsonb_set(coalesce(config, '{}'::jsonb), ${`{${key}}`}::text[], to_jsonb(${value}::text))
     where id = 1`);
 }
+
+/** The sender's business name and postal address, which every outreach email ends with. */
+export const outreachFooter = (database: Database) =>
+  readText(database, "outreach_footer");
+
+export const saveOutreachFooter = (database: Database, footer: string) =>
+  saveText(database, "outreach_footer", footer);
+
+export const savedProfile = (database: Database) =>
+  readText(database, "prospecting_profile");
+
+export const saveProfile = (database: Database, profile: string) =>
+  saveText(database, "prospecting_profile", profile);

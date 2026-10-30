@@ -9,6 +9,7 @@ import { CrmQueryError } from "./filters";
 import { chartInput, runReport } from "./platform-routes";
 import type { ProspectingConfig } from "./prospecting/settings";
 import {
+  OUTREACH_TOOLS,
   PROSPECTING_TOOLS,
   PROSPECTING_WRITE_TOOLS,
   runProspectingTool,
@@ -270,7 +271,9 @@ export function useCrmTools(deps: CrmToolDeps | null): void {
 }
 
 export async function listTools(): Promise<McpTool[]> {
-  return [...TOOLS, ...PROSPECTING_TOOLS].map((tool) => ({ ...tool }));
+  return [...TOOLS, ...PROSPECTING_TOOLS, ...OUTREACH_TOOLS].map((tool) => ({
+    ...tool,
+  }));
 }
 
 export const listNeedsCredential = false;

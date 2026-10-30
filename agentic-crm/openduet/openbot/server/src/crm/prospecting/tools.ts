@@ -10,11 +10,19 @@ import {
   leadListSchema,
   planLeads,
 } from "./leads";
+import {
+  DAILY_LIMIT,
+  draftOutreach,
+  scoreLeads,
+  sendOutreach,
+  tagTier,
+} from "./outreach";
 import { profileFacts } from "./profile";
 import {
   addSpend,
   type ProspectingConfig,
   savedProfile,
+  saveOutreachFooter,
   saveProfile,
   spentThisMonth,
 } from "./settings";
@@ -71,6 +79,17 @@ const leadProperties = {
     items: { type: "string" },
     description:
       "The evidence, such as 'Running 40 Meta ads, 2 with creators'.",
+  },
+  tier: {
+    type: "string",
+    enum: ["A", "B", "C", "D"],
+    description: "How well the lead fits the profile, A best.",
+  },
+  score: { type: "number", description: "Fit from 0 to 100." },
+  source_url: {
+    type: "string",
+    description:
+      "Where the lead came from, such as the LinkedIn post they commented on.",
   },
 };
 
@@ -154,10 +173,96 @@ export const PROSPECTING_TOOLS: readonly McpTool[] = Object.freeze([
   },
 ]);
 
+export const OUTREACH_TOOLS: readonly McpTool[] = Object.freeze([
+  {
+    name: "score_leads",
+    description:
+      "Record how well contacts fit the ideal customer profile, as tiers A to D with a reason each. A: fits on industry, size and role, and engaged recently. B: a strong fit missing one of those. C: a partial fit. D: a poor fit. Each contact gets an 'ICP tier' tag and a note. The person approves first. At most 50.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scores: {
+          type: "array",
+          maxItems: 50,
+          items: {
+            type: "object",
+            properties: {
+              contact_id: { type: "number" },
+              tier: { type: "string", enum: ["A", "B", "C", "D"] },
+              score: { type: "number" },
+              reason: { type: "string" },
+            },
+            required: ["contact_id", "tier", "reason"],
+          },
+        },
+      },
+      required: ["scores"],
+    },
+  },
+  {
+    name: "save_outreach_footer",
+    description:
+      "Save the sender's business name and postal address. Every outreach email ends with them, as the law requires. Ask the person for them; never make one up. The person approves first.",
+    inputSchema: {
+      type: "object",
+      properties: { footer: { type: "string", maxLength: 500 } },
+      required: ["footer"],
+    },
+  },
+  {
+    name: "draft_outreach",
+    description:
+      "Save personalized emails to contacts as drafts, at most 25 at a time. Nothing is sent. Each draft gets an opt-out line and the sender's postal address added at the end. Contacts tagged 'Do not contact', without an email, or emailed in the last 30 days are skipped. The person approves first, then sees each draft on the contact's page.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        emails: {
+          type: "array",
+          maxItems: 25,
+          items: {
+            type: "object",
+            properties: {
+              contact_id: { type: "number" },
+              subject: { type: "string" },
+              body: {
+                type: "string",
+                description:
+                  "Plain text, under 120 words, signed with the person's first name.",
+              },
+            },
+            required: ["contact_id", "subject", "body"],
+          },
+        },
+      },
+      required: ["emails"],
+    },
+  },
+  {
+    name: "send_outreach",
+    description: `Send outreach drafts from the person's own mailbox, spaced apart, at most ${DAILY_LIMIT} a day. Only call it after the person said which drafts to send. The person approves first.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        email_ids: { type: "array", items: { type: "number" } },
+        spacing_minutes: {
+          type: "number",
+          description: "Minutes between sends, 2 to 60. Default 4.",
+        },
+      },
+      required: ["email_ids"],
+    },
+  },
+]);
+
 export const PROSPECTING_TOOL_NAMES = PROSPECTING_TOOLS.map(
   (tool) => tool.name,
 );
-export const PROSPECTING_WRITE_TOOLS = ["add_leads", "save_customer_profile"];
+export const OUTREACH_TOOL_NAMES = OUTREACH_TOOLS.map((tool) => tool.name);
+export const PROSPECTING_WRITE_TOOLS = [
+  "add_leads",
+  "save_customer_profile",
+  ...OUTREACH_TOOL_NAMES,
+];
 
 /**
  * What a Bot needs from catalog_get: the inputs, the price and a ready call. The full answer runs to
@@ -376,7 +481,10 @@ async function addLeads(
       email_jsonb: lead.contact.email
         ? [{ email: lead.contact.email, type: "Work" }]
         : [],
-      tags: [Number(tag.id)],
+      tags: [
+        Number(tag.id),
+        ...(lead.tier ? [await tagTier(records, actor, lead.tier)] : []),
+      ],
     })) as CrmRow;
     contactsAdded += 1;
     await records.create(actor, "contact_notes", {
@@ -386,6 +494,10 @@ async function addLeads(
         `Found by ${LEAD_SOURCE} for "${list.name}".`,
         lead.reason,
         lead.signals.length ? `Signals: ${lead.signals.join("; ")}` : null,
+        lead.tier
+          ? `ICP tier ${lead.tier}${lead.score === undefined ? "" : ` (${lead.score}/100)`}.`
+          : null,
+        lead.source_url ? `Source: ${lead.source_url}` : null,
         lead.contact.email
           ? lead.contact.email_verified
             ? "Email verified."
@@ -516,6 +628,23 @@ export async function runProspectingTool(
       }
       case "look_up_data":
         return await lookUp(deps, args);
+      case "score_leads":
+        return await scoreLeads(records, actor, args);
+      case "save_outreach_footer": {
+        const footer =
+          typeof args.footer === "string" ? args.footer.trim() : "";
+        if (!footer)
+          return {
+            ok: false,
+            message: "Give the business name and postal address.",
+          };
+        await saveOutreachFooter(deps.database, footer.slice(0, 500));
+        return { ok: true, value: { saved: true } };
+      }
+      case "draft_outreach":
+        return await draftOutreach(deps.database, records, actor, args);
+      case "send_outreach":
+        return await sendOutreach(deps.database, records, actor, args);
       case "add_leads":
         return await addLeads(records, actor, args);
       default:

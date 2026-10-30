@@ -31,6 +31,7 @@ const BASE = {
   leadSource: "Magpie prospecting",
   profile: null,
   leadsThisWeek: 0,
+  draftsWaiting: 0,
   budget: { monthlyUsd: 10, spentUsd: 0 },
   routine: null as null | Record<string, unknown>,
 };
@@ -104,6 +105,7 @@ test("once on, it says what's next, what it found and what it cost", async () =>
   serving({
     ...BASE,
     leadsThisWeek: 12,
+    draftsWaiting: 5,
     budget: { monthlyUsd: 10, spentUsd: 2.4 },
     routine: {
       id: "routine-1",
@@ -117,6 +119,7 @@ test("once on, it says what's next, what it found and what it cost", async () =>
     await view.findByRole("heading", { name: "Weekly lead list" }),
   ).toBeDefined();
   expect(view.getByText(/12 new leads this week/)).toBeDefined();
+  expect(view.getByText(/5 emails drafted for you to review/)).toBeDefined();
   expect(view.getByText(/\$2\.40 of \$10\.00 used this month/)).toBeDefined();
   const link = view.getByRole("link", { name: "View leads" });
   expect(decodeURIComponent(link.getAttribute("href") ?? "")).toBe(

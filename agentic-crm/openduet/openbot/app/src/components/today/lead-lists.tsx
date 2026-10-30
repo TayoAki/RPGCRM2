@@ -30,7 +30,7 @@ const nextRun = (iso: string) =>
     minute: "2-digit",
   });
 
-/** Weekly lead lists: companies like the ones already won, found by a Bot, approved before they're added. */
+/** Weekly warm leads: people engaging with niche posts, verified, scored and drafted to, approved before anything is added or sent. */
 export function LeadLists() {
   const { data } = useQuery(prospectingQueryOptions());
   const navigate = useNavigate();
@@ -66,9 +66,7 @@ export function LeadLists() {
             className="type-label font-semibold text-duet-ink"
             id="lead-lists"
           >
-            {data.routine
-              ? "Weekly lead list"
-              : "Find customers like your best ones"}
+            {data.routine ? "Weekly lead list" : "Find warm leads on LinkedIn"}
           </h2>
           {data.routine ? (
             <p className="type-caption mt-1 text-duet-ink-2">
@@ -76,14 +74,20 @@ export function LeadLists() {
               {data.leadsThisWeek === 1
                 ? "1 new lead this week."
                 : `${data.leadsThisWeek} new leads this week.`}{" "}
+              {data.draftsWaiting
+                ? data.draftsWaiting === 1
+                  ? "1 email drafted for you to review. "
+                  : `${data.draftsWaiting} emails drafted for you to review. `
+                : null}
               {money(data.budget.spentUsd)} of {money(data.budget.monthlyUsd)}{" "}
               used this month.
             </p>
           ) : (
             <p className="type-caption mt-1 max-w-[60ch] text-duet-ink-2">
-              Every Monday, a Bot finds companies that match the customers
-              you've won, with one decision maker at each. You approve the list
-              before anything is added, and nobody is emailed.
+              Every Monday, a Bot finds people engaging with posts your buyers
+              care about, verifies their work emails, ranks them A to D against
+              your best customers and drafts a personal email to the best ones.
+              You approve the list and every send.
             </p>
           )}
           <div className="mt-4 flex flex-wrap gap-2">

@@ -8,6 +8,7 @@ export type Prospecting = {
   leadSource: string;
   profile: string | null;
   leadsThisWeek: number;
+  draftsWaiting: number;
   budget: { monthlyUsd: number; spentUsd: number };
   routine: {
     id: string;

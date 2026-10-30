@@ -1,8 +1,10 @@
+import { and, count, eq } from "drizzle-orm";
 import { Hono, type MiddlewareHandler } from "hono";
 import type { AppVariables } from "../../auth/guards";
 import type { Database } from "../../db/client";
 import { RoutineRefusedError, type RoutineStore } from "../../routines/store";
 import type { CrmRecords } from "../records";
+import { emails } from "../schema";
 import { LEAD_SOURCE } from "./leads";
 import {
   type ProspectingConfig,
@@ -14,7 +16,6 @@ type Variables = { Variables: AppVariables };
 
 // Mondays at 8:00 in the person's own time zone.
 const WEEKLY = "0 8 * * 1";
-const LEADS_PER_LIST = 15;
 
 // The routine is found again by this first line, so keep it stable.
 const FIRST_LINE = "Build this week's lead list.";
@@ -22,12 +23,14 @@ const FIRST_LINE = "Build this week's lead list.";
 /** What the weekly routine, and Find leads now, ask the Bot to do. Under the 2,000 characters a routine allows. */
 export const LEAD_LIST_INSTRUCTION = [
   FIRST_LINE,
-  "1. Call customer_profile. If there's a saved profile, use it. If not, write one from the facts: who to look for, the signals that matter, who to leave out. Save it with save_customer_profile. With no saved profile and no won deals, ask the person to describe their best customers and stop.",
-  `2. Find about ${LEADS_PER_LIST} companies that fit and aren't customers yet. Use find_data_tools to pick lookups for company discovery and buying signals (for example brands running many paid social ads), read prices with data_tool_details, and call them with look_up_data.`,
-  "3. For each company, find one decision maker with treg.people.search, then their work email with treg.people.email.find and verify set to true. Leave out people whose email doesn't verify.",
-  "4. Give each lead one or two sentences on why it fits, naming the signal you found.",
-  "5. Add them all with one add_leads call named after today's date. Don't email anyone.",
-  "Stop if the lookup budget runs out, add what you have, and say how far you got and what it cost.",
+  "1. Call customer_profile and use the saved profile. If there is none, write one from the facts and save it with save_customer_profile. With no profile and no won deals, ask the person to describe their best customers and stop.",
+  "2. Warm leads first. Pick 2 or 3 topics the profile's buyers post about. Find recent LinkedIn posts on them with look_up_data on harvestapi.linkedin.post.search, keep the 3 to 5 with the most comments, and get who engaged with fetchinio.linkedin.post.engagement. Keep people whose headline fits the profile, commenters first.",
+  "3. Enrich: get each person's company domain with treg.linkedin.user.profile, then a work email with hunter.people.email.find, or apollo.people.bulk_enrich for up to 10 at once.",
+  "4. Verify every email with treg.people.email.verify. Drop invalid ones and note accept-all as risky.",
+  "5. Score each lead A to D: A fits industry, size and role and commented; B misses one; C partial; D poor. Leave D out.",
+  `6. Add the A to C leads with one add_leads call named after today's date, with tier, score, the post as source_url and what they said as a signal. If LinkedIn gave fewer than 10, add companies that fit, found with find_data_tools.`,
+  "7. For tier A and B, draft one email each with draft_outreach: under 120 words, opening with what they said or reacted to, one specific observation about their company and one simple question. No flattery and nothing made up. Don't send.",
+  "Read data_tool_details before a tool's first use. Stop if the lookup budget runs out. End with leads by tier, drafts waiting and what it cost.",
 ].join("\n");
 
 export function createProspectingRoutes(deps: {
@@ -55,7 +58,7 @@ export function createProspectingRoutes(deps: {
   routes.get("/", async (context) => {
     const actor = context.var.actor;
     const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
-    const [routine, spent, profile, leads] = await Promise.all([
+    const [routine, spent, profile, leads, drafts] = await Promise.all([
       routineOf(actor.id),
       spentThisMonth(deps.database),
       savedProfile(deps.database),
@@ -66,6 +69,22 @@ export function createProspectingRoutes(deps: {
         })
         .then((page) => page.total)
         .catch(() => 0),
+      deps.records
+        .sale(actor)
+        .then(async (sale) => {
+          const [row] = await deps.database
+            .select({ total: count() })
+            .from(emails)
+            .where(
+              and(
+                eq(emails.sales_id, sale.id),
+                eq(emails.direction, "out"),
+                eq(emails.status, "draft"),
+              ),
+            );
+          return Number(row?.total ?? 0);
+        })
+        .catch(() => 0),
     ]);
     return context.json({
       data: {
@@ -75,6 +94,7 @@ export function createProspectingRoutes(deps: {
         leadSource: LEAD_SOURCE,
         profile,
         leadsThisWeek: leads,
+        draftsWaiting: drafts,
         budget: {
           monthlyUsd: deps.prospecting.monthlyBudgetUsd,
           spentUsd: Math.round(spent / 10_000) / 100,

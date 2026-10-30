@@ -516,6 +516,10 @@ const REVIEWED: readonly CatalogueEntry[] = Object.freeze([
       "make_chart",
       "add_leads",
       "save_customer_profile",
+      "score_leads",
+      "save_outreach_footer",
+      "draft_outreach",
+      "send_outreach",
     ]),
     docsUrl:
       "https://github.com/TayoAki/RPGCRM2/blob/main/agentic-crm/README.md",

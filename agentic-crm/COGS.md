@@ -10,7 +10,7 @@ What it costs to serve a customer, what to charge, and which usage limits keep t
 | **Railway**: app + database | per workspace | **$5 idle, $8 to $12 in use** | Measured on UGCMediakits: app 0.37 GB memory and 0.02 vCPU, database 0.11 GB and 0.9 GB disk. Railway charges $10 per GB of memory, $20 per vCPU and $0.15 per GB of disk, per month |
 | **Composio** | per person | **~$1** | ~1,600 calls a month (the brief, mail and calendar checks) at $0.0003, plus triggers at $0.003 each |
 | **OpenTag** (Slack and Teams, planned) | per workspace | ~$1 to $2 | One small extra service |
-| **Lead list lookups** (treg) | per lead | ~$0.01 to $0.05 | Company search, the person, and a verified email. Capped per workspace by `PROSPECTING_MONTHLY_BUDGET_USD` |
+| **Lead list lookups** (treg) | per lead | ~$0.01 to $0.05 | LinkedIn post search and engagers ($0.002 to $0.004 a call), Hunter ($0.025) or Apollo ($0.026 per 10) for the email, verification (~$0.001). About $0.03 a warm lead. Capped per workspace by `PROSPECTING_MONTHLY_BUDGET_USD` |
 | **Bot computer** (browser, not on customer workspaces yet) | per workspace | ~$3 to $6 with idle stop, $10 to $20 always on | 1 to 2 GB of memory while a browser runs |
 | **Stripe** | per invoice | 2.9% + $0.30 | US cards |
 | Customer mail (SMTP/IMAP) | | $0 | The customer's own mailbox |

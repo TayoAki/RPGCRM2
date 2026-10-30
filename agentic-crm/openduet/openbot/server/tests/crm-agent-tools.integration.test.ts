@@ -3,7 +3,10 @@ import { eq, inArray } from "drizzle-orm";
 import { createAuditStore } from "../src/audit";
 import { callTool, listTools, useCrmTools } from "../src/crm/agent-tools";
 import { installCrmTools } from "../src/crm/install";
-import { PROSPECTING_TOOL_NAMES } from "../src/crm/prospecting/tools";
+import {
+  OUTREACH_TOOL_NAMES,
+  PROSPECTING_TOOL_NAMES,
+} from "../src/crm/prospecting/tools";
 import { installs } from "../src/crm/schema";
 import { createDatabase } from "../src/db/client";
 import { agents, approvalTeamRules, mcpServers, users } from "../src/db/schema";
@@ -207,6 +210,7 @@ test("a deployment installed before the report tools gets them granted once on i
     "crm/list_reports",
     "crm/make_chart",
     ...PROSPECTING_TOOL_NAMES.map((name) => `crm/${name}`),
+    ...OUTREACH_TOOL_NAMES.map((name) => `crm/${name}`),
   ];
   expect(new Set(firstBoot)).toEqual(new Set(bots.length ? later : []));
   expect(firstBoot).toHaveLength(bots.length * later.length);

@@ -286,3 +286,102 @@ skills:
       save_bot once, at the end. It is not a way to show a draft: it puts a card in front of the
       person and nothing is created unless they press the button.
     tools: []
+
+  # Warm outbound: find people engaging with niche content on LinkedIn, enrich and verify their work
+  # emails, score them against the profile, and draft personal emails. Data comes through treg
+  # (crm/look_up_data, within the workspace's monthly budget); nothing is sent without approval.
+  - slug: linkedin-miner
+    title: Mine LinkedIn
+    summary: Find people commenting on and reacting to posts about a topic your buyers care about.
+    instructions: >-
+      Ask for the topic if none was given; otherwise take 2 or 3 from customer_profile. Search
+      recent LinkedIn posts with look_up_data on harvestapi.linkedin.post.search, reading
+      data_tool_details first. Keep the 3 to 5 posts with the most comments from relevant authors,
+      then get who engaged with fetchinio.linkedin.post.engagement. Return a short table: name,
+      headline, profile URL, what they did (the comment, or the reaction) and the post's URL.
+      Commenters first. Leave out people whose headline clearly doesn't fit the profile, and say
+      how many you left out.
+    tools:
+      - crm/customer_profile
+      - crm/find_data_tools
+      - crm/data_tool_details
+      - crm/look_up_data
+
+  - slug: lead-enricher
+    title: Enrich leads
+    summary: Find each lead's company and work email through Hunter and Apollo.
+    instructions: >-
+      For each person, get their company and its domain with treg.linkedin.user.profile when you
+      only have a LinkedIn URL. Then find a work email with hunter.people.email.find from full name
+      and domain; for 10 or more people use apollo.people.bulk_enrich in batches of 10 first and
+      Hunter only for the misses. Never repeat a lookup. Read data_tool_details before a tool's first
+      use. Report each person's email, its source and what the lookups cost.
+    tools:
+      - crm/data_tool_details
+      - crm/look_up_data
+
+  - slug: email-verifier
+    title: Verify emails
+    summary: Check work emails before anyone is emailed.
+    instructions: >-
+      Check every address with treg.people.email.verify. Keep valid ones. Mark accept-all addresses
+      as risky and say so. Drop invalid ones and anything a provider guessed rather than found.
+      Never treat an unverified address as verified.
+    tools:
+      - crm/data_tool_details
+      - crm/look_up_data
+
+  - slug: icp-scorer
+    title: Score leads
+    summary: Rank leads A to D against your ideal customer profile.
+    instructions: >-
+      Read customer_profile. Score each lead: A fits industry, company size and role and engaged
+      recently, ideally with a comment; B is strong but misses one; C is a partial fit; D is a poor
+      fit. Give each a score from 0 to 100 and one sentence naming the evidence. New leads go into
+      the CRM with add_leads, with tier and score, leaving out D. Leads already in the CRM get
+      score_leads. Never guess a company's size or industry: look it up or say it's unknown.
+    tools:
+      - crm/customer_profile
+      - crm/list_records
+      - crm/add_leads
+      - crm/score_leads
+
+  - slug: outreach-writer
+    title: Write outreach
+    summary: Draft a personal first email to each tier A and B lead.
+    instructions: >-
+      For each lead, read the contact with get_record, including the note on what they engaged
+      with. Write a plain-text email under 120 words: open with the specific post or comment, add
+      one concrete observation about their company, and end with one simple question. No flattery,
+      no "I hope this finds you well", nothing you can't point to. Sign with the person's first
+      name. Save them with draft_outreach. If it asks for a postal address, ask the person and save
+      it with save_outreach_footer. Never send unless the person says which drafts to send; then
+      use send_outreach.
+    tools:
+      - crm/list_records
+      - crm/get_record
+      - crm/draft_outreach
+      - crm/save_outreach_footer
+      - crm/send_outreach
+
+  - slug: warm-outbound
+    title: Warm outbound
+    summary: Find warm leads on LinkedIn, enrich, verify, score and draft emails, end to end.
+    instructions: >-
+      Run the whole flow: customer_profile; find people engaging with posts on 2 or 3 of the
+      profile's topics (harvestapi.linkedin.post.search, then fetchinio.linkedin.post.engagement);
+      find work emails (apollo.people.bulk_enrich, then hunter.people.email.find for misses);
+      verify them (treg.people.email.verify); score A to D; add A to C with one add_leads call with
+      tier, score and the post as source_url; draft emails for A and B with draft_outreach. Don't
+      send. Stop if the lookup budget runs out. End with leads by tier, drafts waiting and the cost.
+    tools:
+      - crm/customer_profile
+      - crm/save_customer_profile
+      - crm/find_data_tools
+      - crm/data_tool_details
+      - crm/look_up_data
+      - crm/add_leads
+      - crm/score_leads
+      - crm/get_record
+      - crm/draft_outreach
+      - crm/save_outreach_footer

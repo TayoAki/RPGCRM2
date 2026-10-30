@@ -6,7 +6,10 @@ import { agents, approvalTeamRules, mcpServers } from "../db/schema";
 import type { PluginStore } from "../plugins/store";
 import { listTools, useCrmTools } from "./agent-tools";
 import type { ProspectingConfig } from "./prospecting/settings";
-import { PROSPECTING_TOOL_NAMES } from "./prospecting/tools";
+import {
+  OUTREACH_TOOL_NAMES,
+  PROSPECTING_TOOL_NAMES,
+} from "./prospecting/tools";
 import { installs } from "./schema";
 
 export const CRM_SERVER = "crm";
@@ -117,6 +120,7 @@ const LATER_TOOLS = [
     tools: ["run_report", "list_reports", "make_chart"],
   },
   { step: "agent-tools-prospecting", tools: PROSPECTING_TOOL_NAMES },
+  { step: "agent-tools-outreach", tools: OUTREACH_TOOL_NAMES },
 ];
 
 async function grantLaterTools(

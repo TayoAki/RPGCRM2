@@ -2,6 +2,11 @@ import { z } from "zod";
 
 export const LEAD_SOURCE = "Magpie prospecting";
 
+// How well a lead fits the ideal customer profile, best first.
+export const TIERS = ["A", "B", "C", "D"] as const;
+export type Tier = (typeof TIERS)[number];
+export const tierTag = (tier: Tier) => `ICP tier ${tier}`;
+
 const optionalText = z
   .string()
   .trim()
@@ -33,6 +38,10 @@ export const leadSchema = z.object({
   // Why this company fits the profile, in one or two sentences a person can check.
   reason: z.string().trim().min(1).max(1000),
   signals: z.array(z.string().trim().max(200)).max(10).default([]),
+  tier: z.enum(TIERS).optional(),
+  score: z.number().int().min(0).max(100).optional(),
+  // Where the lead came from, such as the LinkedIn post they commented on.
+  source_url: optionalText,
 });
 
 export const leadListSchema = z.object({
