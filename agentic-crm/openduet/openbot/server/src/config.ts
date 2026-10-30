@@ -3,6 +3,8 @@
  * for durable threads and memory. Configuration the product cannot function without belongs at the
  * boot boundary.
  */
+
+import { networkInterfaces } from "node:os";
 import {
   isLearningContainerId,
   type LearningTarget,
@@ -13,7 +15,6 @@ import {
   listenHosts,
 } from "@openbot/shared/listen-host";
 import { listenPort } from "@openbot/shared/listen-port";
-import { networkInterfaces } from "node:os";
 import { singleUserEnabled } from "./auth/dev-actor";
 import { normalizeDomain } from "./auth/email-domain";
 import { organizationAuthority } from "./auth/organization";
@@ -277,6 +278,8 @@ export type DeploymentConfig = {
    * validated here, for the same reason as `composioApiKey`.
    */
   arcadeApiKey: string | undefined;
+  /** Prospecting's treg token (`TREG_API_KEY`) and what it may spend a month (`PROSPECTING_MONTHLY_BUDGET_USD`). */
+  prospecting: { tregApiKey: string | undefined; monthlyBudgetUsd: number };
   /**
    * Which tool broker the operator asked for, from `OPENBOT_BROKER_PROVIDER`. Only read and
    * validated here: which provider is active is decided elsewhere. Unset is `undefined`.
@@ -448,6 +451,15 @@ function required(environment: Environment, name: string): string {
     throw new Error(`${name} must be configured`);
   }
   return value;
+}
+
+const DEFAULT_PROSPECTING_BUDGET_USD = 10;
+
+function budgetFrom(value: string | undefined): number {
+  const budget = Number(value);
+  return value !== undefined && Number.isFinite(budget) && budget >= 0
+    ? budget
+    : DEFAULT_PROSPECTING_BUDGET_USD;
 }
 
 function optional(environment: Environment, name: string): string | undefined {
@@ -1404,6 +1416,12 @@ export function loadConfig(
     deploymentId: optional(environment, "DEPLOYMENT_ID"),
     composioApiKey: optional(environment, "COMPOSIO_API_KEY"),
     arcadeApiKey: optional(environment, "ARCADE_API_KEY"),
+    prospecting: {
+      tregApiKey: optional(environment, "TREG_API_KEY"),
+      monthlyBudgetUsd: budgetFrom(
+        optional(environment, "PROSPECTING_MONTHLY_BUDGET_USD"),
+      ),
+    },
     brokerProvider: brokerProvider(environment),
     publicUrl,
     appUrl: (

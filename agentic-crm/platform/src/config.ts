@@ -6,6 +6,7 @@ const SHARED_WORKSPACE_VARIABLES = [
   "INTELLIGENCE_GATEWAY_WS_URL",
   "COPILOTKIT_LICENSE_TOKEN",
   "COMPOSIO_API_KEY",
+  "TREG_API_KEY",
 ] as const;
 
 export type RailwaySettings = {
