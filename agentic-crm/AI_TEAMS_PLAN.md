@@ -69,6 +69,12 @@ Most of the hard parts are built. What's missing is the "reach it like a person"
 
 ### Phase 2: reach each Bot like a person (about 2 weeks)
 
+Decided Nov 2:
+- AgentPhone is skipped, so phone and text are out of version 1.
+- AgentMail stays an option for Bot inboxes.
+- Bots keep using our own computer, not Orgo. Ours costs almost nothing at today's use. Look at Orgo again if each Bot needs its own computer running all day: its Small size runs about $17 a month always on, against $16 to $25 for the same container on Railway.
+
+
 1. **Email:**
    - Each Bot gets an address on the company's domain (for example `frontdesk@`), built on the inbound email triggers that already exist.
    - Mail to it starts a run.
