@@ -25,6 +25,7 @@ import {
   UpcomingMeetings,
 } from "./today-sections";
 import { EmptyDay, GetStarted, PutToWork, SetupReminder } from "./today-start";
+import { WeekReportCard, WorkPlanCard } from "./work-plan";
 
 export type TodayView = "overview" | "mine" | "team";
 
@@ -153,6 +154,7 @@ export function TodayScreen({ view }: { view: TodayView }) {
 
         {fresh ? (
           <>
+            <WorkPlanCard />
             <PutToWork botName={botName} onStarter={setStarter} />
             <LeadLists />
             <EmptyDay />
@@ -190,7 +192,9 @@ export function TodayScreen({ view }: { view: TodayView }) {
                 value={`${summary.working.length} running`}
               />
             </div>
+            <WeekReportCard />
             <NeedsAttention now={now} summary={summary} />
+            <WorkPlanCard />
             <LeadLists />
             <div className="grid gap-4 @3xl:grid-cols-2">
               <PipelineSnapshot summary={summary} />

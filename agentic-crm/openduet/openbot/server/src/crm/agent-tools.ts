@@ -5,6 +5,11 @@ import type { Database } from "../db/client";
 import { users } from "../db/schema";
 import type { McpCallResult, McpTool } from "../plugins/mcp";
 import { MAX_RESULT_CHARS } from "../plugins/mcp";
+import {
+  BUSINESS_TOOLS,
+  BUSINESS_WRITE_TOOLS,
+  runBusinessTool,
+} from "./business/tools";
 import { CrmQueryError } from "./filters";
 import { type GovconConfig, isConfigured } from "./govcon/kontract";
 import {
@@ -45,6 +50,7 @@ export const CRM_WRITE_TOOLS = [
   "make_chart",
   ...PROSPECTING_WRITE_TOOLS,
   ...GOVCON_WRITE_TOOLS,
+  ...BUSINESS_WRITE_TOOLS,
 ] as const;
 
 const READABLE = [
@@ -281,6 +287,7 @@ export function useCrmTools(deps: CrmToolDeps | null): void {
 export async function listTools(): Promise<McpTool[]> {
   return [
     ...TOOLS,
+    ...BUSINESS_TOOLS,
     ...PROSPECTING_TOOLS,
     ...OUTREACH_TOOLS,
     ...(isConfigured(installed?.deps.govcon) ? GOVCON_TOOLS : []),
@@ -642,6 +649,13 @@ async function run(
       return makeChart(deps, records, actor, args);
     default: {
       const outcome =
+        (await runBusinessTool(
+          deps.database,
+          records,
+          actor,
+          toolName,
+          args,
+        )) ??
         (await runGovconTool(deps, records, actor, toolName, args)) ??
         (await runProspectingTool(deps, records, actor, toolName, args));
       if (!outcome) return failure(`The CRM has no tool named ${toolName}.`);

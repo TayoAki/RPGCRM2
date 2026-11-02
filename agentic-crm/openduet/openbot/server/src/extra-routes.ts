@@ -2,6 +2,7 @@ import type { Hono, MiddlewareHandler } from "hono";
 import type { AuditStore } from "./audit";
 import type { PasswordPeople } from "./auth/email-password";
 import type { AppVariables } from "./auth/guards";
+import { createWorkPlanRoutes } from "./crm/business/routes";
 import { createProspectingRoutes } from "./crm/prospecting/routes";
 import { createPublicApi } from "./crm/public-api";
 import { createCrmRoutes } from "./crm/routes";
@@ -58,6 +59,17 @@ export function createExtraRoutes(deps: {
               database: deps.database,
               records: deps.crm.records,
               ...deps.prospecting,
+            }),
+          ],
+          [
+            "/api/work-plan",
+            createWorkPlanRoutes({
+              requireUser,
+              database: deps.database,
+              records: deps.crm.records,
+              routines: deps.prospecting.routines,
+              directChannel: deps.prospecting.directChannel,
+              primaryBotId: deps.prospecting.primaryBotId,
             }),
           ],
         ] as [string, Hono<Variables>][])

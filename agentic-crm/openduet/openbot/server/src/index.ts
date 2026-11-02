@@ -60,6 +60,7 @@ import { signallingBusy } from "./approvals/busy-runner";
 import { createApprovalResumeTick } from "./approvals/resume-sweep";
 import { createApprovalStore } from "./approvals/store";
 import { installCrmTools } from "./crm/install";
+import { withBusinessBrief } from "./crm/business/brief";
 import { createTextWriter } from "./crm/ai";
 import { createCrmServices } from "./crm/services";
 import { ApprovalRefusedError } from "./approvals/types";
@@ -1530,7 +1531,7 @@ const userInstructionsStore = createUserInstructionsStore(database);
  * written.
  */
 const loadInstructionsForActor = (actorId: string) => () =>
-  userInstructionsStore.read(actorId);
+  withBusinessBrief(database, userInstructionsStore.read(actorId));
 
 /*
  * The file behind an attachment reference, read when a turn turns out to name one.

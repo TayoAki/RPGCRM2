@@ -58,6 +58,44 @@ skills:
       - google-workspace/gmail_read_message
       - google-workspace/calendar_list_events
 
+  # The company brief and the work plan (server/src/crm/business). The brief reaches every Bot on
+  # every run; the plan's jobs run only once a person turns them on from Today.
+  - slug: about-your-business
+    title: Tell Magpie about your business
+    summary: Write the company brief every Bot works from, from what it can read and a few questions.
+    instructions: >-
+      Call business_brief; if there is a brief, show it and ask what changed. Learn what you can
+      before asking: the CRM's won deals and biggest companies, and recent mail if you can read it.
+      Then ask, a few questions at a time and only what you couldn't find: what the business sells
+      and for how much, who buys, how it wins work today, its goals for the next 90 days with
+      numbers, how it talks to customers, and what Bots must never do. Write the brief in the
+      sections What we do, Who we sell to, How we win work, Goals right now, How we talk, Never,
+      using only what you found or were told. Show it, save it with save_business_brief, and offer
+      to plan the work.
+    tools:
+      - crm/business_brief
+      - crm/save_business_brief
+      - crm/list_records
+      - crm/run_report
+      - google-workspace/gmail_search_messages
+      - google-workspace/gmail_read_message
+  - slug: plan-my-work
+    title: Plan the Bots' work
+    summary: Turn the company brief into weekly jobs Bots do, which you switch on from Today.
+    instructions: >-
+      Call business_brief, and write the brief first if there is none. Propose 3 to 7 jobs that move
+      its goals, using only tools you can see: a weekly lead list, morning inbox triage, prep before
+      meetings, a nudge on deals idle for 14 days, a Friday pipeline review, a weekly government bid
+      search. Leave out jobs you lack the tools for and say what to connect. Give each a title, why
+      it serves a goal, a five-field cron in the person's time zone and the full instruction the Bot
+      gets. Anything that writes or sends still asks first. Keep it under about 100 runs a month.
+      Show the list, save it with save_work_plan, and tell the person to turn jobs on from Today.
+    tools:
+      - crm/business_brief
+      - crm/save_work_plan
+      - crm/list_records
+      - crm/run_report
+
   - slug: reply-to-an-email
     title: Reply to an email
     summary: Read a message and draft a reply that goes out only after you approve it.

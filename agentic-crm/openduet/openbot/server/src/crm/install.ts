@@ -5,6 +5,7 @@ import type { Database } from "../db/client";
 import { agents, approvalTeamRules, mcpServers } from "../db/schema";
 import type { PluginStore } from "../plugins/store";
 import { listTools, useCrmTools } from "./agent-tools";
+import { BUSINESS_TOOL_NAMES } from "./business/tools";
 import { type GovconConfig, isConfigured } from "./govcon/kontract";
 import { GOVCON_TOOL_NAMES } from "./govcon/tools";
 import type { ProspectingConfig } from "./prospecting/settings";
@@ -128,6 +129,7 @@ const LATER_TOOLS = [
   },
   { step: "agent-tools-prospecting", tools: PROSPECTING_TOOL_NAMES },
   { step: "agent-tools-outreach", tools: OUTREACH_TOOL_NAMES },
+  { step: "agent-tools-business", tools: BUSINESS_TOOL_NAMES },
   // Only once government bids are set up, since their tools aren't listed before that.
   { step: "agent-tools-govcon", tools: GOVCON_TOOL_NAMES, needsGovcon: true },
 ];
