@@ -737,3 +737,37 @@ export const dashboards = crm.table("dashboards", {
   created_at: createdAt(),
   updated_at: updatedAt(),
 });
+
+/*
+ * Government bids a company is pursuing. The notice itself lives in Kontract (crm/govcon); a bid keeps
+ * a copy of it, so a bid stays readable after the notice closes, plus the company's own work on it.
+ * Opportunity, details, pricing and subs are in Kontract's shapes (govcon/kontract-api.ts).
+ */
+export const bids = crm.table(
+  "bids",
+  {
+    id: id(),
+    notice_id: text().notNull(),
+    title: text().notNull(),
+    agency: text().notNull().default(""),
+    // found, sourcing, quoted, submitted, won, lost
+    stage: text().notNull().default("found"),
+    response_deadline: moment(),
+    opportunity: json().notNull(),
+    details: json(),
+    breakdown: json(),
+    pricing: json(),
+    subs: json().notNull().default([]),
+    notes: text().notNull().default(""),
+    scope: text(),
+    proposal: text(),
+    submitted_at: moment(),
+    sales_id: reference().references(() => sales.id, setNull),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("bids_notice_id_idx").on(table.notice_id),
+    index("bids_stage_deadline_idx").on(table.stage, table.response_deadline),
+  ],
+);

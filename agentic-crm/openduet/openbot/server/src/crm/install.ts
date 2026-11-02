@@ -5,6 +5,8 @@ import type { Database } from "../db/client";
 import { agents, approvalTeamRules, mcpServers } from "../db/schema";
 import type { PluginStore } from "../plugins/store";
 import { listTools, useCrmTools } from "./agent-tools";
+import { type GovconConfig, isConfigured } from "./govcon/kontract";
+import { GOVCON_TOOL_NAMES } from "./govcon/tools";
 import type { ProspectingConfig } from "./prospecting/settings";
 import {
   OUTREACH_TOOL_NAMES,
@@ -39,13 +41,16 @@ export async function installCrmTools(deps: {
   audit: AuditStore;
   roleOf: (userId: string) => Promise<OpenBotRole>;
   prospecting?: ProspectingConfig;
+  govcon?: GovconConfig;
 }): Promise<void> {
   const { database, pluginStore } = deps;
   useCrmTools({
     database,
     roleOf: deps.roleOf,
     ...(deps.prospecting ? { prospecting: deps.prospecting } : {}),
+    ...(deps.govcon ? { govcon: deps.govcon } : {}),
   });
+  const govconOn = isConfigured(deps.govcon);
 
   const [done] = await database
     .select({ name: installs.name })
@@ -58,7 +63,7 @@ export async function installCrmTools(deps: {
       .where(eq(mcpServers.id, CRM_SERVER));
     if (server) {
       await pluginStore.refreshTools(CRM_SERVER);
-      await grantLaterTools(database, pluginStore);
+      await grantLaterTools(database, pluginStore, govconOn);
     }
     return;
   }
@@ -108,7 +113,9 @@ export async function installCrmTools(deps: {
     .insert(installs)
     .values([
       { name: INSTALL_STEP },
-      ...LATER_TOOLS.map(({ step }) => ({ name: step })),
+      ...LATER_TOOLS.filter(({ needsGovcon }) => !needsGovcon || govconOn).map(
+        ({ step }) => ({ name: step }),
+      ),
     ])
     .onConflictDoNothing();
 }
@@ -121,19 +128,22 @@ const LATER_TOOLS = [
   },
   { step: "agent-tools-prospecting", tools: PROSPECTING_TOOL_NAMES },
   { step: "agent-tools-outreach", tools: OUTREACH_TOOL_NAMES },
+  // Only once government bids are set up, since their tools aren't listed before that.
+  { step: "agent-tools-govcon", tools: GOVCON_TOOL_NAMES, needsGovcon: true },
 ];
 
 async function grantLaterTools(
   database: Database,
   pluginStore: Pick<PluginStore, "grant">,
+  govconOn: boolean,
 ) {
   const done = new Set(
     (await database.select({ name: installs.name }).from(installs)).map(
       (row) => row.name,
     ),
   );
-  for (const { step, tools } of LATER_TOOLS) {
-    if (done.has(step)) continue;
+  for (const { step, tools, needsGovcon } of LATER_TOOLS) {
+    if (done.has(step) || (needsGovcon && !govconOn)) continue;
     const bots = await database.select({ id: agents.id }).from(agents);
     for (const bot of bots) {
       for (const tool of tools) {

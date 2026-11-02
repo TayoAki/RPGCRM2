@@ -1050,6 +1050,7 @@ await installCrmTools({
   audit: bootAuditStore,
   roleOf: async (userId) => (await actorFor(userId)).role,
   prospecting: config.prospecting,
+  govcon: config.govcon,
 });
 const responsibilityStore = createResponsibilityStore(database, {
   resolveTarget: async (ownerUserId, agentId, channelId) => {

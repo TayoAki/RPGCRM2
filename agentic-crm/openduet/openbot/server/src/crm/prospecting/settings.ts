@@ -15,14 +15,14 @@ export type ProspectingConfig = {
 
 export const monthOf = (now: Date) => now.toISOString().slice(0, 7);
 
-async function ensureRow(database: Database) {
+export async function ensureRow(database: Database) {
   await database
     .insert(configuration)
     .values({ id: 1, config: {} })
     .onConflictDoNothing();
 }
 
-async function readConfig(
+export async function readConfig(
   database: Database,
 ): Promise<Record<string, unknown>> {
   const [row] = await database
@@ -39,8 +39,9 @@ async function readConfig(
 export async function spentThisMonth(
   database: Database,
   now: Date = new Date(),
+  ledger = "prospecting_spend",
 ): Promise<number> {
-  const spend = (await readConfig(database)).prospecting_spend as
+  const spend = (await readConfig(database))[ledger] as
     | { month?: string; micro?: number }
     | undefined;
   return spend?.month === monthOf(now) ? Number(spend.micro) || 0 : 0;
@@ -50,6 +51,7 @@ export async function addSpend(
   database: Database,
   micro: number,
   now: Date = new Date(),
+  ledger = "prospecting_spend",
 ): Promise<void> {
   if (!(micro > 0)) return;
   await ensureRow(database);
@@ -58,11 +60,11 @@ export async function addSpend(
     update crm.configuration
     set config = jsonb_set(
       coalesce(config, '{}'::jsonb),
-      '{prospecting_spend}',
+      ${`{${ledger}}`}::text[],
       jsonb_build_object(
         'month', ${month}::text,
-        'micro', (case when config->'prospecting_spend'->>'month' = ${month}::text
-          then coalesce((config->'prospecting_spend'->>'micro')::bigint, 0) else 0 end) + ${Math.round(micro)}::bigint
+        'micro', (case when config->${ledger}::text->>'month' = ${month}::text
+          then coalesce((config->${ledger}::text->>'micro')::bigint, 0) else 0 end) + ${Math.round(micro)}::bigint
       )
     )
     where id = 1`);

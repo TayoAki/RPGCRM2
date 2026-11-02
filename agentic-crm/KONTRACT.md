@@ -6,6 +6,12 @@ Kontract becomes the engine and Magpie becomes the app.
 - **Magpie** keeps each company's own data: bids, subs, quote links, proposals, company profile. Customers sign in only to Magpie.
 - Magpie's server calls Kontract over HTTPS with a service key. Nothing is bulk-copied. Magpie saves only what a customer acts on.
 
+## Status, November 2
+
+- **Part 1 is live** at https://kontract-production.up.railway.app (Kontract commit `34551b9`). The service key is set on Kontract and on the sign-up service.
+- **Milestone 1 is built.** Bots have 15 bid tools and 6 skills, and each was checked against the live engine. A workspace gets them when `KONTRACT_URL` and `KONTRACT_SERVICE_KEY` are set on it. They aren't shared to every workspace, so other customers' Bots don't carry 15 tools they'll never use.
+- Quote links moved to milestone 2, since they need the public page.
+
 There are three parts:
 
 1. The Kontract engine API, built in the Kontract repo. Part 1 below can be pasted as is into a Kontract session.
@@ -111,7 +117,7 @@ curl -s -H "Authorization: Bearer $KEY" 'https://<kontract>/api/v1/usage?workspa
 
 ### Milestone 1: Bots can work a bid (about 3 to 4 days after the engine is live)
 
-1. **Config.** The platform shares `KONTRACT_URL` and `KONTRACT_SERVICE_KEY` to every workspace through `SHARED_WORKSPACE_VARIABLES`, as it does `TREG_API_KEY`. `GOVCON_MONTHLY_BUDGET_USD` defaults to 20.
+1. **Config.** A GovCon workspace has `KONTRACT_URL` and `KONTRACT_SERVICE_KEY` set. The sign-up service holds both, ready for GovCon sign-ups. `GOVCON_MONTHLY_BUDGET_USD` defaults to 20.
 2. **Client.** `server/src/crm/govcon/kontract.ts`:
    - sends `X-Workspace-Id: $DEPLOYMENT_ID`;
    - uses timeouts;
@@ -120,8 +126,8 @@ curl -s -H "Authorization: Bearer $KEY" 'https://<kontract>/api/v1/usage?workspa
    - New CRM tables: `bids` (notice snapshot, stage, details, pricing, subs, scope, proposal, unique notice id), `quote_requests` and `lead_shares` (token links).
    - The company profile (UEI, CAGE, capabilities, default markup) lives in `crm.configuration`.
 4. **Bot tools**, trimmed before they reach the model:
-   - Reads: `find_bids`, `bid_details`, `bid_pricing`, `find_subs`, `read_website`, `permit_leads`, `permit_contractors`.
-   - Writes, which need approval: `track_bid`, `update_bid`, `save_company_profile`, `make_quote_link`.
+   - Reads: `find_bids`, `bid_notice`, `read_bid_documents`, `bid_breakdown`, `past_pricing`, `find_subcontractors`, `read_business_website`, `permit_leads`, `permit_contractors`, `list_bids`, `company_profile`.
+   - Writes, which need approval: `track_bid`, `update_bid`, `save_company_profile`, `draft_bid_document`.
 5. **Skills and routine.**
    - Skills from Kontract's `directives/`: find opportunities, research past pricing, find subcontractors, write the proposal.
    - A weekly routine: "Monday: find this week's bids".

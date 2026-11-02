@@ -385,3 +385,97 @@ skills:
       - crm/get_record
       - crm/draft_outreach
       - crm/save_outreach_footer
+
+  # Government bids, through Kontract (server/src/crm/govcon). The tools exist only in a workspace
+  # with KONTRACT_URL and KONTRACT_SERVICE_KEY set, so elsewhere these skills load nothing.
+  - slug: find-government-bids
+    title: Find government bids
+    summary: Open federal, state and local bids a small business can win by subcontracting the work.
+    instructions: >-
+      Call company_profile, then find_bids with services and open bids only. Favor a service (not a
+      product), a small-business set-aside, 14 or more days to respond, and a multi-year contract.
+      Sources Sought notices want a capability statement, not a price. For the best 3 to 5, give the
+      title, agency, place, days left and why each fits. Offer to track them with track_bid and to
+      read their documents with read_bid_documents. Never track or read with Claude unasked.
+    tools:
+      - crm/company_profile
+      - crm/find_bids
+      - crm/bid_notice
+      - crm/read_bid_documents
+      - crm/track_bid
+      - crm/list_bids
+  - slug: read-a-bid
+    title: Read a bid
+    summary: What a bid's documents say about budget, bonds, site visit, deadlines and requirements.
+    instructions: >-
+      Call read_bid_documents and bid_breakdown for the notice. Report each fact with the sentence it
+      came from and the document: their budget, bonds, site visit (and whether it passed), when
+      questions are due, how long the work runs, wage rates, how they pick, sizes and what the job
+      requires. Then the red flags and the questions to ask a sub. Say which documents couldn't be
+      read. Only use with_claude when the person asks for the scope item by item.
+    tools:
+      - crm/bid_notice
+      - crm/read_bid_documents
+      - crm/bid_breakdown
+      - crm/list_bids
+  - slug: price-a-bid
+    title: Price a bid
+    summary: Check what the government paid before and set a price that wins and keeps a margin.
+    instructions: >-
+      Call past_pricing with the notice's work as keywords, its NAICS and state, and its agency. Look
+      for a likely_related award with a matching description: that is often the previous contract,
+      so use it as the anchor. Otherwise use the typical price per year. With few results drop naics,
+      then state, then shorten the keywords. Amounts are obligated so far, so a running contract
+      shows less than its value. Price each line at the sub's cost plus the company's default markup,
+      stay under the anchor, and save the lines with update_bid. End with price, profit, margin and
+      how it compares to the anchor.
+    tools:
+      - crm/past_pricing
+      - crm/list_bids
+      - crm/company_profile
+      - crm/update_bid
+  - slug: find-subcontractors
+    title: Find subcontractors
+    summary: Local companies to do the work, from business listings, past winners and permit records.
+    instructions: >-
+      Use the breakdown's search terms and the place of performance. Combine find_subcontractors,
+      permit_contractors for the trade near the job, and past_pricing's past winners. Shortlist 5 or
+      more with phone, website and rating; read_business_website for the best ones. Vet with the
+      hunger check: answers fast, good reviews, a real website and work email, fine with net 30, has
+      similar jobs. Save the shortlist on the bid with update_bid. Offer to draft the scope of work
+      with draft_bid_document. Never put the company's price or margin in anything a sub sees.
+    tools:
+      - crm/find_subcontractors
+      - crm/permit_contractors
+      - crm/read_business_website
+      - crm/past_pricing
+      - crm/list_bids
+      - crm/update_bid
+      - crm/draft_bid_document
+  - slug: write-a-proposal
+    title: Write a proposal
+    summary: Draft a tracked bid's proposal and check it before it's submitted.
+    instructions: >-
+      Call company_profile and list_bids. Before drafting, check: price with profit, a selected sub,
+      UEI and CAGE filled in, past performance, the deadline, and the notice's own instructions
+      (forms, page limits, how to submit). Ask for anything missing; never make up a license, past
+      contract or certification. Then draft_bid_document with kind proposal. List every [placeholder]
+      left and the forms to fill in. Remind the person to submit a day early and mark it submitted.
+    tools:
+      - crm/company_profile
+      - crm/save_company_profile
+      - crm/list_bids
+      - crm/read_bid_documents
+      - crm/draft_bid_document
+      - crm/update_bid
+  - slug: permit-leads
+    title: Permit leads
+    summary: Who is pulling building permits near a job, and which trades each permit is work for.
+    instructions: >-
+      Call permit_leads for the state, and the city's market when the person names one. Report leads
+      by trade, the strongest permits with address, value, contractor and why each is a lead, and the
+      busiest contractors. Most permits list no phone: say to call the contractor running the job,
+      mail the owner, or check the city's record. Say which feeds failed.
+    tools:
+      - crm/permit_leads
+      - crm/permit_contractors

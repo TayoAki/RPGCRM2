@@ -6,6 +6,12 @@ import { users } from "../db/schema";
 import type { McpCallResult, McpTool } from "../plugins/mcp";
 import { MAX_RESULT_CHARS } from "../plugins/mcp";
 import { CrmQueryError } from "./filters";
+import { type GovconConfig, isConfigured } from "./govcon/kontract";
+import {
+  GOVCON_TOOLS,
+  GOVCON_WRITE_TOOLS,
+  runGovconTool,
+} from "./govcon/tools";
 import { chartInput, runReport } from "./platform-routes";
 import type { ProspectingConfig } from "./prospecting/settings";
 import {
@@ -38,6 +44,7 @@ export const CRM_WRITE_TOOLS = [
   "update_record",
   "make_chart",
   ...PROSPECTING_WRITE_TOOLS,
+  ...GOVCON_WRITE_TOOLS,
 ] as const;
 
 const READABLE = [
@@ -260,6 +267,7 @@ export type CrmToolDeps = {
   database: Database;
   roleOf: (userId: string) => Promise<OpenBotRole>;
   prospecting?: ProspectingConfig;
+  govcon?: GovconConfig;
   fetch?: typeof fetch;
 };
 
@@ -271,9 +279,12 @@ export function useCrmTools(deps: CrmToolDeps | null): void {
 }
 
 export async function listTools(): Promise<McpTool[]> {
-  return [...TOOLS, ...PROSPECTING_TOOLS, ...OUTREACH_TOOLS].map((tool) => ({
-    ...tool,
-  }));
+  return [
+    ...TOOLS,
+    ...PROSPECTING_TOOLS,
+    ...OUTREACH_TOOLS,
+    ...(isConfigured(installed?.deps.govcon) ? GOVCON_TOOLS : []),
+  ].map((tool) => ({ ...tool }));
 }
 
 export const listNeedsCredential = false;
@@ -630,13 +641,9 @@ async function run(
     case "make_chart":
       return makeChart(deps, records, actor, args);
     default: {
-      const outcome = await runProspectingTool(
-        deps,
-        records,
-        actor,
-        toolName,
-        args,
-      );
+      const outcome =
+        (await runGovconTool(deps, records, actor, toolName, args)) ??
+        (await runProspectingTool(deps, records, actor, toolName, args));
       if (!outcome) return failure(`The CRM has no tool named ${toolName}.`);
       if (!outcome.ok) return failure(outcome.message);
       return typeof outcome.value === "string"

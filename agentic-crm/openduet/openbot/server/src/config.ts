@@ -20,6 +20,7 @@ import { normalizeDomain } from "./auth/email-domain";
 import { organizationAuthority } from "./auth/organization";
 import type { ActionPolicy } from "./computer/policy";
 import { parseActionPolicy } from "./computer/policy-store";
+import { type GovconConfig, workspaceIdOf } from "./crm/govcon/kontract";
 import {
   type TranscriptionConfig,
   transcriptionConfig,
@@ -281,6 +282,11 @@ export type DeploymentConfig = {
   /** Prospecting's treg token (`TREG_API_KEY`) and what it may spend a month (`PROSPECTING_MONTHLY_BUDGET_USD`). */
   prospecting: { tregApiKey: string | undefined; monthlyBudgetUsd: number };
   /**
+   * Kontract, the government bid service (`KONTRACT_URL`, `KONTRACT_SERVICE_KEY`), and what its paid
+   * reads may spend a month (`GOVCON_MONTHLY_BUDGET_USD`). Its Bot tools are listed only when both are set.
+   */
+  govcon: GovconConfig;
+  /**
    * Which tool broker the operator asked for, from `OPENBOT_BROKER_PROVIDER`. Only read and
    * validated here: which provider is active is decided elsewhere. Unset is `undefined`.
    */
@@ -454,12 +460,16 @@ function required(environment: Environment, name: string): string {
 }
 
 const DEFAULT_PROSPECTING_BUDGET_USD = 10;
+const DEFAULT_GOVCON_BUDGET_USD = 20;
 
-function budgetFrom(value: string | undefined): number {
+function budgetFrom(
+  value: string | undefined,
+  fallback = DEFAULT_PROSPECTING_BUDGET_USD,
+): number {
   const budget = Number(value);
   return value !== undefined && Number.isFinite(budget) && budget >= 0
     ? budget
-    : DEFAULT_PROSPECTING_BUDGET_USD;
+    : fallback;
 }
 
 function optional(environment: Environment, name: string): string | undefined {
@@ -1420,6 +1430,15 @@ export function loadConfig(
       tregApiKey: optional(environment, "TREG_API_KEY"),
       monthlyBudgetUsd: budgetFrom(
         optional(environment, "PROSPECTING_MONTHLY_BUDGET_USD"),
+      ),
+    },
+    govcon: {
+      url: optional(environment, "KONTRACT_URL"),
+      serviceKey: optional(environment, "KONTRACT_SERVICE_KEY"),
+      workspaceId: workspaceIdOf(optional(environment, "DEPLOYMENT_ID")),
+      monthlyBudgetUsd: budgetFrom(
+        optional(environment, "GOVCON_MONTHLY_BUDGET_USD"),
+        DEFAULT_GOVCON_BUDGET_USD,
       ),
     },
     brokerProvider: brokerProvider(environment),
