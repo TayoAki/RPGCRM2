@@ -275,6 +275,8 @@ export type CrmToolDeps = {
   prospecting?: ProspectingConfig;
   govcon?: GovconConfig;
   fetch?: typeof fetch;
+  /** The tool refs a Bot holds, which bound what a team Bot it plans may be given. */
+  heldTools?: (botId: string) => Promise<string[]>;
 };
 
 let installed: { deps: CrmToolDeps; records: CrmRecords } | null = null;
@@ -546,6 +548,7 @@ async function run(
   actor: AuthenticatedActor,
   toolName: string,
   args: Args,
+  botId?: string,
 ): Promise<McpCallResult> {
   const id = typeof args.id === "number" ? args.id : Number(args.id);
   const values = isObject(args.values) ? args.values : null;
@@ -649,13 +652,14 @@ async function run(
       return makeChart(deps, records, actor, args);
     default: {
       const outcome =
-        (await runBusinessTool(
-          deps.database,
-          records,
-          actor,
-          toolName,
-          args,
-        )) ??
+        (await runBusinessTool(deps.database, records, actor, toolName, args, {
+          crmWriteTools: CRM_WRITE_TOOLS,
+          ...(deps.heldTools && botId
+            ? {
+                heldTools: () => deps.heldTools?.(botId) ?? Promise.resolve([]),
+              }
+            : {}),
+        })) ??
         (await runGovconTool(deps, records, actor, toolName, args)) ??
         (await runProspectingTool(deps, records, actor, toolName, args));
       if (!outcome) return failure(`The CRM has no tool named ${toolName}.`);
@@ -686,7 +690,7 @@ export async function callTool(
     return failure("The person this run is for can't use the CRM.");
   }
   try {
-    return await run(deps, records, actor, toolName, args);
+    return await run(deps, records, actor, toolName, args, connection.botId);
   } catch (error) {
     if (error instanceof CrmRefusal || error instanceof CrmQueryError) {
       return failure(error.message);

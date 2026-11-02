@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { WeekReportCard, WorkPlanCard } from "@/components/today/work-plan";
-import type { WorkPlan } from "@/lib/work-plan/queries";
+import type { JobAction, WorkPlan } from "@/lib/work-plan/queries";
 import { settleReactWork } from "./settle-react-work";
 
 beforeAll(() => GlobalRegistrator.register({ url: "http://localhost:3010" }));
@@ -39,6 +39,7 @@ const WEEK: WorkPlan["week"] = {
 
 const BASE: WorkPlan = {
   botId: "magpie",
+  canAllow: false,
   brief: null,
   plan: null,
   runsPerMonthOn: 0,
@@ -56,6 +57,8 @@ const job = (id: string, on: boolean) => ({
   on,
   nextRunAt: null,
   lastRun: null,
+  bot: null as string | null,
+  actions: [] as JobAction[],
 });
 
 let sent: { method: string; url: string; body: unknown }[] = [];
@@ -140,6 +143,7 @@ test("each job in the plan has its own switch, and Turn all on sends the time zo
     brief: { updatedAt: "2026-11-02", preview: "UGC ads" },
     plan: {
       savedAt: "2026-11-02",
+      team: [],
       items: [job("lead-list", true), job("review", false)],
     },
     runsPerMonthOn: 4,
@@ -172,4 +176,63 @@ test("each job in the plan has its own switch, and Turn all on sends the time zo
     { method: "DELETE", url: "/api/work-plan/items/lead-list", body: null },
     { method: "POST", url: "/api/work-plan/on", body: { timezone } },
   ]);
+});
+
+test("jobs sit under the Bot that does them, and an admin picks what it may do without asking", async () => {
+  serving({
+    ...BASE,
+    canAllow: true,
+    brief: { updatedAt: "2026-11-02", preview: "Janitorial prime" },
+    plan: {
+      savedAt: "2026-11-02",
+      team: [
+        {
+          key: "bids",
+          name: "Bid desk",
+          title: "Finds and tracks bids",
+          botId: null,
+          tools: 3,
+        },
+      ],
+      items: [
+        {
+          ...job("find-bids", false),
+          title: "Find this week's bids",
+          bot: "bids",
+          actions: [
+            { ref: "crm/track_bid", label: "Track bid", withoutAsking: false },
+            {
+              ref: "crm/update_bid",
+              label: "Update bid",
+              withoutAsking: false,
+            },
+          ],
+        },
+        job("review", false),
+      ],
+    },
+  });
+  const view = draw();
+  const findBids = await view.findByRole("switch", {
+    name: "Find this week's bids: off",
+  });
+
+  expect(view.getByRole("heading", { name: "Bid desk" })).toBeDefined();
+  expect(
+    view.getByText(/Joins the team when you turn on its first job/),
+  ).toBeDefined();
+  expect(view.getByRole("heading", { name: "Main Bot" })).toBeDefined();
+  fireEvent.click(findBids);
+  fireEvent.click(await view.findByRole("checkbox", { name: "Track bid" }));
+  fireEvent.click(view.getByRole("button", { name: "Turn on" }));
+
+  await waitFor(() => expect(sent).toHaveLength(1));
+  expect(sent[0]).toEqual({
+    method: "POST",
+    url: "/api/work-plan/items/find-bids",
+    body: {
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      withoutAsking: ["crm/track_bid"],
+    },
+  });
 });

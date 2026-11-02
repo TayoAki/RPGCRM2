@@ -58,9 +58,17 @@ export function strictestRule(
   team: readonly ApprovalTeamRule[],
   personal: readonly ApprovalRule[],
 ): { rule: AnyRule; layer: "team_rule" | "personal_rule" } | undefined {
+  // An admin's team rule naming this exact Bot and tool is their specific answer, so it settles the
+  // team layer over their broader ones. A person's own rules can still only make it stricter.
+  const exact = team.filter(
+    (rule) =>
+      rule.botId === candidate.botId &&
+      rule.toolRef === candidate.toolRef &&
+      ruleMatches(rule, candidate),
+  );
   let best: { rule: AnyRule; layer: "team_rule" | "personal_rule" } | undefined;
   for (const [layer, rules] of [
-    ["team_rule", team],
+    ["team_rule", exact.length ? exact : team],
     ["personal_rule", personal],
   ] as const) {
     for (const rule of rules) {

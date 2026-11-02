@@ -4,13 +4,25 @@ import { workPlanKeys } from "./queries";
 
 const timezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/** Turns one job on, as a routine of the person, in their own time zone. */
+/**
+ * Turns one job on, as a routine of the person on its Bot, in their own time zone. `withoutAsking`
+ * is what an admin lets that Bot do without asking; leaving it out keeps what was set.
+ */
 export const turnJobOnMutationOptions = (queryClient: QueryClient) =>
   mutationOptions({
-    mutationFn: (id: string) =>
+    mutationFn: ({
+      id,
+      withoutAsking,
+    }: {
+      id: string;
+      withoutAsking?: string[];
+    }) =>
       client(`/api/work-plan/items/${encodeURIComponent(id)}`, {
         method: "POST",
-        body: { timezone: timezone() },
+        body: {
+          timezone: timezone(),
+          ...(withoutAsking ? { withoutAsking } : {}),
+        },
         fallback: "Couldn't turn this job on. Try again.",
       }),
     onSuccess: () =>

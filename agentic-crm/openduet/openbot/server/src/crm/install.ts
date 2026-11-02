@@ -38,7 +38,10 @@ export const CRM_WRITE_RULE = {
  */
 export async function installCrmTools(deps: {
   database: Database;
-  pluginStore: Pick<PluginStore, "addServer" | "grant" | "refreshTools">;
+  pluginStore: Pick<
+    PluginStore,
+    "addServer" | "grant" | "refreshTools" | "listForAgent"
+  >;
   audit: AuditStore;
   roleOf: (userId: string) => Promise<OpenBotRole>;
   prospecting?: ProspectingConfig;
@@ -50,6 +53,8 @@ export async function installCrmTools(deps: {
     roleOf: deps.roleOf,
     ...(deps.prospecting ? { prospecting: deps.prospecting } : {}),
     ...(deps.govcon ? { govcon: deps.govcon } : {}),
+    heldTools: async (botId) =>
+      (await pluginStore.listForAgent(botId)).tools.map((tool) => tool.ref),
   });
   const govconOn = isConfigured(deps.govcon);
 

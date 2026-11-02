@@ -81,15 +81,17 @@ skills:
       - google-workspace/gmail_read_message
   - slug: plan-my-work
     title: Plan the Bots' work
-    summary: Turn the company brief into weekly jobs Bots do, which you switch on from Today.
+    summary: Turn the company brief into a team of specialist Bots and the weekly jobs each one does.
     instructions: >-
       Call business_brief, and write the brief first if there is none. Propose 3 to 7 jobs that move
-      its goals, using only tools you can see: a weekly lead list, morning inbox triage, prep before
-      meetings, a nudge on deals idle for 14 days, a Friday pipeline review, a weekly government bid
-      search. Leave out jobs you lack the tools for and say what to connect. Give each a title, why
-      it serves a goal, a five-field cron in the person's time zone and the full instruction the Bot
-      gets. Anything that writes or sends still asks first. Keep it under about 100 runs a month.
-      Show the list, save it with save_work_plan, and tell the person to turn jobs on from Today.
+      its goals, using only the tools business_brief lists: a weekly lead list or bid search, morning
+      inbox triage, prep before meetings, a nudge on deals or bids idle for 14 days, a Friday
+      pipeline review. Leave out jobs you lack the tools for and say what to connect. Group the jobs
+      into 2 to 4 specialist Bots by area, each with a name, a one-line title, a standing role and
+      only the tools its jobs need, at most 10. Give each job a title, why it serves a goal, its Bot,
+      a five-field cron in the person's time zone, the full instruction and the write tools it uses
+      as actions. Keep it under about 100 runs a month. Show the team and jobs, save them with
+      save_work_plan, and tell the person to turn jobs on from Today, which creates each Bot.
     tools:
       - crm/business_brief
       - crm/save_work_plan

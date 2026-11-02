@@ -3,15 +3,30 @@ import type { Database } from "../../db/client";
 import type { McpTool } from "../../plugins/mcp";
 import type { CrmRecords } from "../records";
 import { MAX_BRIEF_CHARS, readBrief, saveBrief } from "./brief";
-import { checkPlan, itemSummary, readPlan, savePlan } from "./plan";
+import {
+  checkPlan,
+  itemSummary,
+  MAX_BOT_TOOLS,
+  readPlan,
+  savePlan,
+} from "./plan";
 
 type Outcome = { ok: true; value: unknown } | { ok: false; message: string };
+
+export type BusinessToolContext = {
+  /** The tool refs the calling Bot holds: all a team Bot may be given. */
+  heldTools?: () => Promise<string[]>;
+  /** The CRM's write tools, marked so the plan can offer them as "without asking". */
+  crmWriteTools: readonly string[];
+};
+
+const MAX_TOOLS_PER_APP = 40;
 
 export const BUSINESS_TOOLS: readonly McpTool[] = Object.freeze([
   {
     name: "business_brief",
     description:
-      "The company brief every Bot works from, the current work plan, and how big the CRM is (contacts, companies, open and won deals). Read it before writing or changing either.",
+      "The company brief every Bot works from, the current work plan and team, the tools you can give team Bots (by app, with the CRM's write tools marked), and how big the CRM is. Read it before writing or changing either.",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -25,11 +40,43 @@ export const BUSINESS_TOOLS: readonly McpTool[] = Object.freeze([
   },
   {
     name: "save_work_plan",
-    description:
-      "Save the work plan: up to 10 standing jobs Bots do for the business, each on a schedule. Each job's instruction is what the Bot is told when it runs, so write it as a complete task using only tools you can see. Replaces the old plan. Nothing runs until the person turns jobs on from Today. The person approves first.",
+    description: `Save the work plan: a team of up to 5 specialist Bots and up to 10 standing jobs, each given to one of them on a schedule. Each Bot gets only the tools its jobs need, at most ${MAX_BOT_TOOLS}, chosen from business_brief's tools. Each job's instruction is what its Bot is told when it runs, so write it as a complete task. Replaces the old plan; a Bot that keeps its key keeps its settings. Nothing runs until the person turns jobs on from Today. The person approves first.`,
     inputSchema: {
       type: "object",
       properties: {
+        team: {
+          type: "array",
+          maxItems: 5,
+          items: {
+            type: "object",
+            properties: {
+              key: {
+                type: "string",
+                description:
+                  "A short slug, such as front-desk. Keep it when changing a Bot.",
+              },
+              name: { type: "string", description: "Such as 'Front desk'." },
+              title: {
+                type: "string",
+                description:
+                  "One line, such as 'Answers appointment requests'.",
+              },
+              role: {
+                type: "string",
+                description:
+                  "Its standing role: what it does, for whom, and what it leaves to people.",
+              },
+              tools: {
+                type: "array",
+                maxItems: MAX_BOT_TOOLS,
+                items: { type: "string" },
+                description:
+                  "Tool refs like crm/find_bids, from business_brief's tools.",
+              },
+            },
+            required: ["name", "title", "role", "tools"],
+          },
+        },
         items: {
           type: "array",
           maxItems: 10,
@@ -57,6 +104,17 @@ export const BUSINESS_TOOLS: readonly McpTool[] = Object.freeze([
               instruction: {
                 type: "string",
                 description: "The whole task, under 1,800 characters.",
+              },
+              bot: {
+                type: "string",
+                description: "The team key of the Bot that does it.",
+              },
+              actions: {
+                type: "array",
+                maxItems: 8,
+                items: { type: "string" },
+                description:
+                  "The write tools this job uses, which the person may let its Bot do without asking.",
               },
             },
             required: ["title", "why", "cron", "instruction"],
@@ -89,32 +147,63 @@ async function sizeOf(records: CrmRecords, actor: AuthenticatedActor) {
   return { contacts, companies, open_deals: openDeals, won_deals: wonDeals };
 }
 
+/** The tools a team Bot may be given, by app, with the CRM's writes marked. */
+function byApp(refs: string[], crmWrites: ReadonlySet<string>) {
+  const apps = new Map<string, string[]>();
+  for (const ref of refs) {
+    const [app = "", tool = ""] = ref.split("/");
+    apps.set(app, [...(apps.get(app) ?? []), tool]);
+  }
+  return [...apps].map(([app, tools]) => ({
+    app,
+    tools: tools.slice(0, MAX_TOOLS_PER_APP),
+    ...(app === "crm"
+      ? { writes: tools.filter((tool) => crmWrites.has(tool)) }
+      : {}),
+    ...(tools.length > MAX_TOOLS_PER_APP
+      ? { more: tools.length - MAX_TOOLS_PER_APP }
+      : {}),
+  }));
+}
+
 export async function runBusinessTool(
   database: Database,
   records: CrmRecords,
   actor: AuthenticatedActor,
   toolName: string,
   args: Record<string, unknown>,
+  context: BusinessToolContext,
 ): Promise<Outcome | null> {
   switch (toolName) {
     case "business_brief": {
-      const [brief, plan, crm] = await Promise.all([
+      const [brief, plan, crm, held] = await Promise.all([
         readBrief(database),
         readPlan(database),
         sizeOf(records, actor),
+        context.heldTools?.().catch(() => []) ?? Promise.resolve([]),
       ]);
       return {
         ok: true,
         value: {
           brief: brief?.text ?? null,
           brief_updated: brief?.updatedAt ?? null,
+          team: plan?.team.map((member) => ({
+            key: member.key,
+            name: member.name,
+            title: member.title,
+            role: member.role,
+            tools: member.tools,
+          })),
           work_plan: plan
             ? plan.items.map((item) => ({
                 ...itemSummary(item),
                 cron: item.cron,
                 instruction: item.instruction,
+                bot: item.bot,
+                actions: item.actions,
               }))
             : null,
+          tools: byApp(held, new Set(context.crmWriteTools)),
           crm,
         },
       };
@@ -133,19 +222,41 @@ export async function runBusinessTool(
       };
     }
     case "save_work_plan": {
-      const checked = checkPlan(args);
+      const checked = checkPlan(args, await readPlan(database));
       if (!checked.ok) return { ok: false, message: checked.message };
-      await savePlan(database, checked.plan, actor.email);
-      const items = checked.plan.map((item) => itemSummary(item));
+      if (context.heldTools) {
+        const held = new Set(await context.heldTools());
+        const unknown = checked.team
+          .flatMap((member) => member.tools)
+          .find((ref) => !held.has(ref));
+        if (unknown) {
+          return {
+            ok: false,
+            message: `${unknown} isn't a tool you hold, so no team Bot can be given it. Use the tools business_brief lists.`,
+          };
+        }
+      }
+      await savePlan(
+        database,
+        { team: checked.team, items: checked.plan },
+        actor.email,
+      );
+      const items = checked.plan.map((item) => ({
+        ...itemSummary(item),
+        bot:
+          checked.team.find((member) => member.key === item.bot)?.name ??
+          "the main Bot",
+      }));
       return {
         ok: true,
         value: {
+          team: checked.team.map((member) => member.name),
           saved: items,
           runs_per_month: items.reduce(
             (sum, item) => sum + item.runs_per_month,
             0,
           ),
-          next: "Nothing runs yet. The person turns each job on from Today, where it runs as them.",
+          next: "Nothing runs yet. The person turns each job on from Today, which creates its Bot. It runs as them.",
         },
       };
     }

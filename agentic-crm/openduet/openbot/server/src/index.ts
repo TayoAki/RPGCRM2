@@ -61,6 +61,7 @@ import { createApprovalResumeTick } from "./approvals/resume-sweep";
 import { createApprovalStore } from "./approvals/store";
 import { installCrmTools } from "./crm/install";
 import { withBusinessBrief } from "./crm/business/brief";
+import { createWorkPlanTeam } from "./crm/business/team";
 import { createTextWriter } from "./crm/ai";
 import { createCrmServices } from "./crm/services";
 import { ApprovalRefusedError } from "./approvals/types";
@@ -2588,6 +2589,11 @@ const crmPrimaryBot = primaryBotIdOf(
   tenantPackage.agents.map((agent) => agent.id),
   tenantPackage.tenantId,
 );
+const workPlanTeam = createWorkPlanTeam({
+  profiles: agentProfileStore,
+  plugins: pluginStore,
+  rules: storedApprovals.policy,
+});
 const crmServices = createCrmServices({
   database,
   encryptionKey: config.keyEncryptionKey,
@@ -2842,6 +2848,7 @@ const app = createApp(
       directChannel: openDuetDirectChannel,
       primaryBotId: crmPrimaryBot,
     },
+    team: workPlanTeam,
     ...(ownAuth && config.auth?.emailPassword
       ? { passwordPeople: createPasswordPeople(ownAuth) }
       : {}),

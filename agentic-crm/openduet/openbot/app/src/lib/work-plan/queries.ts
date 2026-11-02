@@ -1,10 +1,28 @@
 import { queryOptions } from "@tanstack/react-query";
 import { client } from "@/lib/client";
 
+export type JobAction = {
+  ref: string;
+  label: string;
+  withoutAsking: boolean;
+};
+
+export type TeamBot = {
+  key: string;
+  name: string;
+  title: string;
+  /** Null until its first job is turned on. */
+  botId: string | null;
+  tools: number;
+};
+
 export type PlanJob = {
   id: string;
   title: string;
   why: string;
+  /** Its team Bot's key, or null for the main Bot. */
+  bot: string | null;
+  actions: JobAction[];
   schedule: string;
   runsPerMonth: number;
   on: boolean;
@@ -32,8 +50,10 @@ export type WeekReport = {
 
 export type WorkPlan = {
   botId: string;
+  /** Whether this person may let a Bot act without asking: admins only. */
+  canAllow: boolean;
   brief: { updatedAt: string; preview: string } | null;
-  plan: { savedAt: string; items: PlanJob[] } | null;
+  plan: { savedAt: string; team: TeamBot[]; items: PlanJob[] } | null;
   runsPerMonthOn: number;
   runsPerSeat: number;
   instructions: { brief: string; plan: string };
