@@ -184,9 +184,34 @@ At most 100 quotes, each up to 1,000 characters. `doc` is optional.
 - Use `quoteFound`'s matching: whitespace and case squashed, at least 8 characters, searched in the named document first, then all of them.
 - `doc` and `page` say where it was actually found, or `null`.
 
+### 3. Business search through Firecrawl
+
+**When it applies:** when there's no `GOOGLE_PLACES_API_KEY` or `APIFY_API_TOKEN`, `POST /api/v1/subcontractors` searches the web through Firecrawl (`https://api.firecrawl.dev/v2/search`), using the `FIRECRAWL_API_KEY` Kontract already has, instead of returning samples. Same for `findSubcontractors` in the app.
+
+**How:**
+- Search `"<query> near <location>"`, at most 10 results, without scraping.
+- Skip directory and review sites:
+  - Yelp, Angi, HomeAdvisor, Thumbtack, BBB, Yellow Pages, MapQuest, Nextdoor;
+  - Facebook, LinkedIn and Indeed listing pages.
+- Keep at most one result per website.
+- Each kept result becomes a `FoundSub`:
+  - `name` is the page title with the site name and "Home" trimmed;
+  - `website` is its URL;
+  - `category` is the query;
+  - `address` and `phone` are left empty (the Bot reads them with `/websites/read`);
+  - `source` is `"web"`.
+- Add `"web"` to the `source` union of `Subcontractor` and `SubSearchResult` in `api-v1.ts` (additive).
+- Charge the search's Firecrawl credits through `addCost`.
+- Cache 24 hours, like the Places path.
+
+**Errors:** when Firecrawl fails, return samples with a `notice` that says so, as today.
+
 ### Tests and done when
 
-- **Tests:** a unit test for paging (offsets join back to the whole text, `nextOffset` ends `null`), and one for quotes (found, not found, wrong document but found elsewhere).
+- **Tests:**
+  - paging: offsets join back to the whole text, and `nextOffset` ends `null`;
+  - quotes: found, not found, and wrong document but found elsewhere;
+  - web search: directories are skipped, one result per site, `source` is `"web"`.
 - **Done when:**
 
   ```bash

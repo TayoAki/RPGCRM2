@@ -257,7 +257,7 @@ export const GOVCON_TOOLS: readonly McpTool[] = Object.freeze([
   {
     name: "find_subcontractors",
     description:
-      "Local businesses that could do the work, with rating, reviews, phone and website. Costs a few cents. Results marked sample are placeholders: say so.",
+      "Local businesses that could do the work, from business listings (with rating, reviews and phone) or a web search (website only: read it with read_business_website for phone and email). Costs a few cents. Results marked sample are placeholders: say so.",
     inputSchema: {
       type: "object",
       properties: {
@@ -933,6 +933,11 @@ export async function runGovconTool(
               ? {
                   sample:
                     "No business search is set up: these are sample listings.",
+                }
+              : {}),
+            ...((data.source as string) === "web"
+              ? {
+                  next: "These came from a web search: read the best websites with read_business_website for phone, email and licenses.",
                 }
               : {}),
             ...(data.notice ? { notice: data.notice } : {}),
