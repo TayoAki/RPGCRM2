@@ -489,6 +489,86 @@ function stagesAFile(schema: unknown, depth = 0): FileVerdict {
   return false;
 }
 
+// An optional parameter that is itself a file (Gmail's attachment) is left out, so the action
+// stays usable without it. A required file, or one buried deeper, still drops the action.
+function withoutOptionalFiles(
+  schema: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  const root = schemaNode(schema);
+  const properties = schemaNode(root?.properties);
+  if (!root || !properties) return schema;
+  const required = new Set(Array.isArray(root.required) ? root.required : []);
+  const files = Object.keys(properties).filter((key) =>
+    isFileParameter(properties[key], root, 0),
+  );
+  if (!files.length || files.some((key) => required.has(key))) return schema;
+  return withReachableDefs({
+    ...root,
+    properties: Object.fromEntries(
+      Object.entries(properties).filter(([key]) => !files.includes(key)),
+    ),
+  });
+}
+
+function isFileParameter(
+  value: unknown,
+  root: Record<string, unknown>,
+  depth: number,
+): boolean {
+  const node = schemaNode(value);
+  if (!node || depth > 4) return false;
+  const ref = typeof node.$ref === "string" ? node.$ref : null;
+  const target = ref?.match(/^#\/(\$defs|definitions)\/(.+)$/);
+  if (target)
+    return isFileParameter(
+      schemaNode(root[target[1] as string])?.[target[2] as string],
+      root,
+      depth + 1,
+    );
+  if (flagOf(node.file_uploadable, false) === true) return true;
+  const variants = Array.isArray(node.anyOf)
+    ? node.anyOf
+    : Array.isArray(node.oneOf)
+      ? node.oneOf
+      : null;
+  const arms = (variants ?? []).filter(
+    (arm) => schemaNode(arm)?.type !== "null",
+  );
+  return (
+    arms.length > 0 &&
+    arms.every((arm) => isFileParameter(arm, root, depth + 1))
+  );
+}
+
+function withReachableDefs(root: Record<string, unknown>) {
+  const { $defs, definitions, ...rest } = root;
+  const pools = {
+    $defs: schemaNode($defs),
+    definitions: schemaNode(definitions),
+  };
+  const reached = new Set<string>();
+  const pending = [JSON.stringify(rest)];
+  while (pending.length) {
+    const text = pending.pop() ?? "";
+    for (const [, pool, name] of text.matchAll(
+      /"\$ref":"#\/(\$defs|definitions)\/([^"]+)"/g,
+    )) {
+      const key = `${pool}/${name}`;
+      const found = pools[pool as keyof typeof pools]?.[name as string];
+      if (reached.has(key) || found === undefined) continue;
+      reached.add(key);
+      pending.push(JSON.stringify(found));
+    }
+  }
+  const kept = (pool: "$defs" | "definitions") => {
+    const entries = Object.entries(pools[pool] ?? {}).filter(([name]) =>
+      reached.has(`${pool}/${name}`),
+    );
+    return entries.length ? { [pool]: Object.fromEntries(entries) } : {};
+  };
+  return { ...rest, ...kept("$defs"), ...kept("definitions") };
+}
+
 /**
  * Whether an action published under this schema would be refused if it were called with no arguments.
  *
@@ -707,21 +787,27 @@ export async function listTools(connection: {
    * that IS offered is still a total refusal, for the reasons each of them gives, because that one
    * really does reach the map.
    */
-  const read = actions.map((action, position) => ({
-    action,
-    /*
-     * NAMED BY ITS SLUG WHERE THERE IS ONE AND BY ITS PLACE WHERE THERE IS NOT, because this runs
-     * ABOVE the slug guard and has to — see the paragraph above for why a file-staging action with
-     * a broken field must not take the app's refresh down. The three guards below can write
-     * `action.slug.trim()` unconditionally; this one cannot, and "action 4 of the listing" is still
-     * a row an operator can find in a dashboard.
-     */
-    named:
-      typeof action.slug === "string" && action.slug.trim() !== ""
-        ? action.slug.trim()
-        : `action ${position + 1} of the listing`,
-    verdict: stagesAFile(action.inputParameters),
-  }));
+  const read = actions.map((action, position) => {
+    const inputParameters = withoutOptionalFiles(action.inputParameters);
+    return {
+      action:
+        inputParameters === action.inputParameters
+          ? action
+          : { ...action, inputParameters },
+      /*
+       * NAMED BY ITS SLUG WHERE THERE IS ONE AND BY ITS PLACE WHERE THERE IS NOT, because this runs
+       * ABOVE the slug guard and has to — see the paragraph above for why a file-staging action with
+       * a broken field must not take the app's refresh down. The three guards below can write
+       * `action.slug.trim()` unconditionally; this one cannot, and "action 4 of the listing" is still
+       * a row an operator can find in a dashboard.
+       */
+      named:
+        typeof action.slug === "string" && action.slug.trim() !== ""
+          ? action.slug.trim()
+          : `action ${position + 1} of the listing`,
+      verdict: stagesAFile(inputParameters),
+    };
+  });
 
   /*
    * A SCHEMA THIS DEPLOYMENT COULD NOT READ TO THE BOTTOM IS A REFUSAL, NOT AN ACTION OFFERED.

@@ -198,6 +198,7 @@ function underProperty(keyword: string, sub: unknown): Record<string, unknown> {
   return {
     type: "object",
     properties: { field: { type: "object", [keyword]: sub } },
+    required: ["field"],
   };
 }
 
@@ -632,6 +633,61 @@ describe("listing an app's actions", () => {
     expect(listed.map((tool) => tool.name)).toEqual(["GMAIL_FETCH_EMAILS"]);
   });
 
+  test("an optional file parameter is left out and the action is offered without it", async () => {
+    useComposioClient(
+      recording({
+        listActions: async () => [
+          GMAIL_READ,
+          {
+            slug: "GMAIL_CREATE_EMAIL_DRAFT",
+            description: "Create a draft.",
+            tags: ["createHint"],
+            version: "20260903_00",
+            inputParameters: {
+              type: "object",
+              properties: {
+                recipient_email: { type: "string" },
+                body: { type: "string" },
+                attachment: { $ref: "#/$defs/upload" },
+              },
+              required: ["recipient_email", "body"],
+              $defs: {
+                upload: {
+                  anyOf: [
+                    { type: "null" },
+                    {
+                      type: "object",
+                      file_uploadable: true,
+                      properties: { s3key: { type: "string" } },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      }).client,
+    );
+
+    const listed = await listTools({ url: "composio://gmail" });
+    const draft = listed.find(
+      (tool) => tool.name === "GMAIL_CREATE_EMAIL_DRAFT",
+    );
+
+    expect(listed.map((tool) => tool.name)).toEqual([
+      "GMAIL_FETCH_EMAILS",
+      "GMAIL_CREATE_EMAIL_DRAFT",
+    ]);
+    expect(draft?.inputSchema).toEqual({
+      type: "object",
+      properties: {
+        recipient_email: { type: "string" },
+        body: { type: "string" },
+      },
+      required: ["recipient_email", "body"],
+    });
+  });
+
   test("a file parameter reached through $defs and a variant is found too", async () => {
     useComposioClient(
       recording({
@@ -643,6 +699,7 @@ describe("listing an app's actions", () => {
             inputParameters: {
               type: "object",
               properties: { body: { $ref: "#/$defs/upload" } },
+              required: ["body"],
               $defs: {
                 upload: {
                   anyOf: [
@@ -716,6 +773,7 @@ describe("listing an app's actions", () => {
         schema: {
           type: "object",
           properties: { body: { $ref: "#/definitions/upload" } },
+          required: ["body"],
           definitions: { upload: FILE_PROPERTY },
         },
       },
@@ -1824,6 +1882,7 @@ describe("listing an app's actions", () => {
         inputParameters: {
           type: "object",
           properties: { attachment: FILE_PROPERTY },
+          required: ["attachment"],
         },
       },
       {
@@ -1834,6 +1893,7 @@ describe("listing an app's actions", () => {
         inputParameters: {
           type: "object",
           properties: { attachment: FILE_PROPERTY },
+          required: ["attachment"],
         },
       },
     ];
@@ -1928,6 +1988,7 @@ describe("listing an app's actions", () => {
                 inputParameters: {
                   type: "object",
                   properties: { attachment: FILE_PROPERTY },
+                  required: ["attachment"],
                 },
               },
             ] as unknown as ComposioAction[],
