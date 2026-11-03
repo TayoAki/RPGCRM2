@@ -58,12 +58,18 @@ const slug = (text: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
 
+// Models often name a CRM tool without its app; anything else still needs the full ref.
 const toolRef = z
   .string()
   .trim()
-  .regex(
-    /^[a-z0-9][a-z0-9_.-]*\/[A-Za-z0-9_.-]+$/,
-    "is not a tool ref like crm/find_bids",
+  .transform((ref) => (ref.includes("/") ? ref : `crm/${ref}`))
+  .pipe(
+    z
+      .string()
+      .regex(
+        /^[a-z0-9][a-z0-9_.-]*\/[A-Za-z0-9_.-]+$/,
+        "is not a tool ref like crm/find_bids",
+      ),
   );
 
 export const planSchema = z.object({

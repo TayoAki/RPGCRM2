@@ -95,6 +95,61 @@ const RECORD_SHAPES = [
   "- contact_notes: contact_id, text, status. deal_notes: deal_id, text.",
 ].join("\n");
 
+const TEXT_FIELDS = [
+  "first_name",
+  "last_name",
+  "title",
+  "status",
+  "lifecycle_stage",
+  "lead_source",
+  "lead_source_detail",
+  "background",
+  "linkedin_url",
+  "name",
+  "sector",
+  "website",
+  "phone_number",
+  "address",
+  "city",
+  "zipcode",
+  "country",
+  "description",
+  "stage",
+  "expected_closing_date",
+  "start_at",
+  "end_at",
+  "location",
+  "outcome",
+  "outcome_notes",
+  "body",
+  "valid_until",
+  "text",
+  "type",
+  "due_date",
+  "done_date",
+];
+const ID_FIELDS = ["company_id", "contact_id", "deal_id", "amount"];
+
+// A free-form object reaches the model as one with no properties, and it fills it with nothing.
+const recordValues = (description: string) => ({
+  type: "object",
+  description,
+  properties: {
+    ...Object.fromEntries(
+      TEXT_FIELDS.map((field) => [field, { type: "string" }]),
+    ),
+    ...Object.fromEntries(
+      ID_FIELDS.map((field) => [field, { type: "number" }]),
+    ),
+    contact_ids: { type: "array", items: { type: "number" } },
+    tags: { type: "array", items: { type: "number" } },
+    email_jsonb: { type: "array", items: { type: "object" } },
+    phone_jsonb: { type: "array", items: { type: "object" } },
+    custom_fields: { type: "object" },
+  },
+  additionalProperties: true,
+});
+
 const resourceProperty = (names: readonly string[]) => ({
   type: "string",
   enum: [...names],
@@ -249,7 +304,7 @@ const TOOLS: readonly McpTool[] = Object.freeze([
       type: "object",
       properties: {
         resource: resourceProperty(WRITABLE),
-        values: { type: "object", description: "The record's fields." },
+        values: recordValues("The record's fields."),
       },
       required: ["resource", "values"],
     },
@@ -262,7 +317,7 @@ const TOOLS: readonly McpTool[] = Object.freeze([
       properties: {
         resource: resourceProperty(WRITABLE),
         id: { type: "number" },
-        values: { type: "object", description: "The fields to change." },
+        values: recordValues("The fields to change."),
       },
       required: ["resource", "id", "values"],
     },

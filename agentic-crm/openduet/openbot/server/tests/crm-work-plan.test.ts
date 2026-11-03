@@ -42,6 +42,34 @@ test("a plan with a schedule routines can't run is refused, naming the job", () 
   expect(empty.ok).toBe(false);
 });
 
+test("a team Bot's tools may be named without the CRM's prefix", () => {
+  const checked = checkPlan({
+    team: [
+      {
+        key: "bid-desk",
+        name: "Bid Desk",
+        title: "Bids",
+        role: "Finds bids.",
+        tools: ["find_bids", "crm/track_bid", "gmail/create_draft"],
+      },
+    ],
+    items: [
+      {
+        ...job("Bid search", "0 8 * * 1"),
+        bot: "bid-desk",
+        actions: ["track_bid"],
+      },
+    ],
+  });
+
+  expect(checked.ok && checked.team[0]?.tools).toEqual([
+    "crm/find_bids",
+    "crm/track_bid",
+    "gmail/create_draft",
+  ]);
+  expect(checked.ok && checked.plan[0]?.actions).toEqual(["crm/track_bid"]);
+});
+
 test("runs a month follow the schedule", () => {
   const now = new Date("2026-11-02T12:00:00Z");
   expect(runsPerMonth("0 8 * * 1", "UTC", now)).toBe(4);
