@@ -106,6 +106,27 @@ test("a field the record doesn't have is refused, naming the fields it does have
   expect(result.text).toContain("sector");
 });
 
+test("fields a model fills with blanks are left out, not refused or saved empty", async () => {
+  const result = await call("create_record", {
+    resource: "companies",
+    values: {
+      name: `Blank fields ${run}`,
+      website: "https://example.com",
+      sector: "",
+      body: "",
+      deal_id: 0,
+      contact_ids: [],
+      custom_fields: {},
+    },
+  });
+
+  expect(result.isError).toBeFalsy();
+  expect(result.json.created).toMatchObject({
+    name: `Blank fields ${run}`,
+    website: "https://example.com",
+  });
+});
+
 test("the agent can't change the CRM's users or settings", async () => {
   const result = await call("update_record", {
     resource: "configuration",

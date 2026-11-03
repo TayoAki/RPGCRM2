@@ -530,6 +530,21 @@ async function findContact(
   return { contacts: people.map(slim), companies };
 }
 
+// A model handed every field fills the ones it doesn't mean with "" or 0; those mean "not set".
+function withoutBlanks(resource: string, values: Args): Args {
+  const writable = CRM_RESOURCES[resource]?.writable ?? new Set<string>();
+  return Object.fromEntries(
+    Object.entries(values).filter(([key, value]) => {
+      if (value === "" || value === null || value === undefined) return false;
+      if (Array.isArray(value) && value.length === 0) return false;
+      if (isObject(value) && Object.keys(value).length === 0) return false;
+      if (value === 0 && (key.endsWith("_id") || !writable.has(key)))
+        return false;
+      return true;
+    }),
+  );
+}
+
 function unknownFields(resource: string, values: Args): string | null {
   const writable = CRM_RESOURCES[resource]?.writable ?? new Set<string>();
   const unknown = Object.keys(values).filter((key) => !writable.has(key));
@@ -661,15 +676,16 @@ async function run(
       if (!resource)
         return failure(`resource is one of ${WRITABLE.join(", ")}.`);
       if (!values) return failure("Give the record's fields as values.");
-      const unknown = unknownFields(resource, values);
+      const given = withoutBlanks(resource, values);
+      const unknown = unknownFields(resource, given);
       if (unknown) return failure(unknown);
       if (toolName === "create_record") {
         return asResult({
-          created: slim(await records.create(actor, resource, values)),
+          created: slim(await records.create(actor, resource, given)),
         });
       }
       if (!Number.isSafeInteger(id)) return failure("Give the record's id.");
-      const row = await records.update(actor, resource, id, values);
+      const row = await records.update(actor, resource, id, given);
       return row
         ? asResult({ updated: slim(row) })
         : failure(`There is no ${resource} record ${id}.`);
