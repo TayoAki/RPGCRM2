@@ -446,16 +446,20 @@ skills:
       - crm/list_bids
   - slug: read-a-bid
     title: Read a bid
-    summary: What a bid's documents say about budget, bonds, site visit, deadlines and requirements.
+    summary: What a bid's documents say about budget, bonds, deadlines and requirements, and its scope item by item.
     instructions: >-
-      Call read_bid_documents and bid_breakdown for the notice. Report each fact with the sentence it
-      came from and the document: their budget, bonds, site visit (and whether it passed), when
-      questions are due, how long the work runs, wage rates, how they pick, sizes and what the job
-      requires. Then the red flags and the questions to ask a sub. Say which documents couldn't be
-      read. Only use with_claude when the person asks for the scope item by item.
+      Call read_bid_documents for the facts: budget, bonds, site visit (and whether it passed), when
+      questions are due, how long the work runs, wage rates, how they pick, sizes, requirements and
+      forms, each with its sentence and document. Then read the documents themselves with
+      read_bid_text, starting with the statement of work and the price schedule (jump with their
+      startsAt). Write the scope item by item with quantities, the trades it needs, questions for a
+      sub and the risks, and save it with save_bid_reading, quoting the exact words each item came
+      from. Say which documents were scanned and couldn't be read. Never state a fact you didn't read.
     tools:
       - crm/bid_notice
       - crm/read_bid_documents
+      - crm/read_bid_text
+      - crm/save_bid_reading
       - crm/bid_breakdown
       - crm/list_bids
   - slug: price-a-bid
@@ -482,8 +486,8 @@ skills:
       permit_contractors for the trade near the job, and past_pricing's past winners. Shortlist 5 or
       more with phone, website and rating; read_business_website for the best ones. Vet with the
       hunger check: answers fast, good reviews, a real website and work email, fine with net 30, has
-      similar jobs. Save the shortlist on the bid with update_bid. Offer to draft the scope of work
-      with draft_bid_document. Never put the company's price or margin in anything a sub sees.
+      similar jobs. Save the shortlist on the bid with update_bid. Offer to write the scope of work
+      and save it with save_bid_document. Never put the company's price or margin in anything a sub sees.
     tools:
       - crm/find_subcontractors
       - crm/permit_contractors
@@ -491,7 +495,7 @@ skills:
       - crm/past_pricing
       - crm/list_bids
       - crm/update_bid
-      - crm/draft_bid_document
+      - crm/save_bid_document
   - slug: write-a-proposal
     title: Write a proposal
     summary: Draft a tracked bid's proposal and check it before it's submitted.
@@ -499,14 +503,15 @@ skills:
       Call company_profile and list_bids. Before drafting, check: price with profit, a selected sub,
       UEI and CAGE filled in, past performance, the deadline, and the notice's own instructions
       (forms, page limits, how to submit). Ask for anything missing; never make up a license, past
-      contract or certification. Then draft_bid_document with kind proposal. List every [placeholder]
-      left and the forms to fill in. Remind the person to submit a day early and mark it submitted.
+      contract or certification. Write the proposal from the notice's instructions, the bid reading,
+      the price and the profile, save it with save_bid_document, and make it a Doc with make_page.
+      List every [placeholder] left and the forms to fill in. Remind the person to submit a day early.
     tools:
       - crm/company_profile
       - crm/save_company_profile
       - crm/list_bids
       - crm/read_bid_documents
-      - crm/draft_bid_document
+      - crm/save_bid_document
       - crm/update_bid
   - slug: permit-leads
     title: Permit leads

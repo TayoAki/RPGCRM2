@@ -113,6 +113,89 @@ curl -s -H "Authorization: Bearer $KEY" 'https://<kontract>/api/v1/usage?workspa
 
 ---
 
+## Part 1b: bid text for Magpie's own Bot (build in TayoAki/Kontract)
+
+> Paste this whole part into a session working on the Kontract repo.
+
+Magpie's Bots do the AI work, using Magpie's own model: reading the scope item by item, questions for subs, risks, scopes of work and proposals. Kontract supplies the documents' text and checks the quotes. Kontract needs no `ANTHROPIC_API_KEY` for any of this.
+
+Two new routes. Both go through `withService`, cost `0`, and are listed in `src/lib/api-v1.ts`. Changes are additive.
+
+### 1. `POST /api/v1/opportunities/:id/text`
+
+**Body:**
+
+```json
+{ "offset": 0, "limit": 40000, "opportunity": { } }
+```
+
+- `offset`: optional, default 0.
+- `limit`: optional, default 40,000, at most 80,000 characters.
+- `opportunity`: only when the id is no longer in the index (closed or awarded), exactly as `/details` takes it.
+
+**Answer:**
+
+```json
+{
+  "noticeId": "0602507394964d76986220e4c04c2194",
+  "fingerprint": "same value as details.fingerprint",
+  "totalChars": 182345,
+  "offset": 0,
+  "nextOffset": 40000,
+  "documents": [
+    { "id": "notice", "name": "Notice", "read": "read", "pages": null, "chars": 2100, "startsAt": 0 },
+    { "id": "a1", "name": "A04_Statement_of_Work.pdf", "read": "read", "pages": 16, "chars": 41000, "startsAt": 2150 },
+    { "id": "a3", "name": "B03_Wage_Determination.pdf", "read": "scanned", "pages": 7, "chars": 0, "startsAt": null }
+  ],
+  "text": "<document name=\"Notice\">\n...\n</document>\n\n<document name=\"A04_Statement_of_Work.pdf\">\n[page 1]\n..."
+}
+```
+
+**What the text is:**
+- The notice description first, then every readable attachment in `orderDocs` order, each wrapped in `<document name="...">`.
+- `[page N]` markers where PDF pages are known.
+- Leave out wage determinations, sign-in sheets and maps (rank 8).
+- Use the same per-document excerpting as `buildCorpus`, with up to 400,000 characters in total.
+- `text` is the slice from `offset` to `offset + limit`, cut at the nearest paragraph break.
+- `nextOffset` is `null` on the last page.
+
+**Behaviour:**
+- `documents` lists every attachment, including scanned and failed ones, with `read` saying which, and `startsAt` saying where each begins in the combined text.
+- Reuse the cache `/details` keeps per attachment set, so paging through a bid downloads it once.
+
+**Errors:** the same as `/details`: 404 for no such notice, 502 when SAM.gov can't be reached.
+
+### 2. `POST /api/v1/opportunities/:id/quotes`
+
+**Body:**
+
+```json
+{ "quotes": [ { "quote": "Contractor shall clean all restrooms daily", "doc": "A04_Statement_of_Work.pdf" } ], "opportunity": { } }
+```
+
+At most 100 quotes, each up to 1,000 characters. `doc` is optional.
+
+**Answer:**
+
+```json
+{ "results": [ { "quote": "Contractor shall clean all restrooms daily", "found": true, "doc": "A04_Statement_of_Work.pdf", "page": 3 } ] }
+```
+
+- Use `quoteFound`'s matching: whitespace and case squashed, at least 8 characters, searched in the named document first, then all of them.
+- `doc` and `page` say where it was actually found, or `null`.
+
+### Tests and done when
+
+- **Tests:** a unit test for paging (offsets join back to the whole text, `nextOffset` ends `null`), and one for quotes (found, not found, wrong document but found elsewhere).
+- **Done when:**
+
+  ```bash
+  curl -s -X POST -H "Authorization: Bearer $KEY" -H 'X-Workspace-Id: magpie-test' -H 'Content-Type: application/json' \
+    -d '{"limit":5000}' https://<kontract>/api/v1/opportunities/<a real notice id>/text
+  ```
+
+  This returns the first 5,000 characters, with `documents` and a `nextOffset`.
+
 ## Part 2: Magpie side (built in this repo)
 
 ### Milestone 1: Bots can work a bid (about 3 to 4 days after the engine is live)
@@ -126,8 +209,9 @@ curl -s -H "Authorization: Bearer $KEY" 'https://<kontract>/api/v1/usage?workspa
    - New CRM tables: `bids` (notice snapshot, stage, details, pricing, subs, scope, proposal, unique notice id), `quote_requests` and `lead_shares` (token links).
    - The company profile (UEI, CAGE, capabilities, default markup) lives in `crm.configuration`.
 4. **Bot tools**, trimmed before they reach the model:
-   - Reads: `find_bids`, `bid_notice`, `read_bid_documents`, `bid_breakdown`, `past_pricing`, `find_subcontractors`, `read_business_website`, `permit_leads`, `permit_contractors`, `list_bids`, `company_profile`.
-   - Writes, which need approval: `track_bid`, `update_bid`, `save_company_profile`, `draft_bid_document`.
+   - Reads: `find_bids`, `bid_notice`, `read_bid_documents`, `read_bid_text`, `bid_breakdown`, `past_pricing`, `find_subcontractors`, `read_business_website`, `permit_leads`, `permit_contractors`, `list_bids`, `company_profile`.
+   - Writes, which need approval: `track_bid`, `update_bid`, `save_company_profile`, `save_bid_reading`, `save_bid_document`.
+   - The AI work (the scope item by item, questions, risks, scopes of work and proposals) is done by Magpie's Bot. Kontract serves the text and checks the quotes (Part 1b).
 5. **Skills and routine.**
    - Skills from Kontract's `directives/`: find opportunities, research past pricing, find subcontractors, write the proposal.
    - A weekly routine: "Monday: find this week's bids".

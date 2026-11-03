@@ -44,6 +44,8 @@ const notice = (id: string): Opportunity => ({
 });
 
 let open = new Set([OPEN, CLOSED]);
+const SOW_TEXT =
+  '<document name="SOW.pdf">\n[page 2]\nContractor shall clean all restrooms daily. Floors in the 12,000 square feet lobby are waxed monthly.\n</document>';
 const seen: { method: string; path: string; body: Json | null }[] = [];
 const json = (value: unknown, cost = 0, status = 200) =>
   new Response(JSON.stringify(value), {
@@ -127,17 +129,47 @@ const fakeKontract = (async (input: URL, init?: RequestInit) => {
       body?.claude ? 210_000 : 0,
     );
   }
-  if (path === "/drafts") {
-    const lines = [
-      { type: "meta", source: "claude" },
-      {
-        type: "text",
-        text: `## Scope of work\nWeekly cleaning at ${(body?.deal as Json)?.id}.`,
-      },
-      { type: "done", costMicro: 120_000 },
-    ];
-    return new Response(lines.map((line) => JSON.stringify(line)).join("\n"), {
-      headers: { "content-type": "application/x-ndjson" },
+  if (path.endsWith("/text")) {
+    const offset = Number(body?.offset ?? 0);
+    const limit = Number(body?.limit ?? 40_000);
+    return json({
+      noticeId: OPEN,
+      fingerprint: "f",
+      totalChars: SOW_TEXT.length,
+      offset,
+      nextOffset: offset + limit < SOW_TEXT.length ? offset + limit : null,
+      documents: [
+        {
+          id: "d",
+          name: "SOW.pdf",
+          read: "read",
+          pages: 4,
+          chars: SOW_TEXT.length,
+          startsAt: 0,
+        },
+        {
+          id: "w",
+          name: "Wage.pdf",
+          read: "scanned",
+          pages: 7,
+          chars: 0,
+          startsAt: null,
+        },
+      ],
+      text: SOW_TEXT.slice(offset, offset + limit),
+    });
+  }
+  if (path.endsWith("/quotes")) {
+    return json({
+      results: (body?.quotes as { quote: string }[]).map(({ quote }) => {
+        const found = SOW_TEXT.toLowerCase().includes(quote.toLowerCase());
+        return {
+          quote,
+          found,
+          doc: found ? "SOW.pdf" : null,
+          page: found ? 2 : null,
+        };
+      }),
     });
   }
   return json({ error: "Not found." }, 0, 404);
@@ -195,7 +227,7 @@ test("bid tools are offered only once Kontract is set up", async () => {
   expect(without).not.toContain("find_bids");
   expect(refused.text).toContain("aren't set up");
   expect(withIt).toContain("find_bids");
-  expect(withIt).toContain("draft_bid_document");
+  expect(withIt).toContain("save_bid_document");
 });
 
 test("a notice found can be tracked, read and priced", async () => {
@@ -286,43 +318,115 @@ test("a tracked notice stays readable after it closes", async () => {
   expect((details?.body?.opportunity as Json)?.id).toBe(CLOSED);
 });
 
-test("paid reads stop at the monthly budget, and drafts are saved on the bid", async () => {
+test("paid reads stop at the monthly budget", async () => {
   await resetSettings();
   useTools(govcon(0.25));
-  const refused = await call("read_bid_documents", {
-    notice_id: OPEN,
-    with_claude: true,
-  });
-  useTools(govcon(1));
-  const [bid] = await database
-    .select()
-    .from(bids)
-    .where(eq(bids.notice_id, OPEN));
-  const drafted = await call("draft_bid_document", {
-    bid_id: bid?.id,
-    kind: "scope",
-  });
+  const refused = await call("bid_breakdown", { notice_id: OPEN });
   const profile = await call("company_profile");
-  const [saved] = await database
+
+  expect(refused.text).toContain("budget for paid reads ($0.25) is used up");
+  expect(
+    (profile.json as { paid_reads_budget: Json }).paid_reads_budget,
+  ).toEqual({ monthly_usd: 0.25, spent_usd: 0, left_usd: 0.25 });
+});
+
+test("the Bot reads a bid's text and saves only the scope items its quotes back up", async () => {
+  useTools(govcon(20));
+  const page = await call("read_bid_text", { notice_id: OPEN, offset: 0 });
+  const saved = await call("save_bid_reading", {
+    notice_id: OPEN,
+    summary: "Daily restroom cleaning and monthly floor care.",
+    scope: [
+      {
+        description: "Clean restrooms",
+        unit: "day",
+        quote: "Contractor shall clean all restrooms daily",
+        doc: "SOW.pdf",
+      },
+      {
+        description: "Wax lobby floors",
+        quantity: 12,
+        unit: "month",
+        quote: "Floors in the 12,000 square feet lobby are waxed monthly",
+      },
+      {
+        description: "Wash windows",
+        quote: "Windows are washed every quarter",
+      },
+    ],
+    trades: ["Janitorial"],
+    questions: ["Can you start within 10 days of award?"],
+  });
+  const untracked = await call("save_bid_reading", {
+    notice_id: `never-${run}`,
+    summary: "x",
+    scope: [{ description: "y", quote: "Contractor shall clean" }],
+  });
+  const [row] = await database
     .select()
     .from(bids)
     .where(eq(bids.notice_id, OPEN));
 
-  expect(refused.text).toContain("budget for paid reads ($0.25) is used up");
-  expect(drafted.json).toMatchObject({ saved: "scope", written_by: "Claude" });
-  expect(saved?.scope).toBe(`## Scope of work\nWeekly cleaning at ${OPEN}.`);
+  expect(page.json).toMatchObject({
+    next_offset: null,
+    documents: [
+      { name: "SOW.pdf", read: "read", pages: 4, startsAt: 0 },
+      { name: "Wage.pdf", read: "scanned", startsAt: null },
+    ],
+    text: SOW_TEXT,
+  });
   expect(
-    (profile.json as { paid_reads_budget: Json }).paid_reads_budget,
-  ).toEqual({
-    monthly_usd: 1,
-    spent_usd: 0.12,
-    left_usd: 0.88,
+    seen.find((request) => request.path.endsWith("/text"))?.body,
+  ).toMatchObject({
+    offset: 0,
+    limit: 16_000,
+    opportunity: { id: OPEN },
   });
-  const draft = seen.find((request) => request.path === "/drafts");
-  expect(draft?.body).toMatchObject({
-    kind: "sow",
-    profile: { defaultMarkupPct: 35 },
+  expect(saved.json).toMatchObject({
+    saved_items: 2,
+    dropped_items: ["Wash windows"],
   });
+  expect(untracked.text).toBe("Track the bid first, then save its reading.");
+  expect((row?.details as { reading: Json }).reading).toMatchObject({
+    summary: "Daily restroom cleaning and monthly floor care.",
+    scope: [
+      { description: "Clean restrooms", doc: "SOW.pdf", quantity: null },
+      {
+        description: "Wax lobby floors",
+        doc: "SOW.pdf",
+        quantity: 12,
+        unit: "month",
+      },
+    ],
+    trades: ["Janitorial"],
+    risks: [],
+  });
+  expect((row?.details as { budget: Json }).budget).toMatchObject({
+    quote: "between $50,000 and $100,000",
+  });
+});
+
+test("a scope or proposal the Bot wrote is saved on its bid, with the blanks it left", async () => {
+  useTools(govcon(20));
+  const [bid] = await database
+    .select()
+    .from(bids)
+    .where(eq(bids.notice_id, OPEN));
+  const saved = await call("save_bid_document", {
+    bid_id: bid?.id,
+    kind: "proposal",
+    text: "# Proposal\nPast performance: [past contract]\nCAGE: [CAGE code]\nPrice: $52,000 a year.",
+  });
+  const [after] = await database
+    .select()
+    .from(bids)
+    .where(eq(bids.notice_id, OPEN));
+
+  expect(saved.json).toMatchObject({
+    saved: "proposal",
+    placeholders_left: ["[past contract]", "[CAGE code]"],
+  });
+  expect(after?.proposal).toContain("Price: $52,000 a year.");
 });
 
 test("saving the company profile keeps what wasn't given", async () => {

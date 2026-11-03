@@ -8,7 +8,6 @@ import {
   bidByNotice,
   bidSummary,
   daysLeft,
-  dealOf,
   listBids,
   rememberOnBid,
   STAGES,
@@ -21,7 +20,6 @@ import {
   isConfigured,
   KontractError,
   kontractCall,
-  kontractDraft,
 } from "./kontract";
 import type {
   BidDetails,
@@ -67,6 +65,55 @@ const noticeId = {
   type: "string",
   description: "The notice's id from find_bids.",
 };
+
+// Tool results are capped at 20,000 characters (plugins/mcp.ts), so a page of text stays under it.
+const TEXT_PAGE_CHARS = 16_000;
+
+// Kontract's /text and /quotes (KONTRACT.md, Part 1b), until its contract file lists them.
+type BidTextResponse = {
+  noticeId: string;
+  fingerprint: string;
+  totalChars: number;
+  offset: number;
+  nextOffset: number | null;
+  documents: {
+    id: string;
+    name: string;
+    read: string;
+    pages: number | null;
+    chars: number;
+    startsAt: number | null;
+  }[];
+  text: string;
+};
+
+type QuotesResponse = {
+  results: {
+    quote: string;
+    found: boolean;
+    doc: string | null;
+    page: number | null;
+  }[];
+};
+
+const readingSchema = z.object({
+  summary: z.string().trim().min(1).max(1500),
+  scope: z
+    .array(
+      z.object({
+        description: z.string().trim().min(1).max(500),
+        quantity: z.number().min(0).optional(),
+        unit: z.string().trim().max(40).optional(),
+        quote: z.string().trim().min(8).max(1000),
+        doc: z.string().trim().max(300).optional(),
+      }),
+    )
+    .min(1)
+    .max(60),
+  trades: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
+  questions: z.array(z.string().trim().min(1).max(500)).max(20).default([]),
+  risks: z.array(z.string().trim().min(1).max(500)).max(20).default([]),
+});
 
 export const GOVCON_TOOLS: readonly McpTool[] = Object.freeze([
   {
@@ -117,11 +164,63 @@ export const GOVCON_TOOLS: readonly McpTool[] = Object.freeze([
   {
     name: "read_bid_documents",
     description:
-      "Read a notice's attachments for the facts that decide a bid: budget, bonds, site visit, when questions are due, how long the work runs, wage rates, how they pick, sizes, requirements and forms, each with the sentence it came from. Free. With with_claude, also lists the scope item by item, the trades needed, questions for subs and risks (about $0.20, from the monthly budget). Saved on the bid when it's tracked.",
+      "Read a notice's attachments for the facts that decide a bid: budget, bonds, site visit, when questions are due, how long the work runs, wage rates, how they pick, sizes, requirements and forms, each with the sentence it came from. Free. Saved on the bid when it's tracked. For the scope itself, read the documents with read_bid_text.",
     inputSchema: {
       type: "object",
-      properties: { notice_id: noticeId, with_claude: { type: "boolean" } },
+      properties: { notice_id: noticeId },
       required: ["notice_id"],
+    },
+  },
+  {
+    name: "read_bid_text",
+    description:
+      "A notice's documents as text, most important first (notice, amendments, statement of work, solicitation, price schedule, Q&A), each in <document name=...> with [page N] marks, 16,000 characters a page. Free. Start at offset 0; documents says where each one starts, so jump to the statement of work or price schedule with its startsAt. Scanned documents have no text: say so.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notice_id: noticeId,
+        offset: {
+          type: "number",
+          description:
+            "Where to start, from documents' startsAt or next_offset.",
+        },
+      },
+      required: ["notice_id"],
+    },
+  },
+  {
+    name: "save_bid_reading",
+    description:
+      "Save your reading of a tracked bid: a summary, the scope item by item, the trades it needs, questions for subs and risks. Every scope item must quote the exact words it came from in read_bid_text, and name the document. Items whose quote isn't in the documents are dropped and listed back to you. The person approves first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notice_id: noticeId,
+        summary: { type: "string", description: "Two or three sentences." },
+        scope: {
+          type: "array",
+          maxItems: 60,
+          items: {
+            type: "object",
+            properties: {
+              description: { type: "string" },
+              quantity: { type: "number" },
+              unit: { type: "string" },
+              quote: {
+                type: "string",
+                description:
+                  "The exact words from the document, 8 to 300 characters.",
+              },
+              doc: { type: "string", description: "The document's name." },
+            },
+            required: ["description", "quote"],
+          },
+        },
+        trades: { type: "array", items: { type: "string" } },
+        questions: { type: "array", items: { type: "string" } },
+        risks: { type: "array", items: { type: "string" } },
+      },
+      required: ["notice_id", "summary", "scope"],
     },
   },
   {
@@ -366,16 +465,20 @@ export const GOVCON_TOOLS: readonly McpTool[] = Object.freeze([
     },
   },
   {
-    name: "draft_bid_document",
+    name: "save_bid_document",
     description:
-      "Draft a tracked bid's scope of work (to send subs: no government contacts, no prices) or its proposal, from the notice, the price lines and the company profile, and save it on the bid. Blanks are left as [placeholders]. About $0.10 to $0.30 from the monthly budget. The person approves first.",
+      "Save a scope of work or proposal you wrote on its tracked bid. A scope goes to subs: no government contacts and no prices. A proposal follows the notice's own instructions and uses the company profile; leave anything you don't know as a [placeholder], never invent past performance, licenses or certifications. Answers with the placeholders left. Also make it a Doc with make_page so the person can read and edit it. The person approves first.",
     inputSchema: {
       type: "object",
       properties: {
         bid_id: { type: "number" },
         kind: { type: "string", enum: ["scope", "proposal"] },
+        text: {
+          type: "string",
+          description: "The whole document, in Markdown.",
+        },
       },
-      required: ["bid_id", "kind"],
+      required: ["bid_id", "kind", "text"],
     },
   },
 ]);
@@ -385,7 +488,8 @@ export const GOVCON_WRITE_TOOLS = [
   "track_bid",
   "update_bid",
   "save_company_profile",
-  "draft_bid_document",
+  "save_bid_reading",
+  "save_bid_document",
 ];
 
 const usd = (micro: number) => Math.round(micro / 10_000) / 100;
@@ -734,20 +838,12 @@ export async function runGovconTool(
             value: { ...data.breakdown, saved_on_bid: saved },
           };
         }
-        const withClaude = args.with_claude === true;
-        const call = () =>
-          kontractCall<DetailsResponse>(
-            config,
-            `${path}/details`,
-            {
-              body: { ...body, ...(withClaude ? { claude: true } : {}) },
-              timeoutMs: 180_000,
-            },
-            deps.fetch,
-          );
-        const { data } = withClaude
-          ? await paid(deps, NEEDS_CLAUDE_MICRO, call)
-          : await call();
+        const { data } = await kontractCall<DetailsResponse>(
+          config,
+          `${path}/details`,
+          { body, timeoutMs: 180_000 },
+          deps.fetch,
+        );
         const saved = await rememberOnBid(deps.database, id, {
           details: data.details,
         });
@@ -1035,7 +1131,120 @@ export async function runGovconTool(
         await saveCompanyProfile(deps.database, profile);
         return { ok: true, value: { saved: true, profile } };
       }
-      case "draft_bid_document": {
+      case "read_bid_text": {
+        if (!id) return { ok: false, message: "Give the notice's id." };
+        const tracked = await bidByNotice(deps.database, id);
+        const { data } = await kontractCall<BidTextResponse>(
+          config,
+          `/opportunities/${encodeURIComponent(id)}/text`,
+          {
+            body: {
+              offset: Math.max(0, Math.round(number(args.offset) ?? 0)),
+              limit: TEXT_PAGE_CHARS,
+              ...(tracked ? { opportunity: tracked.opportunity } : {}),
+            },
+            timeoutMs: 180_000,
+          },
+          deps.fetch,
+        );
+        return {
+          ok: true,
+          value: {
+            total_chars: data.totalChars,
+            offset: data.offset,
+            next_offset: data.nextOffset,
+            documents: data.documents.map((document) => ({
+              name: document.name,
+              read: document.read,
+              ...(document.pages ? { pages: document.pages } : {}),
+              startsAt: document.startsAt,
+            })),
+            text: data.text,
+          },
+        };
+      }
+      case "save_bid_reading": {
+        if (!id) return { ok: false, message: "Give the notice's id." };
+        const parsed = readingSchema.safeParse(args);
+        if (!parsed.success) return invalid(parsed.error);
+        const tracked = await bidByNotice(deps.database, id);
+        if (!tracked) {
+          return {
+            ok: false,
+            message: "Track the bid first, then save its reading.",
+          };
+        }
+        const body = { opportunity: tracked.opportunity };
+        const path = `/opportunities/${encodeURIComponent(id)}`;
+        const { data: checked } = await kontractCall<QuotesResponse>(
+          config,
+          `${path}/quotes`,
+          {
+            body: {
+              ...body,
+              quotes: parsed.data.scope.map((item) => ({
+                quote: item.quote,
+                ...(item.doc ? { doc: item.doc } : {}),
+              })),
+            },
+            timeoutMs: 120_000,
+          },
+          deps.fetch,
+        );
+        const kept = parsed.data.scope.flatMap((item, index) => {
+          const result = checked.results[index];
+          return result?.found
+            ? [
+                {
+                  description: item.description,
+                  quantity: item.quantity ?? null,
+                  unit: item.unit ?? null,
+                  quote: item.quote,
+                  doc: result.doc ?? item.doc ?? "",
+                },
+              ]
+            : [];
+        });
+        const dropped = parsed.data.scope
+          .filter((_, index) => !checked.results[index]?.found)
+          .map((item) => item.description);
+        const details =
+          (tracked.details as BidDetails | null) ??
+          (
+            await kontractCall<DetailsResponse>(
+              config,
+              `${path}/details`,
+              { body, timeoutMs: 180_000 },
+              deps.fetch,
+            )
+          ).data.details;
+        await rememberOnBid(deps.database, id, {
+          details: {
+            ...details,
+            reading: {
+              summary: parsed.data.summary,
+              scope: kept,
+              trades: parsed.data.trades,
+              questions: parsed.data.questions,
+              risks: parsed.data.risks,
+              readAt: now.toISOString(),
+            },
+          },
+        });
+        return {
+          ok: true,
+          value: {
+            saved_items: kept.length,
+            dropped_items: dropped,
+            ...(dropped.length
+              ? {
+                  note: "These quotes weren't found in the documents, so those items were left out. Quote the exact words to keep them.",
+                }
+              : {}),
+          },
+        };
+      }
+      case "save_bid_document": {
         const bidId = number(args.bid_id);
         const kind =
           args.kind === "proposal"
@@ -1043,41 +1252,28 @@ export async function runGovconTool(
             : args.kind === "scope"
               ? "scope"
               : null;
-        if (bidId === undefined || !kind)
+        const written = text(args.text, 100_000);
+        if (bidId === undefined || !kind || !written)
           return {
             ok: false,
-            message: "Give the bid's id and scope or proposal.",
+            message: "Give the bid's id, scope or proposal, and the text.",
           };
         const row = await bidById(deps.database, bidId);
         if (!row) return { ok: false, message: `There's no bid ${bidId}.` };
-        const { data } = await paid(deps, NEEDS_CLAUDE_MICRO, async () =>
-          kontractDraft(
-            config,
-            {
-              kind: kind === "scope" ? "sow" : "proposal",
-              deal: dealOf(row),
-              profile: await companyProfile(deps.database),
-            },
-            deps.fetch,
-          ),
-        );
-        if (!data.text.trim())
-          return {
-            ok: false,
-            message: "The draft came back empty. Try again.",
-          };
         await updateBid(
           deps.database,
           bidId,
-          kind === "scope" ? { scope: data.text } : { proposal: data.text },
+          kind === "scope" ? { scope: written } : { proposal: written },
         );
+        const placeholders = [
+          ...new Set(written.match(/\[[^\]\n]{1,80}\]/g) ?? []),
+        ];
         return {
           ok: true,
           value: {
             saved: kind,
-            written_by:
-              data.source === "template" ? "fill-in template" : "Claude",
-            draft: data.text,
+            characters: written.length,
+            placeholders_left: placeholders,
           },
         };
       }
