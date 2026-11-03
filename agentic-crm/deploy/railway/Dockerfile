@@ -149,6 +149,7 @@ WORKDIR /app
 COPY --from=deps /prod/node_modules node_modules
 COPY --from=deps /prod/server/node_modules server/node_modules
 COPY --from=deps /prod/toolkit/node_modules toolkit/node_modules
+COPY --from=deps /prod/worker/node_modules worker/node_modules
 COPY --from=deps /src/package.json package.json
 COPY --from=deps /src/bun.lock bun.lock
 # The browser's tree is a separate install root with its own lockfile rather than a workspace of the
@@ -159,6 +160,8 @@ COPY --from=deps /src/agent-computer/node_modules agent-computer/node_modules
 COPY agentic-crm/openduet/openbot/server server
 COPY agentic-crm/openduet/openbot/shared shared
 COPY agentic-crm/openduet/openbot/toolkit toolkit
+COPY agentic-crm/openduet/openbot/worker/package.json worker/package.json
+COPY agentic-crm/openduet/openbot/worker/src worker/src
 COPY agentic-crm/openduet/openbot/examples examples
 COPY --from=tenant / /tenant/
 ENV TENANT_PACKAGE_DIR=/tenant
