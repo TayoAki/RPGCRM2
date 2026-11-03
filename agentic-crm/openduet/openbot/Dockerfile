@@ -138,6 +138,7 @@ WORKDIR /app
 COPY --from=deps /prod/node_modules node_modules
 COPY --from=deps /prod/server/node_modules server/node_modules
 COPY --from=deps /prod/toolkit/node_modules toolkit/node_modules
+COPY --from=deps /prod/worker/node_modules worker/node_modules
 COPY --from=deps /src/package.json package.json
 COPY --from=deps /src/bun.lock bun.lock
 # The browser's tree is a separate install root with its own lockfile rather than a workspace of the
@@ -148,6 +149,8 @@ COPY --from=deps /src/agent-computer/node_modules agent-computer/node_modules
 COPY server server
 COPY shared shared
 COPY toolkit toolkit
+COPY worker/package.json worker/package.json
+COPY worker/src worker/src
 COPY examples examples
 COPY --from=tenant / /tenant/
 ENV TENANT_PACKAGE_DIR=/tenant

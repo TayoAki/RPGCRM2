@@ -1,0 +1,6 @@
+#!/command/with-contenv sh
+# Fires due routines every 30 seconds by handing each to the API's /internal/routines/run.
+cd /app/worker
+export HOME=/home/apiuser
+export SERVER_INTERNAL_URL="${SERVER_INTERNAL_URL:-http://127.0.0.1:${PORT:-3001}}"
+exec s6-setuidgid apiuser /usr/local/bin/bun src/index.ts
