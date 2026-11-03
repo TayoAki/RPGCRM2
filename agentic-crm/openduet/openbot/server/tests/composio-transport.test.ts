@@ -652,14 +652,16 @@ describe("listing an app's actions", () => {
               },
               required: ["recipient_email", "body"],
               $defs: {
+                file: {
+                  type: "object",
+                  file_uploadable: true,
+                  properties: { s3key: { type: "string" } },
+                },
                 upload: {
                   anyOf: [
                     { type: "null" },
-                    {
-                      type: "object",
-                      file_uploadable: true,
-                      properties: { s3key: { type: "string" } },
-                    },
+                    { $ref: "#/$defs/file" },
+                    { type: "array", items: { $ref: "#/$defs/file" } },
                   ],
                 },
               },

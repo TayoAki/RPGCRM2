@@ -489,18 +489,23 @@ function stagesAFile(schema: unknown, depth = 0): FileVerdict {
   return false;
 }
 
-// An optional parameter that is itself a file (Gmail's attachment) is left out, so the action
-// stays usable without it. A required file, or one buried deeper, still drops the action.
+// An optional parameter holding a file (Gmail's attachment) is left out, so the action stays
+// usable without it. A required one still drops the action, and so does any file left over.
 function withoutOptionalFiles(
   schema: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
   const root = schemaNode(schema);
   const properties = schemaNode(root?.properties);
   if (!root || !properties) return schema;
-  const required = new Set(Array.isArray(root.required) ? root.required : []);
-  const files = Object.keys(properties).filter((key) =>
-    isFileParameter(properties[key], root, 0),
+  const verdicts = Object.entries(properties).map(
+    ([key, value]) => [key, stagesAFile(inlineRefs(value, root, 0))] as const,
   );
+  if (verdicts.some(([, verdict]) => typeof verdict === "string"))
+    return schema;
+  const required = new Set(Array.isArray(root.required) ? root.required : []);
+  const files = verdicts
+    .filter(([, verdict]) => verdict === true)
+    .map(([key]) => key);
   if (!files.length || files.some((key) => required.has(key))) return schema;
   return withReachableDefs({
     ...root,
@@ -510,33 +515,31 @@ function withoutOptionalFiles(
   });
 }
 
-function isFileParameter(
+function inlineRefs(
   value: unknown,
   root: Record<string, unknown>,
   depth: number,
-): boolean {
+): unknown {
+  if (depth > 8) return value;
+  if (Array.isArray(value))
+    return value.map((item) => inlineRefs(item, root, depth + 1));
   const node = schemaNode(value);
-  if (!node || depth > 4) return false;
-  const ref = typeof node.$ref === "string" ? node.$ref : null;
-  const target = ref?.match(/^#\/(\$defs|definitions)\/(.+)$/);
+  if (!node) return value;
+  const target =
+    typeof node.$ref === "string"
+      ? node.$ref.match(/^#\/(\$defs|definitions)\/(.+)$/)
+      : null;
   if (target)
-    return isFileParameter(
+    return inlineRefs(
       schemaNode(root[target[1] as string])?.[target[2] as string],
       root,
       depth + 1,
     );
-  if (flagOf(node.file_uploadable, false) === true) return true;
-  const variants = Array.isArray(node.anyOf)
-    ? node.anyOf
-    : Array.isArray(node.oneOf)
-      ? node.oneOf
-      : null;
-  const arms = (variants ?? []).filter(
-    (arm) => schemaNode(arm)?.type !== "null",
-  );
-  return (
-    arms.length > 0 &&
-    arms.every((arm) => isFileParameter(arm, root, depth + 1))
+  return Object.fromEntries(
+    Object.entries(node).map(([key, child]) => [
+      key,
+      inlineRefs(child, root, depth + 1),
+    ]),
   );
 }
 
