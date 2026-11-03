@@ -26,6 +26,36 @@ type NativeRun = {
   suspend(error: HeadlessToolSuspension): void;
 };
 const nativeRuns = new AsyncLocalStorage<NativeRun>();
+// Bun drops AsyncLocalStorage across a streamed fetch body, so a tool the model calls mid-stream
+// can run outside its run's scope. The run is also found by its tool call's id.
+const runsByCall = new Map<string, NativeRun>();
+const callWaiters = new Map<string, Set<(run: NativeRun) => void>>();
+const CALL_REGISTRATION_MS = 2_000;
+
+function registerCall(id: string, run: NativeRun) {
+  runsByCall.set(id, run);
+  for (const notify of callWaiters.get(id) ?? []) notify(run);
+  callWaiters.delete(id);
+}
+
+function runOfCall(id: string): Promise<NativeRun | undefined> {
+  const known = runsByCall.get(id);
+  if (known) return Promise.resolve(known);
+  return new Promise((resolve) => {
+    const waiters = callWaiters.get(id) ?? new Set();
+    const notify = (run: NativeRun) => {
+      clearTimeout(timer);
+      resolve(run);
+    };
+    const timer = setTimeout(() => {
+      waiters.delete(notify);
+      if (waiters.size === 0) callWaiters.delete(id);
+      resolve(undefined);
+    }, CALL_REGISTRATION_MS);
+    waiters.add(notify);
+    callWaiters.set(id, waiters);
+  });
+}
 
 /**
  * Whether the run the caller is part of is waiting on a person: one of its tool calls was held for
@@ -45,8 +75,9 @@ export async function executeNativeApprovalTool<T>(
   initiator: AuditInitiator | undefined,
   execute: () => Promise<T>,
 ): Promise<T> {
-  const run = nativeRuns.getStore();
-  if (!run || !toolCallId) return execute();
+  if (!toolCallId) return execute();
+  const run = nativeRuns.getStore() ?? (await runOfCall(toolCallId));
+  if (!run) return execute();
   if (run.waiting) throw run.waiting;
   await run.waitForCall(toolCallId);
   if (run.waiting) throw run.waiting;
@@ -105,6 +136,7 @@ class NativeApprovalMiddleware extends Middleware {
     return new Observable<BaseEvent>((subscriber) => {
       let subscription: Subscription | undefined;
       const captured = new Set<string>();
+      const ownCalls = new Set<string>();
       const awaiting = new Map<
         string,
         {
@@ -177,6 +209,13 @@ class NativeApprovalMiddleware extends Middleware {
             run.state = state;
             if (!run.waiting) subscriber.next(event);
             if (
+              event.type === EventType.TOOL_CALL_START &&
+              typeof event.toolCallId === "string"
+            ) {
+              ownCalls.add(event.toolCallId);
+              registerCall(event.toolCallId, run);
+            }
+            if (
               event.type === EventType.TOOL_CALL_END &&
               typeof event.toolCallId === "string"
             ) {
@@ -200,6 +239,7 @@ class NativeApprovalMiddleware extends Middleware {
           pending.reject(new Error("The native tool run was stopped."));
         }
         awaiting.clear();
+        for (const id of ownCalls) runsByCall.delete(id);
       };
     });
   }
