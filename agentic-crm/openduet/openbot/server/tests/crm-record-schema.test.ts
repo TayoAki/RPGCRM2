@@ -9,12 +9,19 @@ test("a model is shown the fields it can put on a new record", async () => {
   );
   const parameters = parametersFor(tool?.inputSchema ?? {});
   const shown = zodSchema(parameters as never).jsonSchema as {
-    properties: { values: { properties: Record<string, unknown> } };
+    properties: {
+      values: {
+        properties: Record<string, { items?: { properties?: object } }>;
+      };
+    };
   };
 
   expect(Object.keys(shown.properties.values.properties)).toEqual(
     expect.arrayContaining(["name", "website", "phone_number", "first_name"]),
   );
+  expect(
+    shown.properties.values.properties.email_jsonb?.items?.properties,
+  ).toHaveProperty("email");
   expect(
     parameters.parse({
       resource: "companies",

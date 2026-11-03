@@ -117,6 +117,7 @@ test("fields a model fills with blanks are left out, not refused or saved empty"
       deal_id: 0,
       contact_ids: [],
       custom_fields: {},
+      lead_source_detail: "A contact's field, offered beside the company's",
     },
   });
 

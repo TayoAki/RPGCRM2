@@ -129,6 +129,14 @@ const TEXT_FIELDS = [
   "done_date",
 ];
 const ID_FIELDS = ["company_id", "contact_id", "deal_id", "amount"];
+const OFFERED_FIELDS = new Set([
+  ...TEXT_FIELDS,
+  ...ID_FIELDS,
+  "contact_ids",
+  "tags",
+  "email_jsonb",
+  "phone_jsonb",
+]);
 
 // A free-form object reaches the model as one with no properties, and it fills it with nothing.
 const recordValues = (description: string) => ({
@@ -143,8 +151,20 @@ const recordValues = (description: string) => ({
     ),
     contact_ids: { type: "array", items: { type: "number" } },
     tags: { type: "array", items: { type: "number" } },
-    email_jsonb: { type: "array", items: { type: "object" } },
-    phone_jsonb: { type: "array", items: { type: "object" } },
+    email_jsonb: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { email: { type: "string" }, type: { type: "string" } },
+      },
+    },
+    phone_jsonb: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { number: { type: "string" }, type: { type: "string" } },
+      },
+    },
     custom_fields: { type: "object" },
   },
   additionalProperties: true,
@@ -540,6 +560,8 @@ function withoutBlanks(resource: string, values: Args): Args {
       if (isObject(value) && Object.keys(value).length === 0) return false;
       if (value === 0 && (key.endsWith("_id") || !writable.has(key)))
         return false;
+      // Offered for another kind of record, so not a mistake about this one.
+      if (OFFERED_FIELDS.has(key) && !writable.has(key)) return false;
       return true;
     }),
   );
