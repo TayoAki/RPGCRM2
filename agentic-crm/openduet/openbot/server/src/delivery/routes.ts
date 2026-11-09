@@ -13,6 +13,13 @@ import { createExpoPushTransport } from "./push";
 import type { DeliveryRouter } from "./router";
 import type { DeliveryStore } from "./store";
 import {
+  createTelegramTransport,
+  handleTelegramUpdate,
+  type TelegramTransport,
+  telegramWebhookSecret,
+  verifyTelegramRequest,
+} from "./telegram";
+import {
   createTwilioTransport,
   smsOptKeyword,
   type TwilioTransport,
@@ -86,6 +93,7 @@ export function createDeliveryRoutes(deps: {
   /** The OpenTag pairing. Named `slack` for the existing assembly; it serves Slack and Teams. */
   slack?: OpenTagTransport;
   twilio?: TwilioTransport;
+  telegram?: TelegramTransport;
   pushProjectId?: string;
 }) {
   const routes = new Hono<{ Variables: AppVariables }>();
@@ -102,6 +110,7 @@ export function createDeliveryRoutes(deps: {
         slack: Boolean(deps.slack),
         teams: Boolean(deps.slack),
         sms: Boolean(deps.twilio),
+        telegram: Boolean(deps.telegram),
         push: Boolean(deps.pushProjectId),
       },
     }),
@@ -139,6 +148,27 @@ export function createDeliveryRoutes(deps: {
   routes.post("/opentag/start", (c) => startChatLink(c));
   routes.post("/slack/start", (c) => startChatLink(c, "slack"));
   routes.post("/teams/start", (c) => startChatLink(c, "teams"));
+  // The code rides Telegram's /start deep link, so tapping the link is the whole confirmation.
+  routes.post("/telegram/start", async (c) => {
+    if (!deps.telegram)
+      throw new DeliveryRefusedError(
+        "Telegram is not set up on this deployment.",
+      );
+    const scope = await ownedScope(
+      deps.scopeFor,
+      c.var.actor.id,
+      targetSchema.parse(await c.req.json()),
+    );
+    const code = await deps.store.challenge(scope, "telegram", null);
+    const bot = await deps.telegram.username();
+    return c.json({
+      platform: "telegram",
+      code,
+      command: `/start ${code}`,
+      url: `https://t.me/${bot}?start=${code}`,
+      expiresInMinutes: 10,
+    });
+  });
   routes.post("/sms/start", async (c) => {
     if (!deps.twilio)
       throw new DeliveryRefusedError(
@@ -271,12 +301,16 @@ export function createDeliveryWebhookRoutes(deps: {
     | "bind"
     | "updateSmsStatus"
     | "findBinding"
+    | "removeBinding"
     | "botIdentity"
   >;
   scopeFor: DeliveryScopeResolver;
   /** The OpenTag pairing. Named `slack` for the existing assembly; it serves Slack and Teams. */
   slack?: OpenTagTransport;
   twilio?: TwilioTransport;
+  telegram?: TelegramTransport;
+  /** Names the product in Telegram replies. */
+  productName?: string;
   /** Lets a Slack/Teams card decide an approval and a chat reply answer a Bot's question. */
   approvals?: PairedApprovals;
   /** Test seam; production uses the responsibilities lane's `ingestSlackEvent`. */
@@ -310,6 +344,30 @@ export function createDeliveryWebhookRoutes(deps: {
         c.req.raw,
       ),
     );
+  }
+  if (deps.telegram) {
+    const telegram = deps.telegram;
+    routes.post("/telegram", async (c) => {
+      if (
+        !verifyTelegramRequest(
+          c.req.header("x-telegram-bot-api-secret-token") ?? null,
+          telegram.config.secret,
+        )
+      )
+        return c.json({ error: "Invalid Telegram secret." }, 401);
+      await handleTelegramUpdate(
+        {
+          telegram,
+          router: deps.router,
+          store: deps.store,
+          scopeFor: deps.scopeFor,
+          ...(deps.approvals ? { approvals: deps.approvals } : {}),
+          ...(deps.productName ? { productName: deps.productName } : {}),
+        },
+        await c.req.json(),
+      );
+      return c.body(null, 200);
+    });
   }
   if (deps.twilio) {
     const twilio = deps.twilio;
@@ -446,6 +504,9 @@ export function configuredDeliveryProviders(
     "TWILIO_VERIFY_SERVICE_SID",
     "TWILIO_FROM_NUMBER",
   ]);
+  const telegramToken = env.TELEGRAM_BOT_TOKEN?.trim();
+  if (telegramToken && !/^\d+:[\w-]{30,}$/.test(telegramToken))
+    throw new Error("TELEGRAM_BOT_TOKEN must be the token @BotFather gave.");
   const pushProjectId = env.EXPO_PROJECT_ID?.trim();
   if (pushProjectId && !z.uuid().safeParse(pushProjectId).success)
     throw new Error(
@@ -463,6 +524,17 @@ export function configuredDeliveryProviders(
           from: smsValues[3] ?? "",
           webhookUrl: `${base}/api/delivery/webhooks/sms`,
           statusUrl: `${base}/api/delivery/webhooks/sms/status`,
+        })
+      : undefined,
+    telegram: telegramToken
+      ? createTelegramTransport({
+          token: telegramToken,
+          secret: telegramWebhookSecret(
+            telegramToken,
+            env.TELEGRAM_WEBHOOK_SECRET,
+          ),
+          webhookUrl: `${base}/api/delivery/webhooks/telegram`,
+          reviewUrl: `${new URL(publicBaseUrl).origin}/tasks`,
         })
       : undefined,
     push: pushProjectId

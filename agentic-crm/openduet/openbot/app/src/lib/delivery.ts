@@ -7,7 +7,7 @@ import { client } from "./client";
 export type Reachability = {
   bindings: {
     id: string;
-    transport: "slack" | "teams" | "sms";
+    transport: "slack" | "teams" | "sms" | "telegram";
     channelId: string;
     agentId: string;
     address: string;
@@ -25,7 +25,13 @@ export type Reachability = {
     error: string | null;
     createdAt: string;
   }[];
-  available: { slack: boolean; teams: boolean; sms: boolean; push: boolean };
+  available: {
+    slack: boolean;
+    teams: boolean;
+    sms: boolean;
+    telegram: boolean;
+    push: boolean;
+  };
 };
 export const deliveryKey = ["delivery"] as const;
 export function deliveryQueryOptions() {
@@ -40,23 +46,40 @@ export function deliveryQueryOptions() {
     refetchInterval: 10_000,
   });
 }
-/** A one-time `link <code>` message for the OpenTag app in Slack or Teams. */
+/**
+ * A one-time `link <code>` message for the OpenTag app in Slack or Teams, or a Telegram link that
+ * opens the deployment's bot with the code already in it.
+ */
 export type ChatLink = {
-  platform: "slack" | "teams";
+  platform: "slack" | "teams" | "telegram";
   code: string;
   command: string;
+  url?: string;
   expiresInMinutes: number;
 };
-export async function startChatLink(target: {
+const PLATFORM_NAME = {
+  slack: "Slack",
+  teams: "Teams",
+  telegram: "Telegram",
+} as const;
+export async function startChatLink({
+  platform,
+  ...target
+}: {
   channelId: string;
   agentId: string;
-  platform: "slack" | "teams";
+  platform: ChatLink["platform"];
 }): Promise<ChatLink> {
-  const response = await client("/api/delivery/opentag/start", {
-    method: "POST",
-    body: target,
-    fallback: `Could not start linking ${target.platform === "teams" ? "Teams" : "Slack"}`,
-  });
+  const response = await client(
+    platform === "telegram"
+      ? "/api/delivery/telegram/start"
+      : "/api/delivery/opentag/start",
+    {
+      method: "POST",
+      body: platform === "telegram" ? target : { ...target, platform },
+      fallback: `Could not start linking ${PLATFORM_NAME[platform]}`,
+    },
+  );
   return response.json();
 }
 export function startSms(target: {

@@ -2105,6 +2105,14 @@ const approvalSweep = repeatAfterEach(
 const deliveryProviders = configuredDeliveryProviders(
   config.publicUrl ?? config.auth?.baseUrl ?? `http://localhost:${config.port}`,
 );
+deliveryProviders.telegram?.registerWebhook().catch((error: unknown) =>
+  console.error(
+    JSON.stringify({
+      type: "telegram-webhook-registration-failed",
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  ),
+);
 // Slack channel membership for triggers is answered by OpenTag, which holds the workspace token.
 useSlackChannelMembership((input) =>
   deliveryProviders.slack
@@ -2757,6 +2765,7 @@ const app = createApp(
           }),
         slack: deliveryProviders.slack,
         twilio: deliveryProviders.sms,
+        telegram: deliveryProviders.telegram,
         pushProjectId: deliveryProviders.pushProjectId,
       },
       webhooks: {
@@ -2766,6 +2775,8 @@ const app = createApp(
         scopeFor: deliveryScopeFor,
         slack: deliveryProviders.slack,
         twilio: deliveryProviders.sms,
+        telegram: deliveryProviders.telegram,
+        productName: tenantPackage.productName,
         identity: slackCodeRedeemer(identityStore, bootAuditStore),
       },
     },

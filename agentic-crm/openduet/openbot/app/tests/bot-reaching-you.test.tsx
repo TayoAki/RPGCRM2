@@ -43,7 +43,7 @@ const binding = (id: string, agentId: string, address: string) => ({
 });
 
 const writes: { request: string; body: unknown }[] = [];
-function serving(sms = false) {
+function serving(sms = false, telegram = false) {
   writes.length = 0;
   global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -53,6 +53,14 @@ function serving(sms = false) {
         request: `${method} ${url}`,
         body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
       });
+      if (url.endsWith("/api/delivery/telegram/start"))
+        return Response.json({
+          platform: "telegram",
+          code: "abc",
+          command: "/start abc",
+          url: "https://t.me/MesaRidgeBot?start=abc",
+          expiresInMinutes: 10,
+        });
       return Response.json({
         platform: "slack",
         code: "abc",
@@ -69,7 +77,7 @@ function serving(sms = false) {
         ],
         devices: [],
         deliveries: [],
-        available: { slack: true, teams: false, sms, push: false },
+        available: { slack: true, teams: false, sms, telegram, push: false },
       });
     }
     if (url.startsWith("/api/channels")) {
@@ -235,4 +243,26 @@ test("a phone is verified for the chosen conversation, then asks for its code", 
       body: { challengeId: "challenge-1", code: "123456" },
     }),
   );
+});
+
+test("connecting Telegram opens the bot with this conversation's code", async () => {
+  serving(false, true);
+  const view = draw();
+  const user = userEvent.setup({ document });
+  await view.findByRole("button", { name: "Disconnect" });
+  await user.click(view.getByRole("button", { name: /^Connect Telegram/ }));
+  await chooseConversation(view, user, "Finance desk");
+  await user.click(
+    view
+      .getAllByRole("button", { name: "Connect Telegram" })
+      .at(-1) as HTMLElement,
+  );
+  const open = await view.findByRole("button", { name: "Open Telegram" });
+  expect(open.getAttribute("href")).toBe("https://t.me/MesaRidgeBot?start=abc");
+  expect(writes).toEqual([
+    {
+      request: "POST /api/delivery/telegram/start",
+      body: { channelId: "channel-expenses", agentId: "expenses" },
+    },
+  ]);
 });

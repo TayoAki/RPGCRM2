@@ -1,6 +1,7 @@
 import {
   IconBrandSlack,
   IconBrandTeams,
+  IconBrandTelegram,
   IconChevronRight,
   IconDeviceMobileMessage,
 } from "@tabler/icons-react";
@@ -108,6 +109,11 @@ const TRANSPORT: Record<
     icon: IconDeviceMobileMessage,
     summary: "Continue a conversation by text message.",
   },
+  telegram: {
+    link: "Connect Telegram",
+    icon: IconBrandTelegram,
+    summary: "Message this Bot from Telegram.",
+  },
 };
 
 /**
@@ -163,6 +169,8 @@ export function ReachingYou({ agentId: fixedBot }: { agentId?: string }) {
       return "Your link code is ready to send. Open this to see it again.";
     }
     if (open(transport)) return TRANSPORT[transport].summary;
+    if (transport === "telegram")
+      return "Telegram isn't set up yet. An admin has to turn it on first.";
     return transport === "sms"
       ? "Text messages aren't set up yet. An admin has to turn them on first."
       : "Not set up yet. An admin has to turn on Slack and Teams first.";
@@ -208,7 +216,9 @@ export function ReachingYou({ agentId: fixedBot }: { agentId?: string }) {
                           ? "Slack"
                           : binding.transport === "teams"
                             ? "Microsoft Teams"
-                            : binding.address}
+                            : binding.transport === "telegram"
+                              ? "Telegram"
+                              : binding.address}
                       </ItemTitle>
                       <ItemDescription>
                         {botName(binding.agentId)}
@@ -510,6 +520,26 @@ function ConnectDialog({
                 </form>
               ) : null}
             </>
+          ) : linked?.url ? (
+            <Item size="sm" variant="muted">
+              <ItemContent>
+                <ItemDescription className="line-clamp-none">
+                  Open Telegram and tap Start within{" "}
+                  {Math.ceil((linked.expiresAt - Date.now()) / 60_000)} minutes.
+                  It connects that chat to this conversation and Bot.
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button
+                  render={
+                    <a href={linked.url} rel="noreferrer" target="_blank" />
+                  }
+                  size="sm"
+                >
+                  Open Telegram
+                </Button>
+              </ItemActions>
+            </Item>
           ) : linked ? (
             <Item size="sm" variant="muted">
               <ItemContent>

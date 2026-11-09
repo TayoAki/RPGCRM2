@@ -83,6 +83,7 @@ export function createDeliveryRouter(deps: {
     slack?: TextTransport;
     teams?: TextTransport;
     sms?: TextTransport;
+    telegram?: TextTransport;
     push?: ExpoPushTransport;
   };
   /** The person's routing by kind; defaults to the lifecycle lane's `resolveUpdateRoute`. */
@@ -179,7 +180,7 @@ export function createDeliveryRouter(deps: {
         });
   }
   async function receive(input: {
-    source: "sms";
+    source: "sms" | "telegram";
     realm: string;
     identity: string;
     address?: string;
@@ -517,6 +518,8 @@ export function createDeliveryRouter(deps: {
           address: binding.address,
           text: row.text,
           transport: row.transport,
+          kind: row.kind,
+          requestId: row.requestId,
           ...(sender ? { sender } : {}),
         });
       }

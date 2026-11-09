@@ -52,7 +52,7 @@ On desktop, Tasks is called **Inbox**: Bot work, questions and approvals togethe
 | **Capabilities** | Your skills (instructions you call with `/`) and what Bots remember about you | Everyone |
 | **Routines** | Things a Bot does for you on a schedule, with a switch to stop each one | Everyone |
 | Responsibilities | Ongoing duties a Bot owns, started by events | Everyone |
-| Reaching you | Push, SMS and Slack links, so a Bot can reach you away from the app | Everyone |
+| Reaching you | Push, SMS, Telegram and Slack links, so a Bot can reach you away from the app. Telegram needs the workspace's own bot token (`TELEGRAM_BOT_TOKEN` from @BotFather); messages go to the Bot, and approvals come back with Allow once and Deny buttons | Everyone |
 | Approval rules | What a Bot may do without asking you each time | Everyone |
 | Settings | Appearance, notifications, saved passwords, memory, Check your setup | Everyone |
 | Morning brief | Each morning: mail that needs you, today's calendar, and a Follow up section from the CRM. Reads Gmail and Calendar through the built-in connector, or through Composio, or a CRM mailbox | Everyone with mail connected |

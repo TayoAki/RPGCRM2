@@ -6,7 +6,7 @@ export type DeliveryScope = {
 };
 /** Chat platforms reached through the OpenTag pairing (Channels SDK front for Slack and Teams). */
 export type ChatTransport = "slack" | "teams";
-export type BindingTransport = ChatTransport | "sms";
+export type BindingTransport = ChatTransport | "sms" | "telegram";
 export type DeliveryBinding = DeliveryScope & {
   id: string;
   transport: BindingTransport;
@@ -74,6 +74,8 @@ export type TextTransport = {
     text: string;
     transport?: BindingTransport;
     sender?: DeliverySender;
+    kind?: "reply" | "question" | "approval";
+    requestId?: string | null;
   }): Promise<{ id: string; status: "queued" | "sent" }>;
 };
 export class DeliveryRefusedError extends Error {
