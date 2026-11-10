@@ -363,21 +363,148 @@ create table talent_global_suppressions (
 );
 ```
 
-## 10. Agreements and payouts
+## 10. Agreements, rates and payouts
 
-**Pending.** Research on pay-rate benchmarks, e-signature and payout providers, tax forms and money-transmitter rules is in progress (`research_notes/Talent module/rates_contracts_payouts.md`). Until it lands, build to these defaults:
-- Click-to-accept agreements in the portal (signed name, time, IP, PDF stored).
-- Payouts behind a `Payouts` port. The provider is chosen in this section; `talent_payments.provider = 'manual'` (record a payment made outside Magpie) works from day one.
+Source: [rates_contracts_payouts.md](../../research_notes/Talent%20module/rates_contracts_payouts.md) (2026-11-10), especially its §7. Items for a lawyer or accountant are listed in §10.6. Nothing here is legal or tax advice.
+
+### 10.1 Agreements
+
+- **v1: our own click-to-accept** (`talent_agreements.method = 'clickwrap'`). The creator is identified by the portal magic link. They see the full agreement and an explicit "I agree and sign" button.
+  - We render the PDF with Gotenberg.
+  - We store a hash of the PDF, the time, the IP address and the browser.
+  - We email a copy to both sides and keep it at least 4 years.
+  - Click-to-accept is enough for small deals under the federal e-signature law (ESIGN), and courts have upheld electronic copyright transfers.
+- **Next: BoldSign behind an `ESignProvider` port** (`method = 'esign'`). It's about $30 a month for 40 documents, then $0.75 each, with embedded signing. Use it for deals of $5,000 or more, buyouts, exclusivity over 30 days, or when the customer asks. SignWell is the fallback.
+- Template defaults (stored in `talent_offers.terms`; customers can edit within the guardrails in §4):
+
+| Term | Default |
+|---|---|
+| Revisions | 2 rounds within the brief; extra rounds at rate-card price |
+| Turnaround | Draft within 7 days of product arrival; fixes within 2 business days; brand review within 5 business days, then **auto-approval** |
+| Payment | The brand prefunds 100% when the creator accepts. On deals of $1,000 or more and on influencer posts, 50% is released at start and 50% on approval. The creator is paid within 3 business days of approval. The due date is never more than 30 days after completion (California, Illinois and New York freelancer laws). |
+| Kill fee | 0% before the product ships or work starts; 50% after the product arrives or filming starts; 100% of the creation fee once a draft meeting the brief is delivered |
+| Rights | A license by default: organic use forever on the brand's channels, plus paid use for the term in the brief. The creator keeps copyright and portfolio rights. A buyout is an assignment. **Never "work made for hire"**, which in California can make the brand an employer. |
+| Whitelisting and Spark codes | Off by default. When on: platform, days (7, 30, 60, 180 or 365), fee, and the creator may revoke after the term. |
+| Exclusivity | None by default |
+| Likeness | Only as it appears in the deliverables; **no AI replicas or voice clones** |
+| Honest use | The creator gets and uses the product before any testimonial. No claims beyond the brief. The brand supplies substantiation for its claims. |
+| Disclosure | The platform's paid-partnership label **plus** "ad", "sponsored" or "paid partnership" in the content or caption. Never "sp", "spon" or "collab". |
+| Music and others | Licensed or brand-supplied music only. Releases for other people in frame. No other brands' logos. |
+| Contractor status | The creator controls how, when and with what equipment they do the work, and may work for others |
+| Age | 18 or older; no minors in the content |
+
+### 10.2 Default rate card (seed for `rate_benchmarks`, US, `as_of = 2026-11-10`)
+
+The Bots show the source next to any proposed rate. They switch to the workspace's own accepted-offer history once it has 10 or more data points for that kind of work. Fees below are p25 / p50 / p75.
+
+| Work | Default |
+|---|---|
+| UGC video, 30 seconds, edited, 1 hook, 2 revisions, organic use | $100 / $150 / $250 |
+| Length | ×0.75 at 15s, ×1.25 at 60s, ×1.5 at 90 to 120s |
+| Extra hook | $30 / $50 / $75 each |
+| Raw files with the edit / raw files only | +$50 / ×0.75 |
+| 4 photos | +$40 |
+| Rush (under 5 business days) | +25% |
+| Paid ads from the brand's handle | +25% for 30 days, +50% for 90 days, +100% for 12 months |
+| Perpetual buyout | ×2 total for UGC, ×3 for influencer content |
+| Whitelisting or Spark code | +25% per 30 days, minimum $50 |
+| Influencer post, TikTok (nano, micro, mid) | $75/$150/$300; $250/$500/$1,000; $1,000/$2,000/$4,000 |
+| Influencer post, Instagram Reel | $100/$175/$350; $300/$600/$1,200; $1,200/$2,500/$5,000 |
+| Influencer post, YouTube Short (low confidence) | $50/$100/$200; $200/$400/$800; $800/$1,500/$3,000 |
+| Social media manager | $30 / $50 / $75 an hour; $1,000 / $2,000 / $3,000 a month for one brand on 3 platforms |
+| Short-form video editor | $25 / $40 / $65 an hour; $35 / $60 / $120 per edited video |
+| Graphic designer | $25 / $40 / $65 an hour; $25 / $50 / $100 per post; $75 / $150 / $300 per carousel |
+| Offshore talent | about ×0.3 to ×0.5 of the above |
+
+Market reality: Collabstr's 2026 report says nearly 80% of deals were under $300 and UGC averaged $154 paid. Agency rate cards run 2 to 5 times higher and don't publish a method.
+
+### 10.3 Payouts: Stripe Connect with Magpie as the marketplace (model A)
+
+```
+Brand accepts offer --> Magpie charges the brand (ACH debit default, card optional) --> funds held in Stripe
+Work approved (person approves the payout, T2) --> Stripe transfer to the creator's connected account --> payout to the creator's bank
+```
+
+- **Creators:**
+  - Stripe Connect accounts (Accounts v2, recipient configuration, Express Dashboard).
+  - Stripe-hosted onboarding handles identity checks and tax ID collection. `/c/payout/$token` opens it.
+  - Standard payouts. Instant Payouts at 1% is optional and paid by the creator.
+- **Brands:**
+  - "Separate charges and transfers".
+  - ACH Direct Debit by default (0.8%, capped at $5); card optional.
+  - The charge is created when the offer is accepted and recorded in `talent_charges` (§10.5).
+- **Taxes:** Stripe 1099 reporting files the forms ($2.99 per IRS e-file, $1.49 per state). Payouts are blocked while a creator's tax ID is missing.
+- **Money transmission:** with Connect, Stripe says it handles licensing and the platform isn't in the payout funds flow. Never route customer money through Magpie's own balance or other payout rails in v1 (Stripe Global Payouts, PayPal, Wise and Tipalti are out).
+- **Countries:** US creators only at launch. UK, EEA, Canada and Switzerland come later through Connect cross-border payouts. Others use model C.
+- **Cost:** Stripe takes about 1.8% (ACH) to 4.0% (card) on a $300 deal. We charge brands a **payments fee of 5% (minimum $3)** on payouts through Magpie (§11).
+
+**Model C, "Pay outside Magpie":** the customer pays the creator its own way and marks the payment paid (`talent_payments.provider = 'outside'`). The customer collects W-9s and files 1099-NECs at $2,000 or more. Magpie never stores Social Security numbers.
+
+**Linked, not built:**
+- For repeat freelancers who look like employees, suggest a contractor-of-record service such as Deel (about $325 a month) or Ontop.
+- v1.1: evaluate Lumanu for Platforms or Trolley for non-US and EU creators (DAC7 reporting, W-8 forms, 1042-S).
+
+### 10.4 Code guardrails (in addition to §4)
+
+- Refuse to send an offer without all of these:
+  - a payment due date no more than 30 days after completion;
+  - a disclosure clause;
+  - usage scope and term;
+  - the 18-or-older confirmation.
+- Templates are linted, and the phrase "work made for hire" is blocked.
+- **Product before testimonial.** When a brief is testimonial-style and ships product, the upload portal stays closed until delivery shows and the creator confirms they used it. The Content Reviewer flags result claims ("lost 10 lbs", "made $X") for substantiation.
+- **Auto-approval.** Every agreement carries the auto-approval timer, and a workflow enforces it so creators aren't left waiting.
+- **Per-creator yearly totals.** Track them against the $2,000 1099-NEC threshold and state 1099-K thresholds.
+- **Classification warning.** Warn when any of these holds, and suggest a contractor-of-record service:
+  - monthly engagements for 6 months or more;
+  - hourly pay with a fixed schedule;
+  - the workspace's own tools and logins are required.
+- **Country gate.** Payouts through Magpie go to US creators only in v1.
+
+### 10.5 Schema changes for this section
+
+```sql
+create table talent_charges (                    -- brand-side funding through Stripe
+  id uuid primary key,
+  tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
+  assignment_id uuid not null references talent_assignments(id),
+  amount_cents bigint not null,                  -- creator fees being funded
+  fee_cents bigint not null,                     -- Magpie payments fee (5%, minimum $3)
+  method text not null check (method in ('ach_debit','card')),
+  stripe_payment_intent_id text unique,
+  status text not null default 'pending' check (status in ('pending','processing','succeeded','failed','refunded','partially_refunded')),
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+);
+
+alter table deliverables add column auto_approve_at timestamptz;   -- brand review deadline; a workflow approves when it passes
+-- talent_payments.provider values: 'stripe_connect' | 'outside'
+-- talent_payout_accounts.provider = 'stripe_connect'; account_ref is the connected account id
+```
+
+### 10.6 Open questions for a lawyer or accountant (before taking real money)
+
+1. Under model A, is Magpie a third-party settlement organization that files 1099-Ks, or a payer that files 1099-NECs at $2,000? Can customers rely on that?
+2. Who applies 24% backup withholding when a creator's tax ID fails?
+3. Do the agent-of-payee money transmission exemptions cover this flow in every state, given our written terms with brands and creators?
+4. Sales tax exposure, if Magpie is merchant of record for content services.
+5. Withholding on licenses from foreign creators (US-source royalties, 1042-S).
+6. EU: DAC7 platform-operator status and GDPR representative.
+7. Does a UGC ad run from the brand's own handle need an in-ad paid disclosure?
 
 ## 11. Plans, entitlements and metering
 
-**Pending** with §10. Planned entitlement keys:
-- `talent_discovery_lookups` (provider credits)
-- `talent_invites_per_day`
-- `media_minutes` (transcription)
-- `talent_payout_volume_cents`
+Provisional prices. Confirm them with pilot data, as with PRD §8.
 
-The module ships as an add-on and inside a Content plan.
+| Offer | Price | Includes |
+|---|---|---|
+| **Talent add-on** (any plan) | $99 a month | 500 discovery lookups, 100 invites a day, 120 media minutes, 3 open briefs |
+| **Content plan** (CRM plus Talent, no bid features) | $299 a month | 5 users, 2,000 discovery lookups, 300 invites a day, 600 media minutes, 15 open briefs, the AI runs of Bid Desk Pro |
+| Lookup pack | $50 | +1,000 discovery lookups |
+| **Payments fee** | 5% of creator payouts through Magpie, minimum $3 per payout | covers Stripe's 1.8% to 4% and support |
+
+Unit costs (our side): an Influencers.club lookup with email is about $0.05 (Pro API from about $208 a month fixed). Transcription and vision are metered through the LLM gateway. Stripe costs come out of the payments fee.
+
+New entitlement keys (BILLING.md conventions): `talent_discovery_lookups` (month), `talent_invites_per_day` (day), `media_minutes` (month), `talent_open_briefs` (none). New `usage_events.key` values: `talent_lookups`, `talent_invites`, `media_minutes`, `payout_volume_cents`, `payments_fee_cents`. Usage alerts follow the 80%, 100% and 120% rules. At 120%, sourcing and invites pause, while reviews and payouts continue.
 
 ## 12. Screens and routes
 
@@ -439,8 +566,8 @@ The portal shows the workspace's name and logo, never other workspaces or other 
 3. Scout tools and `scoreTalent` with unit tests; brief builder.
 4. Recruiter: invites through tracked reply addresses (reuses `messages`, `inbound_emails` routing and suppressions), the batch approval preview, reply parsing, negotiation limits, follow-ups.
 5. Creator portal routes, magic links, rate limits, the apply page.
-6. Agreements: template rendering to PDF (Gotenberg), signature (§10).
-7. Payouts: provider onboarding links, payout creation after approval, provider webhooks (§10).
+6. Agreements: template rendering to PDF (Gotenberg), click-to-accept signing with the audit trail, the template lint, and the auto-approval workflow (§10.1, §10.4).
+7. Payouts: Stripe Connect recipient onboarding, brand charges (`talent_charges`), transfers after approval, Stripe webhooks, 1099 reporting setup, the country gate and model C (§10.3).
 8. Media pipeline: ffmpeg in the worker image, transcription, frame sampling, the Reviewer checks and the review queue.
 9. Usage-rights reminders; ratings and rehire ranking.
 10. Evals:
