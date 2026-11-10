@@ -42,7 +42,7 @@ These settle UI disagreements during the build. PRD §4 settles product ones.
 | 1 | **Text first** | The owner's main surface is SMS or Telegram. Every digest item, approval and alert has a short text form ([§20](#20-text-messages-sms-and-telegram)). Anything the owner must decide can be decided from the phone. The web app is needed only to read documents and to edit drafts, price sheets and settings. |
 | 2 | **The web app is the back office** | Built for a person at a laptop working through a bid. Dense tables, keyboard paths, split views, filters and exports. Pages show the work, not a dashboard about the work. |
 | 3 | **Citations are clickable everywhere** | Every fact a Bot extracted shows a citation chip ([§22.11](#2211-citation-chip)). One click opens the document at the page with the sentence highlighted. A fact without a source shows "Not found in the documents." and nothing else. |
-| 4 | **Nothing external without approval** | An action that reaches someone outside the business always appears as an approval card with the full preview: the email as it will be sent, the text as it will read. No button anywhere sends directly. External approvals can't be bulk approved, can't be approved from a push notification button, and are blocked during support sessions. |
+| 4 | **Nothing external without approval** | Anything a Bot wants to send outside the business appears as an approval card with the full preview: the email as it will be sent, its recipients and its sources. When a person sends something they wrote, the Send button opens the same preview first. External approvals can't be bulk approved, can't be approved from a push notification button, and are blocked during support sessions. |
 | 5 | **Calm and plain** | One primary button per region. No celebrations, illustrations, streaks or confetti. Red only for problems. The only counter badge in navigation is Approvals. Motion only shows where something went (150 to 250 ms). Words follow [§2](#2-voice-and-words). |
 | 6 | **Show the Bot's work** | Everything a Bot made names the Bot and links to its run. AI-written text is labeled. Learning mode says what would have happened. A Bot that couldn't do something says so. |
 | 7 | **One payload, every surface** | An approval, match, deadline or alert renders from the same server payload on web, SMS, Telegram, email and push (FR-APR-1). This file gives the copy for each surface. |
@@ -79,7 +79,7 @@ PRD §9 is the base and wins on conflict. These rows add the UI's other nouns an
 | **outside your business** | `effect='external'` | external, third party |
 | **inside Magpie** | `effect='internal'` | internal |
 | **ask first**, **do without asking**, **off** | Tool policies `needs_approval`, `always_allow`, `off` | requires approval, auto, autonomous |
-| **learning mode** | `is_learning_mode` runs | dry run, shadow mode |
+| **learning mode** | Runs with `agent_runs.is_learning_mode` (set by a job's `config.learningMode`) | dry run, shadow mode |
 | **support session** | Staff impersonation, as customers see it | impersonation |
 | **Magpie reviewer** | Staff reviewer on the Managed plan | operator, moderator, human in the loop |
 | **text**, **texts** | SMS messages, in UI copy | SMS (except in Settings headings: "Text messages (SMS)") |
@@ -116,40 +116,44 @@ PRD §9 is the base and wins on conflict. These rows add the UI's other nouns an
 | Session expired (sign-in notice) | "You were signed out. Sign in to continue." | none |
 | Workspace switched in another tab | "You switched to {workspace} in another tab." | Reload |
 | Read-only role (tooltip on disabled controls) | "You have view access. Ask an owner or admin to make changes." | none |
-| Owner or admin only (tooltip) | "Only owners and admins can do this." | none |
+| Admin only (tooltip) | "Only owners and admins can do this." | none |
 | Owner only (tooltip) | "Only the workspace owner can do this." | none |
 
-**Problem codes.** The API returns RFC 9457 problem+json with a `code` (ARCHITECTURE §5.4). The web app shows this copy for each code, from its own catalog, and uses the server's `detail` only for codes it doesn't know. The list is **(requested)** for API.md.
+**Problem codes.** The API answers errors with problem+json and a fixed `code` (API.md §2.9). The web app switches on `code`, plus `reason` or an extension member where listed, and shows this copy from its own catalog ([§26](#26-internationalization)). It shows the server's `detail` only for a code it doesn't know.
 
-| `code` | Copy |
+| `code` (and qualifier) | Copy |
 |---|---|
-| `unauthenticated` | Redirect to sign-in with "You were signed out. Sign in to continue." |
+| `unauthorized` | Redirect to sign-in with "You were signed out. Sign in to continue." |
 | `forbidden` | "You don't have access to this. Ask an owner or admin." |
 | `not_found` | "This {thing} doesn't exist or was removed." |
-| `validation_failed` | Field errors inline. Form summary: "Check the highlighted fields." |
-| `conflict` | "Someone changed this while you were editing. Reload to see the latest." |
-| `rate_limited` | "Too many requests. Wait a minute and try again." |
-| `limit_reached` | Owner or admin: "Your workspace used this month's {limit name}. Add a run pack or change plan." Others: "Your workspace used this month's {limit name}. Ask an owner to add a run pack." |
-| `ai_drafting_not_allowed` | "This solicitation doesn't allow AI drafting. Write this section yourself." |
-| `model_unavailable` | "Bots can't do this because the AI providers it needs are turned off for this workspace. An admin can change this in Settings." |
-| `workspace_read_only` | "Your workspace is read-only because a payment failed." Owner or admin adds: "Update your card in Billing." |
-| `workspace_suspended` | "This workspace is suspended. Contact support." |
-| `support_session_blocked` | "Outside actions are blocked during a support session." |
-| `suppressed_recipient` | "{address} unsubscribed or bounced. Magpie won't email it." |
-| `postal_address_missing` | "Add your postal address in Settings before sending outreach." |
-| `quote_not_confirmed` | "Check this quote's numbers before using it in a price sheet." |
-| `submission_required` | "Add how and when you submitted before marking this bid submitted." |
-| `approval_already_decided` | "{name} already {approved or skipped} this {via channel} at {time}." |
+| `validation_failed` | Each `errors[].message` under its field. Forms with more than 6 fields add "Check the highlighted fields." at the top. |
+| `validation_failed`, `errors[].code = 'unknown_naics'` | "{code} isn't a NAICS code. Search by words instead." |
+| `validation_failed` on SMS verify (`attemptsLeft`) | "That code didn't match. You have {attemptsLeft} tries left." |
+| `conflict`, `reason = 'stale'` | "Someone changed this while you were editing. Reload to see the latest." (drafts: [§22.18](#2218-autosave-for-the-draft-editor)) |
+| `conflict`, `reason = 'duplicate'` | "{name} already exists." with "Open {name}" when the problem carries `existingId` |
+| `conflict`, `reason = 'state'` | The copy the screen spec names for that action. Fallback: "This can't be done right now. Reload to see what changed." |
+| `conflict`, `reason = 'in_use'` | "This is still in use. Move or remove what uses it first." |
+| `conflict`, `reason = 'suppressed'` | "{address} unsubscribed or bounced. Magpie won't email it." |
+| `conflict`, `reason = 'do_not_contact'` | "{name} is marked do not contact." |
+| `idempotency_conflict` | Retry once after `Retry-After`. Then: "This is still saving. Wait a moment and reload." |
+| `workspace_switched` | Reload the app, then show "You switched to {workspace} in another tab." |
 | `approval_expired` | "This expired on {date}. The Bot went on without it." |
-| `invalid_code` | "That code didn't match. You have {n} tries left." |
-| `code_expired` | "That code expired. Send a new one." |
-| `too_many_attempts` | "Too many tries. Send a new code." |
-| `file_infected` | "{filename} failed the security scan and was removed." |
-| `file_too_large` | "{filename} is over 100 MB. Split it or compress it, then upload again." |
-| `unsupported_file` | "Magpie reads PDF, Word, Excel and image files." |
-| `seat_limit` | "Your plan includes {n} people. Change plan to invite more." |
-| `saved_search_limit` | "Your plan includes {n} saved searches. Turn one off or change plan." |
-| `invite_expired` | "This invite expired on {date}. Ask {inviter} to send a new one." |
+| `approval_already_decided` | "{name} already {approved or skipped} this {via} at {time}." |
+| `file_not_ready` | "{filename} is still being checked. Try again in a minute." |
+| `limit_reached` (`limitKey`, `used`, `limit`) | Admins and owners: "Your workspace used this month's {limit name} ({used} of {limit}). Add a run pack or change plan." Others end with "Ask an owner or admin to add a run pack." A per-run cap: "This hit the limit for one run. Ask again to continue." |
+| `payment_required` | "Your workspace is read-only because a payment failed." Admins and owners add "Update your card in Billing." |
+| `workspace_suspended` | "This workspace is suspended. Contact support." |
+| `workspace_read_only` | "This workspace is read-only." Then "Its plan ended on {date}." or "It's scheduled for deletion on {date}." |
+| `ai_drafting_not_allowed` | "This solicitation doesn't allow AI drafting. Write this section yourself." |
+| `impersonation_blocked` | "Outside actions are blocked during a support session." |
+| `feature_not_available` | Admins and owners: "This isn't part of your plan. Change plan to use it." Others: "This isn't part of your plan. Ask an owner or admin." |
+| `payload_too_large` | "{filename} is too large. The limit is {limit} MB." (100 MB for bid documents, 25 MB otherwise) |
+| `unsupported_media_type` | "Magpie reads PDF, Word, Excel, CSV, text and image files." |
+| `rate_limited` | "Too many requests. Wait {retryAfterSeconds} seconds and try again." In chat: "You're sending messages quickly. Wait a moment and try again." |
+| `external_unavailable` (`provider`) | "{provider label} isn't answering right now. Try again in a few minutes." Labels: SAM.gov, "Bid data" (Kontract), "Billing" (Stripe), "Texting" (Twilio), "Email" (Postmark), Google, Microsoft. |
+| `model_unavailable` | "Bots can't do this because the AI providers it needs are turned off for this workspace. An admin can change this in Settings." |
+| `service_unavailable` | "Magpie is down for maintenance. Try again in a few minutes." |
+| `internal_error` | "Something went wrong on our side. Try again. If it keeps happening, contact support and give them this code: {requestId}." |
 
 ## 3. Information architecture and navigation
 
@@ -241,22 +245,23 @@ Lucide icon names change between versions; check the pinned version and keep thi
 
 ### 3.5 Banners
 
-Workspace-wide states. Rows 1 to 6 can't be dismissed. Rows 7 to 10 can be dismissed for 24 hours (`localStorage`). Buttons in brackets show only to people whose permission flag allows them; others see the alternate copy.
+Workspace-wide states, read from `GET /me` (`billing.banner`, workspace status, `impersonation`) and usage alerts. Rows 1 to 7 can't be dismissed. Rows 8 to 11 can be dismissed for 24 hours (`localStorage`). Buttons in brackets show only to people with the permission; others see the alternate copy.
 
 | Priority | Condition | Copy | Button |
 |---|---|---|---|
-| 1 | Workspace suspended (`tenants.status='suspended'`) | "This workspace is suspended. Contact support to turn it back on." | Contact support |
-| 2 | Read-only after failed payment (BILLING.md state, day 14 and later) | "Your workspace is read-only because a payment failed. Your data is kept until {date}." Owner or admin adds "Update your card to turn everything back on." Others add "Ask an owner to update the card." | [Update card] |
-| 3 | Past due, Bot jobs paused (day 7 to 14) | "Bot jobs are paused because a payment failed. Update your card by {date} to keep editing." | [Update card] |
-| 4 | Past due (day 0 to 7) | "Your last payment didn't go through. Update your card by {date} to keep your Bots working." | [Update card] |
-| 5 | Deletion scheduled (`tenant_deletions.scheduled_for` set, not completed) | "This workspace will be deleted on {date}." | [Cancel deletion] (owner) |
-| 6 | Usage at 120% of `ai_runs` | "Scheduled Bot jobs are paused. Your workspace used {used} of {limit} Bot runs this month. Chat and approvals still work." | [Add a run pack] |
-| 7 | Usage at 100% of any metered entitlement | "Your workspace used all {limit} {unit} this month. Bots keep working. Jobs pause at {pauseAt}." | [Add a run pack] |
-| 8 | Trial ends within 3 days | "Your trial ends {in 3 days, tomorrow, today}. Choose a plan to keep your Bots working." | [Choose a plan] |
-| 9 | Trial ended without a plan | "Your trial ended. Choose a plan to turn your Bots back on." | [Choose a plan] |
-| 10 | Email not verified | "Confirm your email address. We sent a link to {email}." | Send again |
+| 1 | `tenants.status = 'suspended'` | "This workspace is suspended. Contact support to turn it back on." | Contact support |
+| 2 | `me.billing.banner = 'read_only'` | "Your workspace is read-only because a payment failed. Your data is kept until {date}." Admins and owners add "Update your card to turn everything back on." Others add "Ask an owner or admin to update the card." | [Update card] |
+| 3 | `me.billing.banner = 'jobs_paused'` | "Bot jobs are paused because a payment failed. Update your card by {date} to keep editing." | [Update card] |
+| 4 | `me.billing.banner = 'past_due'` | "Your last payment didn't go through. Update your card by {date} to keep your Bots working." | [Update card] |
+| 5 | `tenants.status = 'deleting'` | "This workspace will be deleted on {date}. It's read-only until then." | [Cancel deletion] (owner) |
+| 6 | Plan canceled and the period is over | "Your plan ended on {date}. Your workspace is read-only. Choose a plan to turn it back on." | [Choose a plan] |
+| 7 | `ai_runs` at 120% | "Scheduled Bot jobs are paused. Your workspace used {used} of {limit} Bot runs this month. Chat and approvals still work." | [Add a run pack] |
+| 8 | Any metered entitlement at 100% | "Your workspace used all {limit} {unit} this month. Bots keep working. Jobs pause at {pauseAt}." | [Add a run pack] |
+| 9 | `me.billing.banner = 'trial_ending'` | "Your trial ends {in 3 days, tomorrow, today}. Choose a plan to keep your Bots working." | [Choose a plan] |
+| 10 | Trial ended without a plan | "Your trial ended. Choose a plan to turn your Bots back on." | [Choose a plan] |
+| 11 | Email not verified | "Confirm your email address. We sent a link to {email}." | Send again |
 
-The 80% alert is a notification, not a banner (FR-BIL-4). The SAM warning (FR-PRO-6) shows on Today, not as a banner.
+The 80% alert is a notification, not a banner (FR-BIL-4). The SAM warning (FR-PRO-6) shows on Today. The support session banner ([§19.3](#193-support-session-banner)) sits above all of these. Dates and day counts come from BILLING.md's state machine.
 
 ### 3.6 Routes
 
@@ -265,9 +270,9 @@ TanStack Router, file-based, in `apps/web/src/routes/`. Search params are valida
 | Layout route | Guard (`beforeLoad`) |
 |---|---|
 | `__root.tsx` | Providers, event stream, toaster, theme |
-| `_public.tsx` | Centered auth card layout. Redirects signed-in people to `/today`, except `/invite/*` and `/u/*`. |
+| `_public.tsx` | Centered auth card layout. Redirects signed-in people to `/today`, except `/invite/*`. The unsubscribe page is served by the api (§5.10). |
 | `_authed.tsx` | `ensureQueryData(meQueryOptions())`. No session: redirect to `/sign-in?redirect={href}`. |
-| `_authed/_workspace.tsx` | Active workspace required, else `/workspaces`. Owner with unfinished onboarding (`tenant_settings.settings.onboarding.finishedAt` null and not skipped): redirect to `/onboarding`. Invited person with `memberships.onboarded_at` null **(requested)**: redirect to `/onboarding/phone?member=1`. |
+| `_authed/_workspace.tsx` | Active workspace required, else `/workspaces`. The person who created the workspace, while a step is neither done nor skipped and setup isn't hidden (`GET /profile/onboarding`): redirect to `/onboarding`. An invited person with `member_preferences.onboarded_at` null **(requested)**: redirect to `/onboarding/phone?member=1`. |
 | `_authed/_workspace/_shell.tsx` | App frame: rail, header, banners, Assistant panel, bottom tabs |
 | `_authed/_workspace/onboarding.tsx` | Onboarding frame without the rail |
 | `_authed/ops.tsx` | `me.user.isStaff` required, else 404 |
@@ -284,8 +289,8 @@ Every screen:
 | `/reset-password` | `_public/reset-password.tsx` | Set or reset password (`?token=&mode=set\|reset`) | MVP | §5.5 |
 | `/verify-email` | `_public/verify-email.tsx` | Confirm email (`?token=`) | MVP | §5.6 |
 | `/invite/$invitationId` | `_public/invite.$invitationId.tsx` | Accept invite | MVP | §5.7 |
-| `/u/$token` | `_public/u.$token.tsx` | Unsubscribe page for outreach recipients | MVP | §5.10 |
 | `/s/$code` | `s.$code.tsx` | Short link resolver (texts and Telegram) | MVP | §20.1 |
+| `/a/$approvalId` | `_authed/a.$approvalId.tsx` | Redirects to `/approvals/$approvalId`, keeping `?via=` (links in texts and emails) | MVP | §14.2 |
 | `/offline` | `offline.tsx` | Offline fallback | MVP | §25.2 |
 | `/workspaces` | `_authed/workspaces.index.tsx` | Choose a workspace | MVP | §5.8 |
 | `/workspaces/new` | `_authed/workspaces.new.tsx` | Create a workspace | MVP | §5.9 |
@@ -303,8 +308,7 @@ Every screen:
 | `/matches/searches` | `.../_shell/matches.searches.tsx` | Saved searches | MVP | §8.7 |
 | `/matches/$matchId` | `.../_shell/matches.$matchId.index.tsx` | Match detail | MVP | §8.2 |
 | `/matches/$matchId/documents/$documentRef` | `.../_shell/matches.$matchId.documents.$documentRef.tsx` | Notice document reader (`?page=`) | MVP | §8.4 |
-| `/notices/$opportunityId` | `.../_shell/notices.$opportunityId.index.tsx` | Notice detail (not matched) | MVP | §8.3 |
-| `/notices/$opportunityId/documents/$documentRef` | `.../_shell/notices.$opportunityId.documents.$documentRef.tsx` | Notice document reader | MVP | §8.4 |
+| `/notices/$source/$sourceId` | `.../_shell/notices.$source.$sourceId.tsx` | Notice detail (not matched) | MVP | §8.3 |
 | `/bids` | `.../_shell/bids.index.tsx` | Bids list | MVP | §9.1 |
 | `/bids/$dealId` | `.../_shell/bids.$dealId.tsx` | Bid workspace frame; index redirects to `brief` | MVP | §9.2 |
 | `/bids/$dealId/brief` | `.../bids.$dealId.brief.tsx` | Brief tab | MVP | §9.3 |
@@ -318,6 +322,7 @@ Every screen:
 | `/bids/$dealId/timeline` | `.../bids.$dealId.timeline.tsx` | Timeline tab (`?type=`) | MVP | §9.10 |
 | `/pipeline` | `.../_shell/pipeline.tsx` | Pipeline (`?pipeline=&view=&layout=board\|table\|calendar`) | MVP | §10.1 |
 | `/deals/$dealId` | `.../_shell/deals.$dealId.tsx` | Deal record (sale). Bids redirect to `/bids/$dealId/brief`. | MVP | §10.2 |
+| `/deals/import` | `.../_shell/deals.import.tsx` | Import deals | MVP | §11.2 |
 | `/contacts` | `.../_shell/contacts.index.tsx` | Contacts list (`?view=`) | MVP | §11.1 |
 | `/contacts/import` | `.../_shell/contacts.import.tsx` | Import contacts | MVP | §11.2 |
 | `/contacts/$contactId` | `.../_shell/contacts.$contactId.tsx` | Contact record (`?tab=`) | MVP | §11.3 |
@@ -374,36 +379,55 @@ Path segments use the table's id names (`$dealId`, `$matchId`) so links are unam
 
 ### 3.7 Permissions in the UI
 
-`GET /api/app/me` returns the person, their memberships, the active workspace, their role and a `permissions` object of booleans **(requested shape)**. The UI renders from these flags only and never compares role names. SECURITY.md owns the matrix; this table must match it.
+`GET /me` returns `permissions: string[]` (API.md §5.1) holding the keys of SECURITY.md §4.1 for the person's role. The UI renders from these keys only and never compares role names. SECURITY.md §4 owns the matrix; this table only maps each key to the controls it gates. Roles: M = member and up, A = admin and up, O = owner only. Viewers hold `records.read` and `bots.chat`.
 
-| Flag | Owner | Admin | Member | Viewer | Gates |
-|---|---|---|---|---|---|
-| `recordsWrite` | yes | yes | yes | no | Create, edit, archive records, notes, tasks, requirements, drafts, price sheets, quotes, files; match actions; stage changes |
-| `approvalsDecideOwn` | yes | yes | yes | no | Approve, edit, skip approvals requested for me |
-| `approvalsDecideAny` | yes | yes | no | no | "Everyone" filter and deciding others' approvals |
-| `botsManage` | yes | yes | no | no | Rename Bots, instructions, on and off, jobs, tool policies, learning mode, model tier (FR-ACC-4, FR-BOT-3) |
-| `memoriesManage` | yes | yes | own only | no | Edit and delete memories (members: rows with `user_id` = me) |
-| `profileManage` | yes | yes | no | no | Company profile |
-| `settingsManage` | yes | yes | no | no | Workspace settings, pipelines, fields, tags, workspace connections |
-| `membersManage` | yes | yes | no | no | Invites and roles. Admins can't change the owner's role or other admins' roles. |
-| `billingManage` | yes | yes | no | no | Plan, card, run packs, usage page (FR-BIL-3) |
-| `billingCancel` | yes | no | no | no | Cancel plan |
-| `costsView` | yes | yes | no | no | Cost columns and cost per Bot (FR-BOT-7, FR-BIL-3) |
-| `auditView` | yes | no | no | no | Audit log (FR-SET-4) |
-| `dataExport` | yes | no | no | no | Export all data (FR-ACC-5) |
-| `workspaceTransfer` | yes | no | no | no | Transfer ownership |
-| `workspaceDelete` | yes | no | no | no | Schedule and cancel deletion |
-| `apiKeysCreate` | yes | yes | yes | read scope only | Own API keys (v1) |
-| `apiKeysManageAll` | yes | yes | no | no | See and revoke everyone's keys (v1) |
-| `automationsManage` | yes | yes | no | no | Automations and webhooks (v1) |
-| `reportsCreate` | yes | yes | yes | no | Create reports (v1). Viewers see shared reports. |
-| `viewsShare` | yes | yes | yes | no | Save shared views |
+| Key | Who | Gates in the UI |
+|---|---|---|
+| `records.write` | M | Create and edit companies, contacts, deals, tasks, notes, tags; save shared views |
+| `records.archive` | M | Archive and Restore on records |
+| `records.bulk` | M | Bulk bars, Import, Merge |
+| `records.export` | M | "Export CSV" on lists and views |
+| `schema.manage` | A | Settings: Pipelines, Fields |
+| `profile.write` | M | Company profile, past performance, library; onboarding steps 1 to 4 |
+| `searches.write` | M | New search, edit, switch, scan now, delete |
+| `matches.decide` | M | Pursue, Save for later, Dismiss, Restore |
+| `bids.write` | M | Bid documents, requirements, deadlines, Mark submitted, Export package |
+| `bids.decide` | M | Bid or no bid card |
+| `bids.ai_override` | A | "This is wrong" on the AI ban banner |
+| `pricing.write`, `pricing.approve` | M | Edit price lines; Approve version |
+| `quotes.write` | M | Quote requests, Check numbers, Use in price sheet |
+| `drafts.write` | M | Draft editor, comments, Save version, Restore |
+| `outreach.send` | M | Send on a person's quote request; Approve on external approvals |
+| `approvals.decide` | M | Approve, Edit, Skip on approvals requested for me |
+| `approvals.decide_any` | A | "Everyone" filter; deciding others' approvals |
+| `bots.chat` | everyone | Assistant panel, Chat, Ask a Bot |
+| `bots.configure` | A | Bot name, instructions, on and off, jobs and times |
+| `bots.autonomy` | A | Tools tab selects; earned-autonomy answers |
+| `bots.view_costs` | A | Cost columns, tokens, cost per Bot, "Show details" on runs |
+| `memory.write` | M | Add and edit business memories; delete ones you added |
+| `memory.manage` | A | Delete any business memory |
+| `members.manage` | A | Invite, change roles (not the owner's), remove |
+| `settings.manage` | A | Settings: Workspace general |
+| `connections.manage` | A | Connections: Workspace services |
+| `billing.manage` | A | Billing: plan, card, run packs |
+| `billing.cancel` | O | Cancel plan |
+| `usage.view` | A | Settings: Usage |
+| `api_keys.manage` | A | Settings: API keys (v1) |
+| `webhooks.manage` | A | Settings: Webhooks (v1) |
+| `automations.manage` | A | Settings: Automations (v1) |
+| `reports.write` | M | New report, edit widgets (v1) |
+| `audit.read` | O | Settings: Audit log |
+| `workspace.export` | O | Export all data |
+| `workspace.delete` | O | Schedule and cancel deletion |
+| `ownership.transfer` | O | Transfer ownership |
+
+Everyone manages their own channels, alert preferences, personal saved views, personal memories, calendar feed link and sessions (SECURITY.md §4.1).
 
 Rules:
 - A page someone can never use is hidden from navigation and returns the 403 page if opened directly.
 - A control someone can see but not use is disabled with the tooltip from [§2.3](#23-shared-copy). Inline-editable fields render as plain text for viewers.
 - During a support session ([§19.3](#193-support-session-banner)), every control that causes an external action is disabled with "Outside actions are blocked during a support session."
-- In a read-only workspace, every write control is disabled with "Your workspace is read-only because a payment failed."
+- In a read-only workspace, every write control is disabled with the `payment_required` or `workspace_read_only` copy.
 
 ## 4. How to read a screen spec
 
@@ -533,17 +557,15 @@ After joining: the workspace becomes active, then `/onboarding/phone?member=1`, 
 
 ### 5.10 Unsubscribe page (outreach recipients)
 
-**Route** `/u/$token`. **Release** MVP. **Requirements** FR-SUB-6.
+**Route** `/unsubscribe/<token>`, served as plain HTML by the api, not the web app (API.md §7). **Release** MVP. **Requirements** FR-SUB-6.
 
-Public page for a subcontractor who clicked the unsubscribe link in an outreach email. The token is signed by the server (HMAC over tenant id and address) and needs no table. Visiting the page does nothing until the person presses the button, so link scanners can't unsubscribe anyone. Shows the sending business by `company_profiles.legal_name` (or `tenants.name`), never Magpie branding beyond a small "Sent with Magpie" footer.
+For a subcontractor who clicked the unsubscribe link in an outreach email. GET shows the page and changes nothing, so link scanners can't unsubscribe anyone; the button POSTs. Mail clients' one-click unsubscribe POSTs to the same address. The page names the sending business by `company_profiles.legal_name` (or `tenants.name`), with a small "Sent with Magpie" footer. It uses the design tokens and works without JavaScript.
 
 | State | Copy | Button |
 |---|---|---|
 | Ready | `h1` "Stop emails from {business}". "{business} won't email {address} through Magpie again." | Unsubscribe |
 | Done | "You're unsubscribed. {business} won't email {address} through Magpie again." | none |
 | Bad token | "This unsubscribe link doesn't work. Reply to the email and ask to be removed." | none |
-
-Unsubscribing writes `suppressions` with `reason='unsubscribe'`.
 
 ### 5.11 Sign out
 
@@ -557,8 +579,8 @@ User menu "Sign out" signs out this browser, clears the query cache and local dr
 
 - No rail. Header: logo, "Step {n} of 5", a progress bar, and the link "Skip setup" (goes to `/today`, which then shows the setup checklist).
 - Each step: `h1` as a question or task, one description sentence, the form, then a footer with Back, "Skip this step" and the primary "Continue" ("Saving…").
-- Continue saves the step's fields (PATCH `company_profiles`) and records progress in `tenant_settings.settings.onboarding` **(requested shape)**: `{ currentStep, completed: [], skipped: [], finishedAt, dismissedAt }`. `/onboarding` redirects to `currentStep`. Leaving and returning resumes there.
-- Shown to the person who created the workspace. People who join by invite see only step 5 in its member form, tracked by `memberships.onboarded_at` **(requested)**.
+- Continue saves the step's fields (`PATCH /profile`), then marks the step with `PATCH /profile/onboarding` (`step`: `business_lookup`, `what_you_do`, `where_you_work`, `certifications_limits`, `phone`; `status`: `done` or `skipped`). Progress lives in `tenant_settings.settings.onboarding` (API.md §5.3). `/onboarding` redirects to the first step that is neither done nor skipped. Leaving and returning resumes there.
+- Shown to the person who created the workspace. People who join by invite see only step 5 in its member form, tracked by `member_preferences.onboarded_at` **(requested)**.
 - Target: under 5 minutes with a UEI (FR-PRO-1).
 
 ### 6.2 Step 1: Find your business
@@ -568,9 +590,9 @@ User menu "Sign out" signs out this browser, clears the query cache and local dr
 `h1` "Find your business". Description: "Enter your UEI or business name. We'll fill in what SAM.gov has on file."
 
 - Field "UEI or business name" with the button "Look up" ("Looking up…").
-- Results, up to 5 rows: legal name, UEI, city and state, SAM status ("Active until Mar 3, 2027" or "Expired on Jan 9"). Selecting a row shows a confirmation panel.
+- Results (`POST /profile/lookup`), up to 10 rows: legal name, UEI, city and state, SAM status ("Active until Mar 3, 2027" or "Expired on Jan 9"). Selecting a row shows a confirmation panel.
 - Confirmation panel lists what will be saved, each with a "From SAM.gov" tag: legal name (`legal_name`), DBA (`dba`), UEI (`uei`), CAGE (`cage`), address (`base_address`), NAICS codes (`naics_codes`, primary first), certifications (`certifications`), SAM status and expiry (`sam_status`, `sam_expires_on`). Buttons: primary "This is us", secondary "Not us, search again".
-- "This is us" writes the fields and one `field_provenance` row per field with `source='sam'` (FR-PRO-2).
+- "This is us" calls `POST /profile/apply-lookup` with the chosen fields, which writes `field_provenance` with `source = 'sam'` for each (FR-PRO-2).
 - Link under the field: "We don't have a UEI yet" opens Legal name and Address fields.
 
 | State | Copy | Buttons |
@@ -636,17 +658,17 @@ Segmented control: Text message (default), Telegram, Email only.
 
 | Error | Copy |
 |---|---|
-| `invalid_code` | "That code didn't match. You have {n} tries left." |
-| `code_expired` | "That code expired. Send a new one." |
-| `too_many_attempts` | "Too many tries. Send a new code." |
+| Wrong code (`validation_failed`, `attemptsLeft`) | "That code didn't match. You have {n} tries left." |
+| Code expired (`conflict`, `state`) | "That code expired. Send a new one." |
+| Five tries spent (`conflict`, `state`) | "Too many tries. Send a new code." |
 | Landline or invalid | "That number can't get texts. Use a mobile number." |
 | Already connected to another person here | "That number is already connected to someone else in this workspace." |
 
-**Telegram.** Button "Open Telegram" (deep link `https://t.me/{bot}?start={link_codes.code}`). On desktop, a QR code of the same link with "Scan with your phone to open Telegram." While waiting: "Waiting for Telegram. Press Start in the chat." The step advances on the `channel.updated` event: "Telegram is connected." Expired code: "This link expired. Get a new one." with button "New link". Line under: "This link works for 15 minutes."
+**Telegram.** Button "Open Telegram" (deep link `https://t.me/{bot}?start={link_codes.code}`). On desktop, a QR code of the same link with "Scan with your phone to open Telegram." While waiting: "Waiting for Telegram. Press Start in the chat." The step advances on the `channel.updated` event: "Telegram is connected." Expired code: "This link expired. Get a new one." with button "New link". Line under: "This link works for 10 minutes."
 
 **Email only.** "We'll email your digest to {email}. You can add a phone later in Settings."
 
-**Digest time** (all options): "Send my digest at" hour select, default 7:00 AM, with "{timezone name}" and a "Change" link that opens a timezone select (`users.timezone`). Writes the person's `notification_preferences.digest_hour` **(requested)**.
+**Digest time** (all options): "Send my digest at" hour select, default 7:00 AM, with "{timezone name}" and a "Change" link that opens a timezone select (`users.timezone`). Writes `member_preferences.digest_hour` through `PATCH /me/preferences`.
 
 ### 6.7 Your first searches
 
@@ -654,7 +676,7 @@ Segmented control: Text message (default), Telegram, Email only.
 
 `h1` "Your first searches". Description: "We built these from your profile. Turn one on and Bid Scout starts looking now."
 
-Two or three cards. Each: name ("Janitorial in VA, MD and DC"), a one-line filter summary ("NAICS 561720. Small business and WOSB set-asides. Due in 7 or more days."), "{n} open bids match today", and the top 3 sample notice titles with due dates. Buttons: primary "Turn on" (creates `opportunity_searches`, `is_active=true`; state becomes "On. Bid Scout is scanning now."), secondary "Edit first" (opens the search editor, [§8.7](#87-saved-searches)). The first scan runs within 2 minutes (FR-PRO-5).
+Two or three cards from `POST /profile/suggested-searches`, with sample matches from `POST /saved-searches/preview`. Each: name ("Janitorial in VA, MD and DC"), a one-line filter summary ("NAICS 561720. Small business and WOSB set-asides. Due in 7 or more days."), "{n} open bids match today", and the top 3 sample notice titles with due dates. Buttons: primary "Turn on" (`POST /saved-searches` with `runFirstScan: true`; the card then reads "On. Bid Scout is scanning now."), secondary "Edit first" (opens the search editor, [§8.7](#87-saved-searches)). The first scan runs within 2 minutes (FR-PRO-5).
 
 Footer: primary "Go to Today". If nothing was turned on, a line above it: "You can add searches later from Matches."
 
@@ -700,7 +722,7 @@ The member form of step 5 skips this screen and goes to `/today`.
 7. **Bot news.** Runs finished in the last 24 hours, newest first, up to 6: Bot name, `agent_runs.output_summary`, time, link to the run or record. Empty: "Your Bots haven't finished anything today."
 8. **Expiring documents.** `library_items` with `expires_on` within 30 days (FR-PRO-4): title, kind, "Expires {date}" (needs tone) or "Expired {date}" (problem tone). Link to the library item.
 
-**Data.** One call, `GET /api/app/today` **(requested)**, key `["today"]`.
+**Data.** One call, `GET /today` (API.md §5.4), key `['today']`.
 
 **States.** `{thing}` = "today". If the whole call fails, every section shows nothing and the page shows the region error once.
 
@@ -732,7 +754,7 @@ The Matches area has three sub-tabs under the page title: **Matches**, **Search 
 | First seen | `first_seen_at` | P3 |
 | Actions | Pursue, Save for later, Dismiss | P1 |
 
-Row click opens the match. Opening a match with `status='new'` sets `shown` on the server.
+Row click opens the match. Rows that scroll into view are marked `shown` in batches (`POST /matches/mark-shown`).
 
 **Phone.** Cards: score badge, title (two lines), agency, due, value. Footer buttons Pursue, Save and a menu with Dismiss. No swipe gestures.
 
@@ -742,7 +764,7 @@ Row click opens the match. Opening a match with `status='new'` sets `shown` on t
 - **Dismiss**: opens the dismiss dialog.
 - **Bulk** (row checkboxes): Save for later, Dismiss (one reason for all). Pursue is one at a time.
 
-**Dismiss dialog.** Title "Dismiss match". Radio list (stored as `opportunity_matches.dismiss_reason` keys **(requested)**): Not our kind of work (`not_our_work`), Too far away (`too_far`), Too big for us (`too_big`), Too small (`too_small`), We're not eligible (`not_eligible`), Not enough time (`due_too_soon`), Strong incumbent (`strong_incumbent`), Other (`other`, shows a note field stored in `dismiss_note` **(requested)**). Helper: "Bid Scout will score similar bids from this agency lower for 90 days." Buttons "Dismiss" and "Cancel". Toast: "Dismissed. Similar bids from {agency} will score lower." with Undo (restores `shown`).
+**Dismiss dialog.** Title "Dismiss match". Radio list of the reason codes in API.md §5.7: Not our kind of work (`not_our_work`), Too far away (`too_far`), Too small (`too_small`), Too big for us (`too_big`), We're not eligible (`not_eligible`), Bad timing (`bad_timing`), Other (`other`). An optional "Note" is saved as a note on the match. Helper: "Bid Scout will score similar bids from this agency lower for 90 days." Buttons "Dismiss" and "Cancel". Toast: "Dismissed. Similar bids from {agency} will score lower." with Undo (restores `shown`).
 
 **States.** `{thing}` = "matches".
 
@@ -776,15 +798,15 @@ Row click opens the match. Opening a match with `status='new'` sets `shown` on t
 
 ### 8.3 Notice detail
 
-**Route** `/notices/$opportunityId`. **Release** MVP. **Requirements** FR-DIS-1, FR-DIS-4, FR-DIS-5.
+**Route** `/notices/$source/$sourceId` (`source` is `sam` or `sled`). **Release** MVP. **Requirements** FR-DIS-1, FR-DIS-4, FR-DIS-5.
 
-Same layout as match detail for a notice from Search that isn't in your matches. No score or reasons. Header note: "Not in your matches." Actions: "Pursue" (creates an `opportunity_matches` row with `search_id` null, scored, `status='pursuing'`, plus the bid) and "Save for later" (creates the match with `status='saved'`). If a match exists for this notice, the route redirects to it.
+Same layout as match detail for a search result that isn't one of your matches. Data from `GET /market/notices/:source/:sourceId` (live from the source), so it works before the notice is cached. Shows the search score and reasons from the result. Header note: "Not in your matches." Actions: "Pursue" and "Save for later", both through `POST /matches` with `action` `pursue` or `save`, which caches the notice and creates the match (API.md §5.7). If a match exists (`matchId` on the result), the route redirects to it. Documents link to their source until the notice is cached; then they open in the reader.
 
 ### 8.4 Notice document reader
 
-**Route** `/matches/$matchId/documents/$documentRef` and `/notices/$opportunityId/documents/$documentRef` (`?page=`). **Requirements** FR-DIS-4.
+**Route** `/matches/$matchId/documents/$documentRef` (`?page=`). **Requirements** FR-DIS-4.
 
-Text view of the shared bid text (`market_opportunity_texts` for that `document_ref`, ordered by `chunk_no`, grouped by `page_from`). Toolbar: document title, page number input "Page {n} of {total}", previous and next, "Find in document" (Ctrl F within the reader), "Open original" (source link). Empty: "This document has no readable text. Open the original." `{thing}` = "document".
+Reads the public documents of a matched notice before it's a bid. PDFs render with pdf.js from `GET /market/opportunities/:opportunityId/documents/:documentRef/content`; other files and unreadable PDFs show the shared text by page (`GET /market/opportunities/:opportunityId/text?documentRef=&page=`). Toolbar: document title, "Page {n} of {total}" with a number input, previous and next, "Find in document" (Ctrl F within the reader), "Open original". Empty: "This document has no readable text. Open the original." `{thing}` = "document".
 
 ### 8.5 Search all bids
 
@@ -794,9 +816,9 @@ Text view of the shared bid text (`market_opportunity_texts` for that `document_
 
 **Filters** (map to `opportunity_searches.filters` keys): Keywords (`keywords`, chips), Exclude words (`excludeKeywords`), NAICS (`naics`, with switch "Use my NAICS codes"), PSC (`psc`), Set-aside (`setAsides`), State (`states`), Agency (`agencies`), Value from and to (`valueMinCents`, `valueMaxCents`), Due within (`dueWithinDays`: 7, 14, 30, 60 or a number), Notice type (`noticeTypes`: Solicitation, Combined synopsis and solicitation, Sources sought, Presolicitation, Award), Source (`sources`: Federal, State and local).
 
-Results update 400 ms after the last change. Button "Save this search" opens a dialog with Name (prefilled from keywords and states) and "Save search". Plan limit error: `saved_search_limit` copy.
+Results (`POST /market/search`) update 400 ms after the last change. Button "Save this search" opens a dialog with Name (prefilled from keywords and states) and "Save search". Plan limit error: `saved_search_limit` copy.
 
-**Results table.** Title and agency, Place, Set-aside, Due, Value, Source, and a score badge when the notice is already one of your matches. Count above: "About {n} bids". 25 per page with Previous and Next. p95 under 3 seconds (FR-DIS-1). Row opens the match if one exists, else the notice.
+**Results table.** Score, Title and agency, Place, Set-aside, Due, Value, Source, and a "Matched" or "Bid" tag when the result has a `matchId` or `dealId`. Results are scored against your profile. 25 at a time with "Load more". p95 under 3 seconds (FR-DIS-1). Row opens the match if one exists, else the notice.
 
 **States.** `{thing}` = "results".
 
@@ -804,22 +826,23 @@ Results update 400 ms after the last change. Button "Save this search" opens a d
 |---|---|
 | Before the first search | "Set filters to search open bids from SAM.gov and state and local portals." |
 | No results | "No open bids fit these filters. Try fewer keywords or a wider area." |
-| One source failed | Callout above results: "State and local results are missing right now. Federal results are complete." (or the reverse) |
+| `fallbackInUse` or `notices` in the response | Callout above results with each notice, for example: "State and local results are missing right now. Federal results are complete." (or the reverse) |
 | Search failed | "Couldn't search bids right now. Try again in a minute." |
 
 **Permissions.** Viewers can search but not save or pursue.
 
 ### 8.6 Source health
 
-Shown on the Matches header and the Bids list header (PRD §12). Reads `GET /api/app/market/sources` **(requested)**, key `["market","sources"]`, refreshed every 5 minutes.
+Shown on the Matches header and the Bids list header (PRD §12). Reads `GET /market/sources` (`MarketSourceHealth`, API.md §5.5), key `['market', 'sources']`, refetched every 5 minutes.
 
 | State | Label | Tone |
 |---|---|---|
-| All sources ok | "Sources: all working" | done |
-| One degraded | "{source}: delayed" | needs |
-| One down | "{source}: not updating" | problem |
+| Bid data healthy and current | "Sources: up to date" | done |
+| Fallback in use (Kontract down, SAM.gov direct) | "Using SAM.gov directly" | needs |
+| Federal data older than 6 hours | "Federal bids as of {time}" | needs |
+| No source answering | "Bid sources aren't updating" | problem |
 
-Popover per source: name ("SAM.gov", "State and local"), "Updated {relative time}", and for degraded or down: "New notices from {source} may be late. Bid Scout catches up when it's back."
+Popover: one line per source with "Updated {relative time}" (`samAsOf` for federal), and when the fallback is on: "Bid Scout is reading SAM.gov directly. State and local bids may be missing until the main source is back." State coverage shows as "State and local: {n} states covered."
 
 ### 8.7 Saved searches
 
@@ -833,7 +856,8 @@ Delete dialog: title "Delete saved search", body "Matches it already found stay 
 
 **States.** `{thing}` = "saved searches". Empty: "No saved searches. Create one and Bid Scout will check it every 4 hours on business days." Button "New search". (The interval comes from the `scan_opportunities` job.)
 
-**Permissions.** `recordsWrite` creates and edits. Viewers read.
+**Permissions.** `searches.write` creates and edits. Viewers read.
+
 ## 9. Bids and the bid workspace
 
 ### 9.1 Bids list
@@ -887,8 +911,8 @@ Phone cards: name, agency, stage pill, due, one progress line.
 
 | Condition | Copy | Buttons |
 |---|---|---|
-| `deals.is_ai_drafting_allowed=false` | "This solicitation doesn't allow AI drafting. Bots won't write proposal text for this bid. They still read documents, track deadlines and chase quotes." Followed by a citation chip to the clause. | "This is wrong" (`botsManage`; dialog "Turn AI drafting back on for this bid?", body "Only do this if the solicitation allows AI. Magpie keeps a record of this change.", button "Turn on AI drafting") |
-| A requirement with `category='ai_use'` asks for disclosure | "This solicitation asks you to disclose AI use. Magpie keeps a record of what AI wrote and drafts a disclosure statement." | See disclosure (Drafts tab, Disclosure panel) |
+| `deals.is_ai_drafting_allowed=false` | "This solicitation doesn't allow AI drafting. Bots won't write proposal text for this bid. They still read documents, track deadlines and chase quotes." Followed by a citation chip to the clause. | "This is wrong" (`bids.ai_override`; dialog "Turn AI drafting back on for this bid?", body "Only do this if the solicitation allows AI. Magpie keeps a record of this change.", required field "Why?", button "Turn on AI drafting"; `PUT /deals/:id/ai-drafting`) |
+| `bid_brief.aiUse.rule = 'disclosure_required'` | "This solicitation asks you to disclose AI use. Magpie keeps a record of what AI wrote and drafts a disclosure statement." | See disclosure (Drafts tab, Disclosure panel) |
 | New amendment, Bid Reader running (FR-DIS-7) | "Amendment {title} was posted on {date}. Bid Reader is checking what changed." | none |
 | Amendment processed | "Amendment {title} changed {n} requirements and {list of changed deadlines}." Dismissible. | See changes (Timeline filtered to the amendment) |
 | Award notice, winner unclear (FR-DIS-7) | "An award notice was posted. Magpie couldn't tell who won." | Mark won, Mark lost |
@@ -903,7 +927,7 @@ Phone cards: name, agency, stage pill, due, one progress line.
 
 **Stage menu.** Lists the pipeline's stages in order. Choosing Submitted opens Mark submitted ([§9.11](#911-mark-submitted)). Lost asks for `lost_reason` ("Why did you lose?", optional). No bid asks for `no_bid_reason` (required). Each change writes `record_history` and an activity (FR-CRM-2).
 
-**Data.** `["bids","detail",dealId]` returns the deal, stage, company, counts and flags; `["bids","deadlines",dealId]`.
+**Data.** `GET /deals/:id` (`['deals', id]`) and the bid summary `GET /deals/:id/bid` (`['deals', id, 'bid']`): brief status, decision, AI-use status, requirement counts, next deadline, document read status, price sheet and quote counts. Deadlines from `['deals', id, 'deadlines']`.
 
 **States.** `{thing}` = "bid". Not found: "This bid doesn't exist or was removed." with "Go to Bids". A deal with `kind='sale'` redirects to `/deals/$dealId`.
 
@@ -913,33 +937,33 @@ Phone cards: name, agency, stage pill, due, one progress line.
 
 **Route** `/bids/$dealId/brief`. **Requirements** FR-BID-2, FR-BID-5, FR-BID-6, FR-PRO-6.
 
-The brief is stored in `bid_briefs` **(requested)**: one row per version with `status` and `sections`.
+The brief is `deals.bid_brief` with the `BidBrief` shape (API.md §5.9): `scopeSummary`, `facts[]` (`key`, `label`, `value`, `status`, `citations`), `contractCategory`, `aiUse`, `redFlags`, `version`, `runId`, `updatedAt`. Reading progress comes from the bid summary (`GET /deals/:id/bid`).
 
 **Layout, top to bottom.**
 
-1. **Reading status** while `bid_briefs.status` is `pending` or `reading`: card "Bid Reader is reading {n} documents. The brief usually takes under 10 minutes." One line per document: title, pages, status from `bid_documents.text_status` ("Waiting to read", "Reading", "Read", "Couldn't read"). When it finishes, the card is replaced by the brief and the person gets the run-finished notification.
-2. **Bid or no bid** card (FR-BID-5) from `deals.bid_decision`:
-   - Undecided: "Bid Reader recommends: {Bid or No bid}". Score badge. Reasons, one line each, by factor (Eligibility, Fit, Capacity, Distance, Competition, Price range, Time left), each with citation chips where the reason comes from a document. Buttons: primary "Bid", secondary "No bid", "Decide later".
-   - Choosing against the recommendation shows "Why? (optional). Bid Reader learns from this." before saving.
-   - No bid requires a reason (`no_bid_reason`) and moves the deal to the No bid stage.
+1. **Reading status**, while documents are still being read or the brief isn't written yet: card "Bid Reader is reading {n} documents. The brief usually takes under 10 minutes." One line per document: title, pages, status ("Waiting to read", "Reading", "Read", "Couldn't read"). When the brief arrives (`bid.brief_updated`), the card is replaced and the person gets the run-finished notification.
+2. **Bid or no bid** card (FR-BID-5), from `GET /deals/:id/decision`:
+   - Undecided: "Bid Reader recommends: {Bid or No bid}". Score badge. Reasons, one line each, by factor (Eligibility, Fit, Capacity, Distance, Competition, Price range, Time left), with citation chips where a reason comes from a document. Buttons: primary "Bid", secondary "No bid", "Decide later". Link "Recommend again" (`POST /deals/:id/decision/recommend`).
+   - Choosing against the recommendation shows "Why? (optional). Bid Reader learns from this." before saving (`note`).
+   - No bid requires a reason (`noBidReason`) and moves the deal to the No bid stage.
    - Decided: "You decided to bid on {date}." or "{name} decided not to bid on {date}: {reason}." Link "Change".
-3. **Red flags** (shown first when present, needs tone): each flag one line with citation chips.
-4. **Brief sections**, each a card with an `h2` and fact rows. Each fact is text plus one or more citation chips. A fact with `isUnknown=true` reads "Not found in the documents." in muted text.
+3. **Red flags** (`redFlags`, shown first when present, needs tone): each flag one line with citation chips.
+4. **What the work is**: `scopeSummary` as a paragraph.
+5. **Facts**, grouped into cards. Each fact row shows `label`, `value` and its citation chips. A fact with `status = 'not_found'` reads "Not found in the documents." in muted text, with no chip.
 
-| `sections[].key` | Heading |
+| Card heading | `facts[].key` |
 |---|---|
-| `scope` | What the work is |
-| `place` | Where |
-| `dates` | Key dates (each date links to its deadline) |
-| `contract` | Contract type and length |
-| `evaluation` | How they'll pick a winner |
-| `bonding_insurance` | Bonding and insurance |
-| `wage` | Wage rules |
-| `site_visit` | Site visit |
-| `submission` | How to submit |
-| `ai_use` | AI rules |
+| Where and when | `place`, `dates` (each date links to its deadline) |
+| Contract | `contract_type`, `contract_length`, `set_aside`, `contract_category` |
+| How they'll pick a winner | `evaluation_method` |
+| Bonding and insurance | `bonding`, `insurance` |
+| Wage rules | `wage_determination` |
+| Site visit | `site_visit` |
+| How to submit | `submission_method`, `page_limits` |
+| AI rules | `ai_use`, with `aiUse.rule` as "No AI rules found", "AI drafting is banned", "AI use must be disclosed" or "AI use is limited" |
+| Other | `other` |
 
-5. **Footer:** "Brief by Bid Reader, {date}, from {n} documents." Version select when there's more than one ("Version 2, after amendment 0001"). Buttons "Read again" (re-runs Bid Reader; confirm "Read the documents again? Bid Reader writes a new version of the brief." with "Read again") and "Ask Bid Reader" (Assistant panel with Bid Reader and this bid as context).
+6. **Footer:** "Brief by Bid Reader, {updatedAt}." "Version {version}" when above 1. Buttons "Read again" (`POST /deals/:id/brief/refresh`; confirm "Read the documents again? Bid Reader writes a new version of the brief." with "Read again") and "Ask Bid Reader" (Assistant panel with Bid Reader and this bid as context).
 
 Fact row menu: Copy with source, Ask about this (opens chat with the fact and its citation as context).
 
@@ -948,8 +972,8 @@ Fact row menu: Copy with source, Ask about this (opens chat with the fact and it
 | Case | Copy | Button |
 |---|---|---|
 | No documents | "No documents yet. Upload the solicitation and Bid Reader will write the brief." | Upload documents |
-| `status='failed'` | "Bid Reader couldn't finish the brief. {mapped error}." | Read again |
-| A document couldn't be read | Line in the brief footer: "{title} couldn't be read. It may be a scanned image. Upload a searchable copy." | Upload |
+| Bid Reader failed | "Bid Reader couldn't finish the brief. {mapped error}." | Read again |
+| A document couldn't be read | Footer line: "{title} couldn't be read. It may be a scanned image. Upload a searchable copy." | Upload |
 
 ### 9.4 Requirements tab
 
@@ -957,7 +981,7 @@ Fact row menu: Copy with source, Ask about this (opens chat with the fact and it
 
 **Layout.**
 - Summary: "{met} of {total} met. {gaps} required items aren't answered in any draft." Progress bar of met over total, with the numbers as text.
-- Filters: Category (multi), Required only, Status, Owner, switch "Gaps only" (`is_mandatory` and no link in `draft_requirement_links` **(requested)**), text filter "Filter requirements".
+- Filters: Category (multi), Required only, Status, Owner, switch "Gaps only" (required, and `answeredInDraftIds` empty **(requested)**), text filter "Filter requirements".
 - Table:
 
 | Column | Source | Priority |
@@ -976,7 +1000,7 @@ Category labels: Submission, Technical, Pricing, Eligibility, Certification, Ins
 - Row click (or `?req=`) opens a side sheet: full text, citation preview with the quoted sentence and "Open page {n}", Status, Owner, Response note (`response_note`, saves on blur), Answered in (draft list), "Found by Bid Reader" with a run link or "Added by {name}".
 
 **Actions.**
-- Primary "Add requirement": dialog with Requirement (text), Category, Required (checkbox, checked), and Source: Document (select of `bid_documents`), Page (number), Exact sentence (paste). Helper: "Every requirement needs its source. Paste the sentence from the document." All three source fields are required (`citation` is not null). Also reachable from the document viewer's selection menu with the source prefilled.
+- Primary "Add requirement": dialog with Requirement (text), Category, Required (checkbox, checked), and Source: Document (select of `bid_documents`), Page (number), Exact sentence (paste). Helper: "Every requirement needs its source. Paste the sentence from the document." All three source fields are required (`citation` is not null). If the server can't find the sentence on that page (`validation_failed`): "That sentence isn't on page {page} of {document}. Check the page, or copy the sentence again." Also reachable from the document viewer's selection menu with the source prefilled.
 - Bulk (checkboxes): Set status, Assign owner, Delete. Delete dialog: "Delete {n} requirements? They're removed from the checklist and from draft coverage." Button "Delete requirements".
 - Export menu: "Compliance matrix (Excel)", "CSV".
 
@@ -1001,12 +1025,12 @@ Status changes are optimistic ([§23.4](#234-optimistic-updates)).
 
 Row status: from `files.scan_status` first ("Checking file" while pending, "Removed: failed the security scan" when infected), then `text_status` (Waiting to read, Read, Couldn't read, Can't read this type).
 
-**Upload.** Button "Upload" and drag and drop onto the list. Accepts .pdf, .docx, .xlsx, .png, .jpg, .jpeg, .tif. Max 100 MB per file. Each file shows "Uploading {n}%", then "Checking file", then "Reading". A kind select appears on each new row (default Your upload). Errors: `file_too_large`, `unsupported_file`, `file_infected` copy.
+**Upload.** Button "Upload" and drag and drop onto the list. A second button, "Check for amendments", asks the source for new documents now (`POST /deals/:id/documents/sync`; toast "Checking the notice for changes."). Accepts .pdf, .docx, .xlsx, .png, .jpg, .jpeg, .tif. Max 100 MB per file. Each file shows "Uploading {n}%", then "Checking file", then "Reading". A kind select appears on each new row (default Your upload). Errors: `file_too_large`, `unsupported_file`, `file_infected` copy.
 
 **Viewer.**
 - Toolbar: title, "Page {n} of {total}" with a number input, previous and next, zoom (Fit width, 100%, 125%, 150%), "Find in document" (Ctrl F inside the viewer), "Open original" (`source_url`, or a presigned link to `file_id`), Download.
 - PDFs render with pdf.js (`pdfjs-dist`) with a text layer. Other types render as text by page from `bid_document_chunks` or `market_opportunity_texts`.
-- **Highlight.** `hl` is the cited sentence (URL-encoded, first 200 characters). After the page renders, the viewer finds it in the page's text after normalizing whitespace, line-break hyphens and quote styles, wraps the match in `<mark>` with the highlight token, and scrolls it to the center. Live region: "Highlighted on page {n}." If not found on that page, it searches one page before and after. If still not found, a callout at the top of the page: "Couldn't find the exact sentence on page {n}. It reads: "{quote}"".
+- **Highlight.** `hl` is the cited sentence (URL-encoded, first 200 characters). The viewer asks for the page with `GET /deals/:id/documents/:documentId/pages/:page?highlight={quote}`, which returns the page text and highlight ranges. It maps the ranges onto the pdf.js text layer (whitespace, line-break hyphens and quote styles normalized), wraps them in `<mark>` with the highlight token, and scrolls the first to the center. Live region: "Highlighted on page {n}." If not found on that page, it searches one page before and after. If still not found, a callout at the top of the page: "Couldn't find the exact sentence on page {n}. It reads: "{quote}"".
 - **Selection menu** (writers): select text, then a floating menu: "Add as requirement", "Add as deadline", "Ask about this" (chat with the quote and its citation), "Copy with source".
 
 **States.** `{thing}` = "documents" for the list, "document" for the viewer.
@@ -1028,18 +1052,19 @@ Row status: from `files.scan_status` first ("Checking file" while pending, "Remo
    - Total: `price_sheets.total_cents`.
    - Margin: `margin_bps` as a percent.
    - Past awards: a range bar from the lowest to the highest `award_comparables.award.amountCents` with the median marked and a marker for this total. Text under it: "Inside the range", "{n}% above the range" or "{n}% below the range".
-   - Subcontracted: share of subcontract lines in the total against the FAR 52.219-14 cap for `deals.work_category` **(requested)**: "38% of a 50% cap". Shown only for set-aside bids (FR-PRC-5).
-3. **Warnings** (needs tone callouts, FR-PRC-4, FR-PRC-5):
-   - "Your price is {n}% above similar past awards ({low} to {high})." or "below".
-   - "Margin is {n}%. Your floor is {floor}%." (`tenant_settings.margin_floor_bps` **(requested)**)
-   - "Subcontracted share is {n}%. This set-aside caps {services, general construction, special trades} at {cap}% (FAR 52.219-14)." With a citation chip when the clause is in the documents.
-   - "No wage determination found yet. Estimator asked you about it in chat."
-4. **Wage determination** card (FR-PRC-1): WD number, revision, act ("Service Contract Act" or "Davis-Bacon"), place, citation chip, link "Open on SAM.gov". Rates table from the labor lines' `wage_ref`: occupation code, title, hourly rate, fringe. Not found: "Estimator didn't find a wage determination in the documents." Button "Add WD number" (field, then Estimator looks it up).
-5. **Lines** (`price_lines`), grouped by `kind` with subtotals: Labor, Materials, Equipment, Subcontract, Travel, Overhead, Profit, Other. Columns: Description, Qty, Unit, Unit cost, Total, Source. Source is a chip: wage reference ("WD 2015-4281 rev 23, Janitor"), quote ("Green Lawn quote"), profile ("Your labor rate"), a document citation, or "Entered by {name}". Every line shows its source (FR-PRC-3).
+   - Subcontracted: share of subcontract lines in the total against the FAR 52.219-14 cap for `bid_brief.contractCategory`: "38% of a 50% cap". Shown only for set-aside bids (FR-PRC-5).
+3. **Warnings** from `PriceSheet.warnings` (needs tone callouts, FR-PRC-4, FR-PRC-5):
+   - `outside_comparable_range`: "Your price is {n}% above similar past awards ({low} to {high})." or "below".
+   - `margin_below_floor`: "Margin is {n}%. Your floor is {floor}%." (`settings.marginFloorBps`, default 8%)
+   - `subcontracting_cap`: "Subcontracted share is {n}%. This set-aside caps {services, general construction, special trades} at {cap}% (FAR 52.219-14)." With a citation chip when the clause is in the documents.
+   - `unconfirmed_quote`: "A subcontract line uses a quote nobody has checked. Check its numbers."
+   - No wage determination yet: "No wage determination found yet. Estimator asked you about it in chat."
+4. **Wage determination** card (FR-PRC-1): WD number, revision, act ("Service Contract Act" or "Davis-Bacon"), place, citation chip, link "Open on SAM.gov". Rates table from the labor lines' `wage_ref`: occupation code, title, hourly rate, fringe. Not found: "Estimator didn't find a wage determination in the documents." Button "Find a wage determination" (search with `GET /wage-determinations/search`, then attach the chosen revision with `POST /deals/:id/wage-determinations`).
+5. **Lines** (`price_lines`), grouped by `kind` with subtotals: Labor, Materials, Equipment, Subcontract, Travel, Overhead, Profit, Other. Columns: Description, Qty, Unit, Unit cost, Total, Source. Source is a chip: wage reference ("WD 2015-4281 rev 23, Janitor"), quote ("Green Lawn quote"), profile ("Your labor rate"), a document citation, or "Entered by {name}". Every line shows its source (FR-PRC-3). Overhead and profit lines are percentages (`unit = 'percent'`): Qty shows "{n}%" and Unit cost shows the base they apply to.
    - Draft versions are editable by writers: Description, Qty, Unit, Unit cost inline; "Add line" per group; row menu Delete, Move up, Move down. Drag handles also reorder.
    - Totals: the browser previews totals with `computePriceSheet()` from `packages/shared` while the save is in flight, then shows the server's numbers. The Total tile shows "Updating…" until the server answers. The model never computes totals (FR-PRC-3).
 6. **Assumptions:** `assumptions` textarea, saves on blur.
-7. **Past awards** table (FR-PRC-2): Recipient, Agency, Amount, Awarded, NAICS, Why it's comparable (`relevance_note`), link to the award record (`award.url`).
+7. **Past awards** table (FR-PRC-2): Recipient, Agency, Amount, Awarded, NAICS, Why it's comparable (`relevance_note`), link to the award record (`award.url`). Buttons "Find again" (`POST /deals/:id/comparables/refresh`) and, per row, "Remove".
 
 **Approve version** dialog: title "Approve version {n}", body "It becomes the price in your bid package. The approved version before it is marked replaced.", button "Approve version". After approval the lines are read-only and the header reads "Approved by {name} on {date}".
 
@@ -1057,9 +1082,13 @@ Row status: from `files.scan_status` first ("Checking file" while pending, "Remo
 
 **Route** `/bids/$dealId/quotes` (`?request=`). **Requirements** FR-SUB-1 to FR-SUB-6.
 
+Two ways a quote request goes out, both shown in full before anything is sent (principle 4):
+- **A Bot drafts it.** Sub Finder drafts requests and asks to send them; each arrives as an approval with the email preview.
+- **A person writes it.** "Review and send" opens the same email preview; pressing "Send" is that person's own approval (API.md §5.11, recorded in `audit_log`).
+
 **Layout.** Three sections.
 
-**1. Quote requests** (`h2`). Header button: primary "Request quotes".
+**1. Quote requests** (`h2`). Header buttons: primary "Request quotes", secondary "Ask Sub Finder to request quotes".
 
 | Column | Source |
 |---|---|
@@ -1068,14 +1097,16 @@ Row status: from `files.scan_status` first ("Checking file" while pending, "Remo
 | Scope | `scope`, one line |
 | Due | `due_at` |
 | Status | pill ([§22.14](#2214-status-pills)) |
-| Follow-ups | "{followups_sent} of {max} sent. Next {next_followup_at}" |
+| Follow-ups | "{followups_sent} of {count} sent. Next {next_followup_at}" (`count` from `settings.quoteFollowups`) |
 | Last activity | latest message time |
 
-Row opens a side sheet: scope, attachments, and the thread (`messages` with this `quote_request_id`, outbound and inbound, newest last). Note: "Replies come to this bid and to your inbox." Buttons: "Send follow-up now" (creates an approval), "Mark declined", "Cancel request".
+Row opens a side sheet: scope, attachments, and the thread (outbound and inbound messages, newest last). Note: "Replies come to this bid and to your inbox." Buttons by status: draft: "Review and send", "Edit", "Delete"; sent: "Send follow-up now" (same preview and Send), "Stop follow-ups" (`POST /quote-requests/:id/cancel`).
 
-**Request quotes dialog.** Pick companies (multi-select from Suggested subcontractors and companies with kind `subcontractor`). Suppressed or do-not-contact contacts are disabled with "Unsubscribed. Magpie won't email this address." Scope (prefilled by Sub Finder from the brief), Site details, Quote due (date), Attachments (choose from bid documents). Primary "Draft requests". Sub Finder drafts one email per company, each becomes an approval, and the toast reads: "Sub Finder drafted {n} quote requests. Approve them to send." with "Review". Nothing is sent from this dialog (FR-SUB-2).
+**Request quotes dialog.** Pick companies (multi-select from suggestions below and companies with kind `subcontractor`). Contacts that are suppressed or do-not-contact are disabled with "Unsubscribed. Magpie won't email this address." Scope (prefilled from the brief's scope), Site details, Quote due (date), Attachments (choose from bid documents; recipients get a download link that works until 14 days after the due date). Primary "Create drafts". Creates one `quote_requests` row per company in `draft`; each row then shows "Review and send".
 
-**2. Quotes received** (`h2`).
+**Send dialog** (person's send). The email preview from [§14.3](#143-preview-kinds) with the From line, recipients, subject, body, attachments and footer. Blocks as in the approval card (suppressed recipient, missing postal address). Primary "Send", secondary "Edit" and "Cancel". Toast: "Sent to {company}. Replies will show here." Errors: `conflict` with `suppressed` or `do_not_contact`, `impersonation_blocked`, `validation_failed` (no postal address).
+
+**2. Quotes received** (`h2`). Header button "Add a quote" (enter one by hand; confirmed on creation).
 
 | Column | Source |
 |---|---|
@@ -1085,27 +1116,27 @@ Row opens a side sheet: scope, attachments, and the thread (`messages` with this
 | Scope notes | `scope_notes` |
 | Exclusions | `exclusions` |
 | Numbers | "Checked" (`is_confirmed`) or button "Check numbers" |
-| File | open `file_id` |
+| File | opens the reply or attachment in the document viewer |
 | In price | "In price v{n}" or button "Use in price sheet" |
 
-With two or more quotes, a switch "Compare side by side" (FR-SUB-5) shows one column per company and one row per field. The lowest amount carries the text "Lowest".
+With two or more quotes, a switch "Compare side by side" (FR-SUB-5, `GET /deals/:id/quotes/compare`) shows one column per company and one row per line item and total. The lowest total carries the text "Lowest".
 
-**Check numbers dialog** (FR-SUB-3). Wide dialog. Left: the reply email and attachment, with the parsed values highlighted. Right: Amount, Valid until, Scope notes, Exclusions, prefilled from `quotes.parsed` with citation chips. Text: "Sub Finder read these from the reply. Check them before they go in a price sheet." Buttons: primary "Confirm numbers" (sets `is_confirmed`), secondary "Save without confirming".
+**Check numbers dialog** (FR-SUB-3). Wide dialog. Left: the reply and its attachment (stored as bid documents of kind `attachment`, so the viewer highlights each parsed value). Right: Amount, Valid until, Scope notes, Exclusions, prefilled from `quotes.parsed` with citation chips. Text: "Sub Finder read these from the reply. Check them before they go in a price sheet." Buttons: primary "Confirm numbers" (`POST /quotes/:id/confirm`), secondary "Save without confirming".
 
-**Use in price sheet.** Requires `is_confirmed`, else the `quote_not_confirmed` copy. Adds a `subcontract` line with `quote_id` and its citation to the current draft version. If the newest version is approved: dialog "Version {n} is approved. Add this quote to a new version {n+1}?" with "Create version {n+1}". Toast: "Added {company}'s quote to price version {n}."
+**Use in price sheet.** Needs `is_confirmed`, else the copy "Check this quote's numbers before using it in a price sheet." Adds a `subcontract` line with its citation to the current draft version (`POST /quotes/:id/use`). If the newest version is approved: dialog "Version {n} is approved. Add this quote to a new version {n+1}?" with "Create version {n+1}". Toast: "Added {company}'s quote to price version {n}."
 
-**3. Suggested subcontractors** (`h2`, from `sub_suggestions` **(requested)**). Header button "Find more" (runs Sub Finder). Rows: name, trade, distance ("12 miles from the site"), source ("In your companies", "SAM.gov", "Kontract", "Their website"), contact path ("Email on file", "Phone only", "Website form"). Buttons: "Request a quote" (opens Request quotes with this company), "Add to companies", "Dismiss".
+**3. Find subcontractors** (`h2`, FR-SUB-1). A search, not a stored list (`POST /deals/:id/sub-search`): Trade (text, prefilled from the brief), "Search near the site within" 25, 50, 100 or 200 miles, and an optional name or keyword. Button "Find subcontractors". Results: name, distance ("12 miles from the site"), source ("In your companies", "Kontract", "SAM.gov", "Their website"), contact path ("Email", "Phone", "Website"), and why it fits. Buttons: "Add to companies" (`POST /deals/:id/sub-suggestions/accept`) and "Request a quote" (adds the company, then opens Request quotes with it selected). Places data other than the place id is shown but never saved.
 
 **States.** `{thing}` = "quotes".
 
 | Section | Empty copy |
 |---|---|
-| Quote requests | "No quote requests yet. Pick subcontractors below and Sub Finder drafts the requests for your approval." |
+| Quote requests | "No quote requests yet. Find subcontractors below, then request quotes." |
 | Quotes received | "No quotes yet. Replies to your requests show here within a minute." |
-| Suggestions, running | "Sub Finder is looking for subcontractors near {place}." |
-| Suggestions, none | "Sub Finder found no subcontractors near {place} for {trade}. Add one you know." Button "Add company" |
+| Find subcontractors, searching | "Looking for {trade} near {place}." |
+| Find subcontractors, none | "No {trade} found within {radius} miles of {place}. Try a wider area, or add a company you know." Button "Add company" |
 
-**Permissions.** Viewers read only.
+**Permissions.** Sending needs `outreach.send`. Viewers read only.
 
 ### 9.8 Drafts tab
 
@@ -1132,11 +1163,11 @@ With two or more quotes, a switch "Compare side by side" (FR-SUB-5) shows one co
 - **Page:** TipTap editor, max width 51rem, white page on the background color in light mode. Bot-written claims carry inline citation chips (a TipTap `citation` mark rendering [§22.11](#2211-citation-chip)).
 - **Line above the page** when `is_ai_generated`: "Written by {Bot}. Check every claim before you submit." (muted).
 - **Right panel tabs:**
-  - **Requirements:** requirements this draft answers (from `draft_requirement_links`), each a link that scrolls to its anchor; then "Not answered anywhere": required requirements with no link. Button per gap "Ask Proposal Writer to answer" (hidden when AI drafting is off).
-  - **Versions:** from `draft_versions` **(requested)**: "Version {n}, {author}, {date time}". Actions per row: Compare with current, Restore. Restore dialog: "Restore version {n}? Magpie saves the current text as a new version first." Button "Restore".
-  - **Comments:** threads anchored to selected text (`draft_comments` **(requested)**): author, time, text, replies, "Resolve". Empty: "No comments. Select text and choose Comment."
+  - **Requirements:** requirements this draft answers (`Draft.requirementsAnswered`, from the Proposal Writer's marks in the content), each a link that scrolls to its place; then "Not answered anywhere" (`Draft.gaps`). Button per gap "Ask Proposal Writer to answer" (hidden when AI drafting is off).
+  - **Versions:** (`GET /drafts/:id/versions`): "Version {n}, {author}, {date time}" and its label. Actions per row: Compare with current, Restore. Restore dialog: "Restore version {n}? It becomes a new current version. Nothing is overwritten." Button "Restore".
+  - **Comments:** threads anchored to selected text (`notes` rows on the draft, API.md §5.12): author, time, text, replies, "Resolve". Empty: "No comments. Select text and choose Comment."
   - **Rules** (FR-DRF-3): page limit, fonts, file naming, from the brief's submission facts with citation chips. Live checks: "About {n} pages. The limit is {limit}." (needs tone when over), "Font: {font}. The solicitation asks for {font}."
-  - **Disclosure** (only when disclosure is required): what `drafts.ai_disclosure` records (models, runs, sections) in plain words, and "Insert disclosure statement".
+  - **Disclosure** (only when disclosure is required): what `drafts.ai_disclosure` records (models, runs, sections) in plain words, and "Create disclosure statement" (`POST /deals/:id/ai-disclosure/statement` makes a separate draft from the record, with no AI call).
 - **Read-only cases** (banner above the page):
 
 | Case | Copy | Button |
@@ -1168,11 +1199,11 @@ Title "Mark as submitted". Fields:
 - Confirmation (`confirmation`): "Confirmation number or email subject" (optional).
 - Files: attach the confirmation or the package as sent (`file_links.purpose='submission'`).
 
-Warning line when required requirements are still open: "{n} required items are still open." (does not block). Primary "Mark submitted". Creates the `submissions` row, moves the deal to Submitted, starts the award watch. Toast: "Marked submitted. Magpie will watch for the award notice."
+Warning line when required requirements are still open: "{n} required items are still open." (does not block). Primary "Mark submitted". Calls `POST /deals/:id/submissions`, which records the submission, moves the deal to Submitted and starts the award watch. Toast: "Marked submitted. Magpie will watch for the award notice."
 
 ### 9.12 Export package
 
-Dialog. **Requirements** FR-BID-9, FR-DRF-3.
+Dialog. **Requirements** FR-BID-9, FR-DRF-3, FR-PRC-3.
 
 Title "Export bid package". Checklist:
 - Approved drafts, one checkbox each. Unapproved drafts are listed disabled with "Approve this draft first."
@@ -1180,7 +1211,7 @@ Title "Export bid package". Checklist:
 - Compliance checklist (requirements with status).
 - Attachments: library items picked for this bid (W-9, insurance certificate) and any file the person adds.
 
-Format: "Word and PDF" and "ZIP of everything" (checked). Rule warnings (FR-DRF-3) above the button: "{title} is about {n} pages. The limit is {limit}." File naming line when the solicitation sets one: "Files are named {rule}." Primary "Export". The export runs in the background (`data_exports` with `kind='bid_package'` **(requested)**); the dialog shows "Building your package…" and the person can close it. When ready (`export.updated`), a toast "Your bid package is ready." with "Download", and the download also shows in the dialog.
+Formats: Word, PDF, and "ZIP of everything" (all checked). Rule warnings (FR-DRF-3) above the button: "{title} is about {n} pages. The limit is {limit}." File naming line when the solicitation sets one: "Files are named {rule}." Primary "Export". The export is a background job (`POST /deals/:id/package`); the dialog shows "Building your package…" and can be closed. When ready (`package.ready`), a toast "Your bid package is ready." with "Download", and the files show in the dialog and in "Past packages" (`GET /deals/:id/packages`). Warnings returned with the job show as needs-tone lines. `conflict` (`state`) copy: "Approve a draft or a price sheet first."
 
 ### 9.13 Deadlines
 
@@ -1219,7 +1250,7 @@ Add or edit dialog: Kind, Date and time, Timezone (defaults to the bid's), Label
 
 **Calendar.** Month grid by `due_at` (bids) or `close_date` (sales), from the view's `date_field`. Click a day to see its deals.
 
-**Saved views** (FR-CRM-5). Changing filters, sort, columns or layout on a saved view shows "Unsaved changes" with "Save view" and "Reset". "Save as new view" asks for a name and the checkbox "Share with the team" (`owner_user_id` null; needs `viewsShare`). Views load in under 1 second for 10,000 records.
+**Saved views** (FR-CRM-5). Changing filters, sort, columns or layout on a saved view shows "Unsaved changes" with "Save view" and "Reset". "Save as new view" asks for a name and the checkbox "Share with the team" (`owner_user_id` null). Views load in under 1 second for 10,000 records.
 
 **States.** `{thing}` = "pipeline". Empty bid pipeline: "No bids in {pipeline} yet. Pursue a match or add a bid." Empty sale pipeline: "No deals in {pipeline} yet. Add one to start tracking sales."
 
@@ -1260,15 +1291,15 @@ Record page pattern ([§11.3](#113-record-pages)). Details: name, pipeline, stag
 
 ### 11.2 Import
 
-**Routes** `/contacts/import`, `/companies/import`. **Requirements** FR-CRM-8. Tracked in `imports` **(requested)**.
+**Routes** `/contacts/import`, `/companies/import`, `/deals/import`. **Requirements** FR-CRM-8.
 
 One page with a four-step indicator.
-1. **Upload.** Dropzone for a CSV up to 10 MB or 50,000 rows. Link "Download a sample CSV".
-2. **Match columns.** One row per CSV header: header, a field select (standard fields, custom fields, "Don't import"), and the first three values. Auto-matched by name. Required: a name column (contacts: first or last name or email; companies: name).
-3. **Duplicates.** Contacts: "Match existing contacts by email." Companies: "Match existing companies by UEI, then domain." Choice: Update existing, Skip, Create new anyway.
-4. **Review.** "{new} new, {updates} updates, {errors} rows with errors." Primary "Import".
+1. **Upload.** Dropzone for a CSV (UTF-8, comma or semicolon) up to 20 MB and 50,000 rows. Link "Download a sample CSV". The file uploads, then `POST /imports/preview` returns columns, sample rows, a suggested mapping and the row count.
+2. **Match columns.** One row per CSV column: column name, a field select (standard fields, custom fields, "Don't import"), and the first three values. Prefilled from the suggested mapping. Required: a name (contacts: first or last name or email; companies: name; deals: name and pipeline stage).
+3. **Duplicates.** Contacts: "Match existing contacts by email." Companies: "Match existing companies by UEI, then domain." Choice: "Update the existing record" or "Skip the row". Optional tags to add to every imported row.
+4. **Review.** "{rowCount} rows will be imported." Primary "Import".
 
-Progress (from `import.updated`): "Importing {done} of {total} rows." Done: "Imported {n} contacts. {errors} rows had errors." Buttons "Download error report" (CSV of row number and message, for example "Row 14: the email isn't valid.") and "Open contacts". A 10,000-row import finishes in under 2 minutes.
+The import is a background job (`POST /imports`). Progress from `job.updated`: "Importing {done} of {total} rows." Done: "Imported {created} new and updated {updated}. {failed} rows had errors." Buttons "Download error report" (`errorFileId`, a CSV of row number and message, for example "Row 14: the email isn't valid.") and "Open contacts". A 10,000-row import finishes in under 2 minutes.
 
 ### 11.3 Record pages
 
@@ -1301,7 +1332,7 @@ Progress (from `import.updated`): "Importing {done} of {total} rows." Done: "Imp
 | Files | "No files yet. Drop files here to add them." |
 | History | "No changes yet." |
 
-**Permissions.** Viewers read only. Merge and Archive need `recordsWrite`.
+**Permissions.** Viewers read only. Merge needs `records.bulk`; Archive needs `records.archive`.
 
 ## 12. Tasks
 
@@ -1328,6 +1359,7 @@ Checking done is optimistic; toast "Task done." with Undo.
 | Done | "No finished tasks yet." |
 
 **Permissions.** Viewers read only.
+
 ## 13. Bots, memory and runs
 
 Bot icons (lucide), used wherever a Bot is named: Assistant `MessageSquare`, Bid Scout `Radar`, Bid Reader `BookOpenText`, Estimator `Calculator`, Sub Finder `HardHat`, Proposal Writer `PenLine`, Deadline Keeper `CalendarClock`, Follow-up `Repeat`. The icon sits in a rounded tile with the muted fill. Bots have no faces or avatars.
@@ -1345,8 +1377,8 @@ Bot icons (lucide), used wherever a Bot is named: Assistant `MessageSquare`, Bid
 | Media | Bot icon |
 | Title | `name` |
 | Description | `role_description` (one line) |
-| Facts | "Last run {relative}, {status}" · "{n} runs this month" · "Cost this month {money}" (`costsView` only) · "{n} waiting for you" when approvals are pending |
-| Control | Switch `is_enabled` (`botsManage`) |
+| Facts | "Last run {relative}, {status}" · "{n} runs this month" · "Cost this month {money}" (`bots.view_costs` only) · "{n} waiting for you" when approvals are pending |
+| Control | Switch `is_enabled` (`bots.configure`) |
 
 Row click opens the Bot page. Turning a Bot off asks: title "Turn off {name}", body "Its jobs stop until you turn it back on. Nothing else changes.", button "Turn off" (FR-BOT-1). Turning on needs no confirmation.
 
@@ -1354,7 +1386,7 @@ Row click opens the Bot page. Turning a Bot off asks: title "Turn off {name}", b
 
 **States.** `{thing}` = "Bots" or "runs". Runs empty: "No runs yet. Bots run on their jobs, or when you ask them something."
 
-**Permissions.** Switches disabled without `botsManage`. Cost hidden without `costsView`.
+**Permissions.** Switches disabled without `bots.configure`. Cost hidden without `bots.view_costs`.
 
 ### 13.2 Memory
 
@@ -1364,13 +1396,13 @@ Row click opens the Bot page. Turning a Bot off asks: title "Turn off {name}", b
 
 Rows (`memories`): `text`, kind pill, scope ("About the business" when `user_id` is null, else "About you"), source ("From a chat on {date}" linking to `source_run_id`, or "Added by {name}"), and menu Edit, Delete. Unconfirmed rows (`is_confirmed=false`) show "A Bot learned this. Keep it?" with "Keep" and "Delete".
 
-Add and edit dialog: Memory (text), Kind, About (The business, Only me). Button "Save memory".
+Add and edit dialog: Memory (text), Kind, About (The business, which needs `memory.write`; Only me). Button "Save memory".
 
 Delete dialog: title "Delete this memory", body "Bots stop using it on their next run.", button "Delete memory".
 
 **States.** `{thing}` = "memory". Empty: "Nothing remembered yet. Tell any Bot something like "we don't work in DC" and it shows up here."
 
-**Permissions.** `memoriesManage`: owners and admins edit everything; members add and edit their own and business memories they added; viewers read.
+**Permissions.** `memory.write` (members and up) adds and edits business memories and deletes the ones they added. `memory.manage` (admins and owners) deletes any business memory. Everyone manages their own personal memories. Viewers read business memories.
 
 ### 13.3 Bot page
 
@@ -1384,21 +1416,21 @@ Delete dialog: title "Delete this memory", body "Bots stop using it on their nex
 |---|---|
 | Title | `name` |
 | Description | Schedule in words, from `schedule_cron` in the workspace timezone: "Every 4 hours, Monday to Friday", "Every day at 7:00 AM", "When a deadline is 72, 24 and 2 hours away" (event-driven). Then "Next: {next_run_at}" and "Last: {last_run_at}, {status}" linking to the run. |
-| Pills | "Learning mode" when `is_learning_mode` **(requested)** |
+| Pills | "Learning mode" when `config.learningMode` |
 | Control | Switch `is_enabled` |
 
-Row click opens "Edit job": Schedule (Every {n} hours, Every day at {time}, Every week on {days} at {time}; days as checkboxes), switch "Learning mode" with "The Bot runs and tells you what it would have done. It doesn't change anything.", and kind-specific settings (scan: which saved searches; quote follow-ups: number of follow-ups, default 2, and days between them). Button "Save job". The digest job reads "Uses each person's digest time." with a link to Channels and alerts, and has no time field. Row menu: Run now (toast "{Bot} is running {job}."), Turn off.
+Row click opens "Edit job": Schedule (Every {n} hours, Every day at {time}, Every week on {days} at {time}; days as checkboxes), switch "Learning mode" with "The Bot runs and tells you what it would have done. It doesn't change anything.", and kind-specific settings (scan: which saved searches). Quote follow-up count and spacing are workspace settings (`settings.quoteFollowups`), shown here read-only with a link. Schedules can't run more often than every hour: "Pick an interval of 1 hour or more." Button "Save job". The digest job reads "Uses each person's digest time." with a link to Channels and alerts, and has no time field. Row menu: Run now (toast "{Bot} is running {job}."), Turn off.
 
 Empty: "No jobs. This Bot works when you ask it in chat or from a record."
 
-**Tools** (FR-BOT-3, FR-BOT-4). Two sections from the tool catalog (`GET /api/app/tools`, labels and effects from AGENT_RUNTIME.md) and `tool_policies`:
+**Tools** (FR-BOT-3, FR-BOT-4). Two sections from `GET /bots/:id/tool-policies` (each tool's label, effect, effective policy, counters and promotion suggestion; the catalog is AGENT_RUNTIME §3.3):
 
-1. **Reaches people outside your business** (`effect='external'`). Rows: tool label, one-line description, a lock icon and "Always asks". Section description: "Magpie never sends anything outside your business without your yes." Counter line: "Approved {approved_unchanged + approved_edited} times, {approved_unchanged} unchanged." Not editable by anyone.
-2. **Inside Magpie** (`effect='internal'`). Rows: tool label, description, select with "Do without asking" (`always_allow`), "Ask first" (`needs_approval`), "Off" (`off`). Counter line: "{n} approved in a row without changes." A row without a Bot-specific policy shows "Workspace default" next to the select.
+1. **Reaches people outside your business** (`effect='external'`). Rows: tool label, one-line description, and a select with "Ask first" and "Off". External tools can never run without asking. Section description: "Magpie never sends anything outside your business without your yes." Counter line: "Approved {approved_unchanged + approved_edited} times, {approved_unchanged} unchanged."
+2. **Inside Magpie** (`effect='internal'`). Rows: tool label, description, select with "Do without asking" (`always_allow`), "Ask first" (`needs_approval`), "Off" (`off`). Counter line: "{n} approved in a row without changes." A row without a Bot-specific policy shows "Workspace default" next to the select; the menu item "Use workspace default" removes an override. Tools that can't be promoted (pursuing a match, recording the bid decision) offer only "Ask first" and "Off". Read tools aren't listed: Bots can always read what their person can see.
 
-**Earned autonomy** (FR-BOT-4). When `promotion_suggested_at` is set and the policy is still `needs_approval`, the row shows a callout: "You approved {Bot}'s last 10 {tool label} without changes. Let it do this without asking?" Buttons "Do without asking" and "Keep asking". Shown once per tool per Bot; "Keep asking" hides it for good. Changing any policy to "Do without asking" confirms: title "{Bot} will {tool label} without asking", body "You can change this anytime. Every change is logged.", button "Allow". Each change writes `audit_log`.
+**Earned autonomy** (FR-BOT-4). When `promotion_suggested_at` is set and the policy is still `needs_approval`, the row shows a callout: "You approved {Bot}'s last 10 {tool label} without changes. Let it do this without asking?" Buttons "Do without asking" and "Keep asking" (`POST /bots/:id/tool-policies/:toolKey/promotion`). Shown once per tool per Bot; "Keep asking" hides it for good. Changing any policy to "Do without asking" confirms: title "{Bot} will {tool label} without asking", body "You can change this anytime. Every change is logged.", button "Allow". Each change writes `audit_log`.
 
-**Runs** (FR-BOT-7, FR-BOT-9). Cost summary at the top for `costsView`: "This month: {n} runs, {money}." Table:
+**Runs** (FR-BOT-7, FR-BOT-9). Cost summary at the top for `bots.view_costs`: "This month: {n} runs, {money}." Table:
 
 | Column | Source |
 |---|---|
@@ -1408,16 +1440,16 @@ Empty: "No jobs. This Bot works when you ask it in chat or from a record."
 | Status | pill |
 | Steps | `steps` |
 | Waiting | approvals in `pending` for this run |
-| Cost | `cost_micros` as money (`costsView`) |
+| Cost | `cost_micros` as money (`bots.view_costs`) |
 | Duration | `finished_at` minus `started_at` |
 
 Row opens the run. Empty: "No runs yet. This Bot runs on its jobs, or when you ask it something."
 
-**Settings.** Name (`name`), Instructions (`instructions`, textarea; placeholder "Example: Always add 12% overhead to labor."), AI level (`model_tier`: Fast, Standard, Deep, with "Deep costs more per run."; owners and admins only), switch "On". Button "Save".
+**Settings.** Name (`name`), Instructions (`instructions`, textarea; placeholder "Example: Always add 12% overhead to labor."), AI level (`model_tier`), read-only in v1: Fast, Standard or Deep, switch "On". Button "Save".
 
 **States.** `{thing}` = "Bot", "jobs", "tools" or "runs".
 
-**Permissions.** Without `botsManage`, every control is read-only with the owner-or-admin tooltip, and the Tools tab shows "Only owners and admins can change what Bots may do."
+**Permissions.** Without `bots.configure`, the switches and the Jobs and Settings tabs are read-only with the admin tooltip. Without `bots.autonomy`, the Tools tab shows "Only owners and admins can change what Bots may do."
 
 ### 13.4 Run detail
 
@@ -1438,7 +1470,7 @@ Row opens the run. Empty: "No runs yet. This Bot runs on its jobs, or when you a
 | `failed`, other | "This run failed. {plain message}." |
 | `canceled` | "Stopped by {name} at {time}." |
 
-- **Facts:** Steps, AI calls (`model_calls`), Duration, Cost (`costsView`). Switch "Show details" (owners and admins) reveals tokens in, cached and out.
+- **Facts:** Steps, AI calls (`model_calls`), Duration, Cost (`bots.view_costs`). Switch "Show details" (owners and admins) reveals tokens in, cached and out.
 - **Steps** (`agent_steps` by `seq`), one line each in plain words:
   - `tool_call`: tool label and a short argument summary ("Searched bids: janitorial, VA"). In learning mode: "Would have: {tool label}".
   - `tool_result`: a short result ("Found 6 notices").
@@ -1452,7 +1484,7 @@ Row opens the run. Empty: "No runs yet. This Bot runs on its jobs, or when you a
 
 **States.** `{thing}` = "run". Not found: "This run doesn't exist or was removed."
 
-**Permissions.** Everyone with access sees steps in plain words. Model, tokens, cost and raw arguments need `costsView`.
+**Permissions.** Everyone with access sees steps in plain words. Model, tokens, cost and raw arguments need `bots.view_costs`.
 
 ## 14. Approvals
 
@@ -1465,8 +1497,8 @@ Row opens the run. Empty: "No runs yet. This Bot runs on its jobs, or when you a
 **Layout.** Desktop: list (26rem) on the left, the selected approval on the right; selecting updates the URL to `/approvals/$approvalId`. Phone: the list, then the approval as its own page.
 
 - `h1` "Approvals". Tabs: Waiting ({n}), Decided.
-- Filters: Effect (All, Outside your business, Inside Magpie), Bot, For (Me, Everyone; Everyone needs `approvalsDecideAny`), Bid or record.
-- Managed plan line (plan feature `managedReview`): "{n} more are with your Magpie reviewer." These are approvals with `review_stage='staff'` for me (FR-OPS-5).
+- Filters: Effect (All, Outside your business, Inside Magpie), Bot, For (Me, Everyone; Everyone needs `approvals.decide_any`), Bid or record.
+- Managed plan line (plan feature `managedReview`): "On your plan, a Magpie reviewer checks outside messages before they reach you." Staff-stage approvals aren't listed until the reviewer sends them on (FR-OPS-5).
 
 **List item.** Short code pill ("A7"), `title`, Bot name, effect pill, related record name, "Waiting {age}", expiry ("Expires in {relative}"; needs tone under 24 hours; "Expires at the deadline, {date time}" for deadline-bound ones). Oldest first (FR-APR-3).
 
@@ -1489,7 +1521,7 @@ When the list empties after a decision, the detail pane shows the Waiting empty 
 
 ### 14.2 Approval detail
 
-**Route** `/approvals/$approvalId`. Renders the full approval card ([§22.12](#2212-approval-card)) with the preview for its kind ([§14.3](#143-preview-kinds)). After a decision on desktop, the next waiting item opens.
+**Route** `/approvals/$approvalId`. Renders the full approval card ([§22.12](#2212-approval-card)) with the preview for its kind ([§14.3](#143-preview-kinds)). Decisions call `POST /approvals/:id/decision` with `action` `approve`, `edit_and_approve` (with `editedArgs`) or `skip` (with an optional `note`). After a decision on desktop, the next waiting item opens.
 
 **Toasts after a decision:**
 
@@ -1504,78 +1536,63 @@ When the list empties after a decision, the detail pane shows the Waiting empty 
 
 No Undo: the run resumes within 5 seconds (FR-APR-2).
 
-**Earned autonomy.** When the decision response carries `promotionSuggested` and the person has `botsManage`, the decided card shows the suggestion callout from [§13.3](#133-bot-page).
+**Earned autonomy.** When a `tool_policy.promotion_suggested` event arrives for this Bot and tool and the person has `bots.autonomy`, the decided card shows the suggestion callout from [§13.3](#133-bot-page).
 
-**Decided card footer** (FR-APR-5): "Approved by {name} {via} on {date} at {time}." "Approved with changes by {name}…" (with "See changes": a before and after of `args` and `edited_args`). "Skipped by {name}…". "Expired on {date}. The Bot went on without it." (link to the run, FR-APR-4). "Canceled because {reason}."
+**Decided card footer** (FR-APR-5): "Approved by {name} {via} on {date} at {time}." "Approved with changes by {name}…" (with "See changes": a before and after of `args` and `edited_args`). "Skipped by {name}…". "Sent back to the Bot by your Magpie reviewer: {review_notes}" (when `decided_by_type = 'staff'`). "Expired on {date}. The Bot went on without it." (link to the run, FR-APR-4). "Canceled because {reason}."
 
 ### 14.3 Preview kinds
 
-`approvals.preview` is validated by the zod schema `ApprovalPreview` in `packages/shared` **(requested shape)**. Every kind shares `why: string` (shown as "Why: {why}") and `sources: Citation[]` (shown as citation chips under "Sources"). Edits produce `edited_args`.
+`approvals.preview` has the shapes in AGENT_RUNTIME §8.2. Every kind carries `why` (shown as "Why: {why}"), `sources` (`Citation` or `SourceCitation`, shown as citation chips under "Sources") and `afterReadingUntrusted`. When `afterReadingUntrusted` is true, the card shows a needs-tone line: "This Bot read outside documents before asking. Check the details." Edits produce `edited_args`, which the server validates and re-renders into `preview`.
 
-**email**
+**email** (`quotes.send_request`, `quotes.send_followup`, `email.send`)
 
-| Field | Shape |
+| Field | Shown as |
 |---|---|
-| `from` | `{ name, address, via: 'gmail' \| 'graph' \| 'postmark' }` |
-| `to`, `cc` | `[{ name, address, isSuppressed }]` |
-| `subject` | string |
-| `bodyHtml`, `bodyText` | sanitized HTML and plain text |
-| `attachments` | `[{ fileId, filename, sizeBytes }]` |
-| `footer` | `{ postalAddress, hasUnsubscribe }` |
-| `followUp` | `{ number, of }` or null |
-| `quoteRequestId`, `dealId` | uuid or null |
+| `from` `{ name, address, via }` | "From: {name} <{address}>" plus "(your Gmail)", "(your Outlook)" or "(sent by Magpie with your name)" for `gmail`, `graph`, `postmark` |
+| `to`, `cc` `[{ name, address, contactId }]` | Recipient chips linking to the contact |
+| `replyTo` | Not shown as an address. Note: "Replies come back to this bid and to your inbox." |
+| `subject` | Subject line |
+| `bodyText` | The body in a bordered letter area, line breaks kept, "Show all" past 24rem |
+| `attachments` `[{ fileId, filename, sizeBytes }]` | Chips that open the file |
+| `footer` `{ postalAddress, hasUnsubscribe }` or null | Muted: "Added to every outreach email: {postalAddress}. Unsubscribe link." |
+| `record` `{ recordType, recordId, label }` | Related record link in the card header |
 
-Render: "From: {name} <{address}>" with "(your Gmail)", "(your Outlook)" or "(sent by Magpie with your name)". To, Cc, Subject. Body in a bordered letter area with "Show all" past 24rem. Attachment chips (open on click). Footer in muted text: "Added to every outreach email: {postalAddress}. Unsubscribe link." Note: "Replies come back to this bid and to your inbox." Follow-ups show "Follow-up {number} of {of}".
+Blocks (Approve disabled): a recipient that is suppressed or do-not-contact ("{address} unsubscribed or bounced. Remove them to send."), and a missing postal address ("Add your postal address in Settings before sending outreach." with "Open settings").
 
-Blocks (Approve disabled):
-- A recipient with `isSuppressed`: "{address} unsubscribed or bounced. Remove them to send."
-- Missing postal address: "Add your postal address in Settings before sending outreach." Button "Open settings".
+Edit form: To and Cc (contact pickers limited to allowed contacts; suppressed addresses refused inline), Subject, Body (plain textarea, since the preview is plain text), Attachments (remove, or add from bid documents). Fixed fields such as the quote request can't change.
 
-Edit form: To and Cc (chips; adding a suppressed address shows the block inline), Subject, Body (TipTap, simple marks only), Attachments (remove, or add from bid documents).
+**sms.** No v1 tool produces it (AGENT_RUNTIME §8.2). The renderer exists for later: a phone-style bubble, "To {name}", and "{segments} texts".
 
-**sms**
+**record_change** (`crm.create_record`, `crm.update_record`, `crm.add_note`, `crm.create_task`, `crm.update_task`, `bids.update_requirement`, `matching.update_match`, `bids.record_decision` for a bid decision)
 
-| Field | Shape |
+| Field | Shown as |
 |---|---|
-| `to` | `{ userId, name, e164 }` (only people in this workspace, PRD §7) |
-| `body` | string |
-| `segments` | number |
+| `record` `{ recordType, recordId, label }` | Heading "Create {record type label}" when `create`, else "Update {label}", linking to the record |
+| `create` | Chooses the table form |
+| `changes` `[{ field, label, before, after }]` | Table Field, Now, After. Create: Field, Value. Changed cells carry the text "Changed" for screen readers and the brand-soft fill. |
 
-Render: a phone-style bubble, "To {name}, {formatted number}", and "{chars} characters, {segments} texts". Edit: textarea with a live counter; when a character forces UCS-2: "Curly quotes and some symbols make this text longer."
+Edit: each After cell becomes the editor for that field's type.
 
-**record_change**
+**stage_change** (`crm.move_stage`, `bids.record_decision` for no bid)
 
-| Field | Shape |
+| Field | Shown as |
 |---|---|
-| `operation` | `'create' \| 'update' \| 'archive'` |
-| `recordType`, `recordId` | as DATA_MODEL polymorphic links; `recordId` null on create |
-| `recordLabel` | string |
-| `changes` | `[{ field, label, before, after, fieldType }]` |
+| `deal` `{ dealId, name }` | Deal link |
+| `from`, `to` `{ stageId, name, category }` | "{from} pill, arrow icon, {to} pill"; the arrow's accessible name is "to" |
+| `reason` | "Reason: {reason}" |
 
-Render: heading "Create {record type label}", "Update {recordLabel}" or "Archive {recordLabel}", linking to the record. Table Field, Now, After (create: Field, Value). Changed cells carry the text "Changed" for screen readers and a brand-soft background. Edit: each After cell becomes the editor for its `fieldType`.
+Edit: To stage (open stages only) and Reason.
 
-**stage_change**
+**document** (drafts the Bot wants approved or sent)
 
-| Field | Shape |
+| Field | Shown as |
 |---|---|
-| `dealId`, `dealName`, `pipelineName` | |
-| `from`, `to` | `{ stageId, name, category }` |
-| `reason` | string or null |
-| `effects` | string[] |
+| `draftId`, `title`, `docKind` | Title, kind label, "Open full document" when `draftId` is set (draft editor with `?approval=`) |
+| `excerpt` | First lines of the text |
+| `changeSummary` | "What changed: {changeSummary}" |
+| `coverage` `{ answers, gaps, unsupportedClaims }` | "Answers {answers} requirements. {gaps} gaps." Unsupported claims in problem tone: "{n} claims have no source in your profile, past performance or library." |
 
-Render: deal name, "{from} pill, arrow icon, {to} pill" (the arrow has the accessible name "to"), reason, and effects as bullets ("This starts the award watch."). Edit: To stage select and Reason.
-
-**document**
-
-| Field | Shape |
-|---|---|
-| `draftId`, `title`, `draftKind`, `version` | |
-| `pageEstimate` | number |
-| `excerpt` | first 600 characters of `content_text` |
-| `isAiGenerated`, `disclosureRequired` | boolean |
-| `files` | `[{ fileId, filename }]` for packages |
-
-Render: title, kind, "Version {n}", "About {n} pages", the excerpt, "AI-written" label when true, and "Open full document" (opens the draft editor with `?approval=`). Edit: "Edit in editor" goes to the draft editor; approving afterwards uses the newest version, recorded in `edited_args.version`.
+Edit: "Edit in editor" opens the draft editor; approving afterwards uses the newest version.
 
 ## 15. Chat
 
@@ -1614,7 +1631,7 @@ Render: title, kind, "Version {n}", "About {n} pages", the excerpt, "AI-written"
 
 Desktop: thread list (19rem) on the left, conversation (max 47.5rem) in the center. Phone: the list, then the thread. Telegram and text threads appear with a "From Telegram" or "From texts" label; the web composer can continue them on the web. Empty list: "No chats yet. Ask the Assistant anything to start one." Button "New chat". `{thing}` = "chats" or "chat".
 
-**Data.** Thread list `["threads","list"]`. Messages load from `["threads","messages",threadId]` as the initial state of AI SDK `useChat`, which streams from `POST /api/app/threads/$threadId/messages` ([§23.1](#231-structure-and-rules)).
+**Data.** Thread list `['threads', {params}]`. Messages load from `['threads', id, 'messages']` as the initial state of AI SDK `useChat`, which streams from `POST /threads/$threadId/chat` ([§23.1](#231-structure-and-rules)). New threads: `POST /threads` with the Bot and, for "Ask a Bot", the record.
 
 ## 16. Notifications
 
@@ -1638,6 +1655,7 @@ Desktop: thread list (19rem) on the left, conversation (max 47.5rem) in the cent
 **States.** `{thing}` = "notifications". Empty: "No notifications yet." Unread filter empty: "No unread notifications."
 
 Live: `notification.created` adds rows and the bell dot. An arriving approval notification also shows a toast when the person isn't on Approvals: "{Bot} needs your yes: {title}" with "Review".
+
 ## 17. Settings
 
 **Frame.** `/settings/*`. Desktop: a sub-navigation column (14rem) and the page. Phone: `/settings` is a list of the pages below; each opens as its own page. Pages use the settings layout: `h1`, a description, then sections (`h2`) of rows inside one bordered card per section. Row kinds, as in the current product:
@@ -1651,21 +1669,21 @@ Content width 48rem (`max-w-3xl`). Tables (Audit log, People, API keys, Usage) u
 |---|---|---|---|
 | You | Your account | `/settings/account` | everyone |
 | You | Channels and alerts | `/settings/channels` | everyone |
-| You | API keys (v1) | `/settings/api-keys` | everyone (`apiKeysCreate`) |
-| Your business | Company profile | `/settings/company` | everyone; edit `profileManage` |
-| Your business | Past performance | `/settings/past-performance` | everyone; edit `recordsWrite` |
-| Your business | Library | `/settings/library` | everyone; edit `recordsWrite` |
-| Workspace | General | `/settings/workspace` | `settingsManage` |
-| Workspace | People | `/settings/people` | everyone; edit `membersManage` |
-| Workspace | Pipelines | `/settings/pipelines` | `settingsManage` |
-| Workspace | Fields and tags | `/settings/fields` | `settingsManage` |
-| Workspace | Connections | `/settings/connections` | everyone (own mailbox); workspace services `settingsManage` |
-| Workspace | Billing | `/settings/billing` | `billingManage` |
-| Workspace | Usage | `/settings/usage` | `billingManage` |
-| Workspace | Automations (v1) | `/settings/automations` | `automationsManage` |
-| Workspace | Webhooks (v1) | `/settings/webhooks` | `automationsManage` |
-| Owner | Audit log | `/settings/audit` | `auditView` |
-| Owner | Data and deletion | `/settings/data` | `dataExport` |
+| Workspace | API keys (v1) | `/settings/api-keys` | `api_keys.manage` |
+| Your business | Company profile | `/settings/company` | everyone; edit `profile.write` |
+| Your business | Past performance | `/settings/past-performance` | everyone; edit `profile.write` |
+| Your business | Library | `/settings/library` | everyone; edit `profile.write` |
+| Workspace | General | `/settings/workspace` | `settings.manage` |
+| Workspace | People | `/settings/people` | everyone; edit `members.manage` |
+| Workspace | Pipelines | `/settings/pipelines` | `schema.manage` |
+| Workspace | Fields and tags | `/settings/fields` | `schema.manage` (Tags tab: `records.write`) |
+| Workspace | Connections | `/settings/connections` | everyone (own mailbox); workspace services `connections.manage` |
+| Workspace | Billing | `/settings/billing` | `billing.manage` |
+| Workspace | Usage | `/settings/usage` | `usage.view` |
+| Workspace | Automations (v1) | `/settings/automations` | `automations.manage` |
+| Workspace | Webhooks (v1) | `/settings/webhooks` | `webhooks.manage` |
+| Owner | Audit log | `/settings/audit` | `audit.read` |
+| Owner | Data and deletion | `/settings/data` | `workspace.export` |
 
 Every change on a Workspace or Owner page writes `audit_log` (FR-SET-1).
 
@@ -1677,7 +1695,7 @@ Every change on a Workspace or Owner page writes `audit_log` (FR-SET-1).
 |---|---|
 | Profile | Name (`users.name`), Email (change sends a confirmation to the new address: "We sent a link to {email}. Your email changes when you open it."), Photo (`users.image`), Timezone (`users.timezone`, searchable select), Language (read-only "English (US)" until more locales ship; `users.locale` **(requested)**) |
 | Sign-in | Password ("Change password" dialog: Current password, New password; Google-only people see "Set a password"), Google and Microsoft sign-in (Connected or Connect) |
-| Calendar | "Add your bid deadlines to your calendar." Buttons "Copy calendar link" and "Reset link" (`calendar_feeds` **(requested)**). Reset dialog: "Reset your calendar link? Calendars using the old link stop updating." |
+| Calendar | "Add your bid deadlines to your calendar." With no feed: "Create calendar link". With one: "Copy link", "Reset link" and "Turn off" (`/calendar-feed`; the feed is an `api_keys` row with scope `calendar:read`, API.md §5.24). Reset dialog: "Reset your calendar link? Calendars using the old link stop updating." Turn off dialog: "Turn off your calendar link? Calendars using it stop updating." |
 | Preferences | Theme (System, Light, Dark; stored in `localStorage`), switch "Single-key shortcuts" ("Keys like A and S work in lists. Turn off if they get in your way.") |
 | Devices | Sessions: device and browser ("Chrome on Mac"), "Last active {relative}", "This device" tag. Button "Sign out of all devices": dialog "Sign out of all devices?", body "You'll need to sign in again everywhere, including here.", button "Sign out everywhere" (FR-ACC-6) |
 
@@ -1687,29 +1705,19 @@ Every change on a Workspace or Owner page writes `audit_log` (FR-SET-1).
 
 **Route** `/settings/channels`. **Requirements** FR-CH-1, FR-CH-2, FR-CH-3, FR-CH-5, FR-CH-8, FR-BIL-4.
 
-Per person. Preferences live in `notification_preferences` **(requested)**; bindings in `channel_bindings`.
+Per person, per workspace. Bindings from `GET /channels`; preferences from `GET /me/preferences` (`member_preferences`, API.md §15).
 
 | Section | Rows |
 |---|---|
-| Text messages (SMS) | Number and status: "Connected", "Off. You replied STOP." (`is_enabled=false`; text "Reply START from your phone, or connect again here."), "Not verified". Buttons: Connect a number, Change number, Disconnect. The verify flow is the one in [§6.6](#66-step-5-phone). Disconnect dialog: "Disconnect {number}? Magpie stops texting it. Your digest comes by email." |
-| Telegram | Status "Connected as {label}" (`channel_bindings.label` **(requested)**). Buttons: Connect Telegram (deep link and QR code, [§6.6](#66-step-5-phone)), Disconnect. |
-| Notifications on this device | Switch "Get notifications in this browser" (asks the browser, [§25.4](#254-web-push)). List of other devices with web push: label, added date, Remove. |
-| Email | Read-only row: "Always on. Sent to {email}." |
-| Morning digest | Switch "Send my morning digest" (`is_digest_enabled`). Time (`digest_hour`; default is the workspace's). Days (`digest_days`: Weekdays or Every day). Send by: checkboxes Text, Telegram, Email (`channels.digest`). |
-| What goes where | Table, one row per kind: Approvals, Deadline reminders, Quotes received, Bot runs finished, Usage and billing alerts. Columns Text, Telegram, Push, Email, In app. In app is always checked and disabled. Saves on change. |
-| Quiet hours | "Hold texts from {start} to {end}." Two time selects; default from the workspace (`quiet_hours`). Note: "Deadline reminders due within 2 hours still come through." (FR-CH-5) |
+| Text messages (SMS) | Number and status: "Connected"; "Off. You replied STOP." (`disabled_reason = 'stop'`, with "Reply START from your phone to turn texts back on."); "Off. Texts to this number couldn't be delivered." (`undeliverable`); "Off" (`user`). Buttons: Connect a number, Change number, Send a test (`POST /channels/:id/test`; toast "Test sent."), Turn off or Turn on, Disconnect. The verify flow is the one in [§6.6](#66-step-5-phone). Disconnect dialog: "Disconnect {number}? Magpie stops texting it. Your digest comes by email." |
+| Telegram | "Connected" or "Off. Magpie was blocked in Telegram." (`blocked`). Buttons: Connect Telegram (deep link and QR code, [§6.6](#66-step-5-phone)), Send a test, Disconnect. |
+| Notifications on this device | Switch "Get notifications in this browser" (asks the browser, [§25.4](#254-web-push)). Other browsers with notifications on: "Added {date}" and Remove. |
+| Email | Read-only: "Always on for account email. Sent to {email}." |
+| Morning digest | Time (`digest_hour`; "Same as the workspace, {time}" when null). Send by: checkboxes Text, Telegram, Email (`digest_channels`). With none checked: "No digest. Today in the app still shows the same things." |
+| Alerts | "Send approvals, deadline reminders, quotes and usage alerts by": checkboxes In app (always on, disabled), Push, Email, Text, Telegram (`alert_channels`). Approvals go to one phone channel: Telegram when connected, else text. Email is added for approvals when no phone channel is on, and once more if an approval is still waiting after 4 hours (AGENT_RUNTIME §8.4). Run-finished notices stay in the app. |
+| Quiet hours | "Hold texts and notifications from {start} to {end}." Two time selects; "Same as the workspace" when null (`quiet_hours`). Note: "Reminders for deadlines and approvals due within 2 hours still come through." (FR-CH-5) |
 
-Defaults for "What goes where":
-
-| Kind | Default channels |
-|---|---|
-| Approvals | Text or Telegram (whichever is connected), Push, In app; Email when neither phone channel is connected |
-| Deadline reminders | Text or Telegram, Email, In app |
-| Quotes received | Push, Email, In app |
-| Bot runs finished | In app |
-| Usage and billing alerts | Email, In app; Text at 100% and 120% |
-
-`{thing}` = "your channels".
+Changes save on change with a 2-second "Saved" line. `{thing}` = "your channels".
 
 ### 17.3 Company profile
 
@@ -1759,11 +1767,13 @@ Tabs by `library_items.kind`: All, Boilerplate, Resumes, Certificates, Insurance
 | | Timezone | summary | `tenants.timezone` |
 | Messages | Default digest time | summary | `tenant_settings.digest_hour` ("People can change their own in Channels and alerts.") |
 | | Quiet hours | summary | `quiet_hours` |
-| Outreach | Postal address | summary | `outreach_footer` ("Every outreach email includes this address and an unsubscribe link. US law requires it.") |
+| Outreach | Postal address | summary | `settings.postalAddress` (line 1, line 2, city, state, ZIP): "Every outreach email includes this address and an unsubscribe link. US law requires it. Outreach can't send without it." |
+| | Footer text | summary | `outreach_footer`: "Extra text at the end of outreach emails, like your phone number." |
+| | Quote follow-ups | summary | `settings.quoteFollowups`: "Follow up {count} times, at least {hours} hours apart." (0 to 3 times, 24 to 168 hours) |
 | Approvals | Approvals expire after | summary | `approval_expiry_hours`: 1, 2, 3, 5 or 7 days ("Deadline-bound approvals expire at the deadline.") |
 | AI | AI drafting | switch | `ai_drafting_allowed`. On: "Bots can draft proposal text. Bids whose solicitation bans AI stay off." Off: "Bots don't draft proposal text for any bid." |
 | | AI providers | summary | `model_policy.excludedProviders`. Dialog: switches Anthropic, OpenAI, Google. "Bots skip providers you turn off. If every provider a task needs is off, that task stops." Warning when a tier would be left empty: "With these settings, {feature} can't run." |
-| Pricing | Margin floor | summary | `tenant_settings.margin_floor_bps` **(requested)**: "Estimator warns when a price sheet's margin is below this." |
+| Pricing | Margin floor | summary | `settings.marginFloorBps`, default 8%: "Estimator warns when a price sheet's margin is below this." |
 
 `{thing}` = "workspace settings".
 
@@ -1773,7 +1783,7 @@ Tabs by `library_items.kind`: All, Boilerplate, Resumes, Certificates, Insurance
 
 Seat line: "{n} of {limit} people on your plan."
 
-**Members table:** Name, Email, Role (select; the owner row shows "Owner" and no select), Title (`memberships.title`), Joined. Row menu: Change role, Remove from workspace. Remove dialog: title "Remove {name}", body "They lose access to {workspace} right away. Their records stay.", button "Remove".
+**Members table:** Name, Email, Role (select; the owner row shows "Owner" and no select), Title (`memberships.title`), Joined. Row menu: Change role, Remove from workspace. Remove dialog: title "Remove {name}", body "They lose access to {workspace} right away. Their records stay.", button "Remove". Removing someone also revokes their API keys. Admins can change any role except the owner's (SECURITY.md §4.3).
 
 **Invitations table:** Email, Role, Invited by, Expires, Status. Row menu: Resend, Cancel invite.
 
@@ -1802,7 +1812,7 @@ One card per pipeline (`pipelines`): name, kind (Bids or Sales), "Default" tag, 
 Tabs: Companies, Contacts, Deals, Tags.
 
 **Fields table** (`field_definitions`): Label, Key, Type, Required, Bots fill (Off, Suggest, Auto), with drag and Move up and down for `position`. Primary "New field". Dialog:
-- Label; Key (generated from the label, editable until saved).
+- Label; Key (generated from the label, editable until saved; key, object and type can't change later).
 - Type: Text, Long text, Number, Money, Date, Date and time, Yes or no, Select, Multi-select, Email, Phone, Link, Rating, Record link.
 - Options for Select and Multi-select (choices editor) and Record link (target: Company, Contact, Deal).
 - Switch "Required".
@@ -1824,16 +1834,16 @@ Row menu: Edit, Archive ("Archive {label}? It's hidden from records. Values are 
 | Gmail (`google`) | "Connected as {account_label}" (done), "Needs reconnecting" (needs; `status` expired or error, with `last_error` mapped to "Google stopped Magpie's access."), "Not connected" |
 | Outlook (`microsoft`) | same |
 
-Description: "Quote requests go out from Magpie's address with your name, and replies come back to the bid. Connect your mailbox to send from your own address." Buttons: Connect, Reconnect, Disconnect. Disconnect dialog: "Disconnect {provider}? Outreach will go out from Magpie's address with your name. Magpie deletes its access to your mailbox." Button "Disconnect".
+Description: "Quote requests go out from Magpie's address with your name, and replies come back to the bid. Connect your mailbox to send from your own address." Buttons: Connect, Reconnect, Disconnect. Disconnect dialog: "Disconnect {provider}? Outreach will go out from Magpie's address with your name. Magpie deletes its access to your mailbox." Button "Disconnect". Back from Google or Microsoft, a toast reads "Gmail is connected." or "Couldn't connect Gmail. Try again." (from `?connected=` or `?error=`).
 
-**Workspace services** (`settingsManage`; workspace-wide connections, `user_id` null):
+**Workspace services** (`connections.manage`; workspace-wide connections, `user_id` null):
 
 | Service | Provider | Purpose |
 |---|---|---|
 | Email checks | MillionVerifier (`millionverifier`) | `verification` |
 | Contact lookup | Hunter (`hunter`), LeadMagic (`leadmagic`) | `enrichment` |
 
-Rows: "Using your API key, added {date}" or "Not set up". Buttons: "Add API key" (dialog with a password-type field: "Magpie stores the key encrypted and never shows it again."; button "Save key"), "Remove key".
+Rows: "Using your API key, added {date}" or "Not set up". Buttons: "Add API key" (dialog with a password-type field: "Magpie stores the key encrypted and never shows it again."; button "Save key"; Magpie tests the key first, and a refused key shows "{provider} didn't accept this key. Check it and try again."), "Remove key".
 
 `{thing}` = "connections".
 
@@ -1852,12 +1862,12 @@ Rows: "Using your API key, added {date}" or "Not set up". Buttons: "Add API key"
 
 **Plans** (section or dialog from "Change plan"). Columns from `plans` where `is_public`: name, price, people, Bot runs, document pages, saved searches, texts, notes. "Current plan" tag. Button per other plan: "Switch to {name}". Copy under the table: "Month to month. Cancel in the app anytime."
 
-**Run packs** (FR-BIL-5). "Buy a run pack" dialog: "Buy a run pack for $150? It adds 1,000 Bot runs and 2,500 document pages to this period. Your card on file is charged." Button "Buy run pack" ("Buying…"). Success toast: "Run pack added. You have {n} Bot runs left this period." Packs bought this period are listed under the plan card.
+**Run packs** (FR-BIL-5). "Buy run packs" dialog: "Each run pack is $150 and adds 1,000 Bot runs and 2,500 document pages to this period." Quantity 1 to 5. Button "Continue to payment" (Stripe Checkout). Back in Magpie: toast "Run pack added. You have {n} Bot runs left this period." Packs bought this period are listed under the plan card.
 
-**Cancel** (`billingCancel`, FR-BIL-7). Link "Cancel plan" opens `/settings/billing/cancel`, one screen:
+**Cancel** (`billing.cancel`, owner only, FR-BIL-7). Link "Cancel plan" opens `/settings/billing/cancel`, one screen:
 - `h1` "Cancel your plan"
 - "You keep full access until {current_period_end}. After that your workspace is read-only, and your data is kept for {retention_days} days. You can export everything anytime." (Days from BILLING.md.)
-- Optional reason, radio: Too expensive, Not finding enough bids, Missing something I need, Switching to another tool, Other (text).
+- Optional reason, radio (`feedback`): Too expensive (`too_expensive`), Missing something I need (`missing_features`), Switched to another tool (`switched_service`), Not using it enough (`unused`), Other (`other`, with a text field).
 - Buttons: destructive "Cancel plan", secondary "Keep my plan".
 - No discounts, no extra steps. After: banner on Billing "Your plan ends on {date}." with "Resume plan".
 
@@ -1879,7 +1889,7 @@ Period select (current, previous periods). One meter per metered entitlement (ke
 
 Each meter: a bar with marks at 80%, 100% and 120%, and a state line: "Bots keep working past 100%." or at 120% "Scheduled jobs are paused until {reset date} or a run pack."
 
-**Cost per Bot** (`costsView`): table Bot, Runs, Cost this period. **Runs by day:** bar chart with a table alternative ("Show as table").
+**Cost per Bot** (`bots.view_costs`): table Bot, Runs, Cost this period. **Runs by day:** bar chart with a table alternative ("Show as table").
 
 `{thing}` = "usage".
 
@@ -1887,9 +1897,9 @@ Each meter: a bar with marks at 80%, 100% and 120%, and a state line: "Bots keep
 
 **Route** `/settings/api-keys`. **Release** v1. **Requirements** FR-API-1, FR-API-2, FR-SET-3.
 
-**Keys table** (`api_keys`; mine, or everyone's with `apiKeysManageAll`): Name, Key (`prefix` followed by "…"), Access (`scopes`: "Read" or "Read and write"), Created by, Created, Last used, Expires. Row menu: Revoke.
+**Keys table** (`api_keys`; everyone's keys, each acting as its person; calendar feed keys aren't listed): Name, Key (`prefix` followed by "…"), Access (`scopes`: "Read" or "Read and write"), Created by, Created, Last used, Expires. Row menu: Revoke.
 
-**Create API key** dialog: Name, Access (Read, Read and write; viewers get Read only), Expires (Never, 30 days, 90 days, 1 year). Button "Create key". Then a second dialog: "Copy this key now. You won't see it again." The key in monospace with "Copy". Button "Done". Closing without copying asks "Close without copying? You'll need to create a new key."
+**Create API key** dialog: Name, Access (Read, Read and write), Expires (Never, 30 days, 90 days, 1 year). Button "Create key". Then a second dialog: "Copy this key now. You won't see it again." The key in monospace with "Copy". Button "Done". Closing without copying asks "Close without copying? You'll need to create a new key."
 
 Revoke dialog: "Revoke {name}? Apps using it stop working right away." Button "Revoke key". Takes effect immediately (FR-SET-3).
 
@@ -1901,7 +1911,7 @@ Revoke dialog: "Revoke {name}? Apps using it stop working right away." Button "R
 
 **Route** `/settings/webhooks`. **Release** v1. **Requirements** FR-API-3.
 
-Endpoints (`webhook_endpoints`): URL, events, switch On, last delivery status. Primary "Add endpoint": URL (https only), Events (multi-select of the public event list from API.md), then a one-time "Signing secret" reveal like API keys. Endpoint detail shows deliveries (`webhook_deliveries`): Time, Event, Status code, Attempts, Next try, and "Resend". Empty: "No endpoints. Add one to get record and approval events in another system."
+Endpoints (`webhook_endpoints`): URL, events, switch On, last delivery status. Primary "Add endpoint": URL (https only), Events (multi-select of the public event list from API.md), then a one-time "Signing secret" reveal like API keys. Row menu: "Rotate secret" ("The old secret keeps working for 24 hours."). Endpoint detail shows deliveries (`webhook_deliveries`): Time, Event, Status code, Attempts, Next try, and "Resend". Empty: "No endpoints. Add one to get record and approval events in another system."
 
 ### 17.15 Audit log
 
@@ -1917,8 +1927,8 @@ Full-width table, read-only (`audit_log`): Time, Who (person; Bot with run link;
 
 | Section | Content |
 |---|---|
-| Export | "A ZIP of every record as CSV and JSON, plus your files. It's ready within an hour and we'll email you." Primary "Export all data". List of `data_exports` with `kind='workspace'`: Requested by, Requested, Status, and "Download" when ready ("Link works until {date}"). |
-| Transfer ownership | "Make another admin the owner. You become an admin." Button "Transfer ownership": dialog with an admin select and "Type {workspace name} to confirm" (paste allowed). Button "Transfer ownership". |
+| Export | "A ZIP of every record as CSV and JSON, plus your files. It's ready within an hour and we'll email you." Primary "Export all data". List of `data_exports` (`GET /workspace/exports`): Requested by, Requested, Status, and "Download" when ready ("Link works until {date}"). |
+| Transfer ownership | "Make another member the owner. You become an admin." Button "Transfer ownership": dialog with a member select and "Type {workspace name} to confirm" (paste allowed). Button "Transfer ownership". |
 | Delete workspace | "Magpie deletes the workspace 30 days after you ask. You can cancel until then." Destructive "Delete workspace": dialog "Delete {workspace}?", body "Magpie deletes it on {date}. Until then you can cancel. After that every record and file is gone for good.", "Type {workspace name} to confirm", button "Schedule deletion". When scheduled: "Scheduled for deletion on {date}." with "Cancel deletion". |
 
 `{thing}` = "exports".
@@ -1929,7 +1939,7 @@ Full-width table, read-only (`audit_log`): Time, Who (person; Bot with run link;
 
 **Route** `/reports`. **Release** v1. **Requirements** FR-REP-1.
 
-`h1` "Reports". First row: "Bid results" (fixed). Then `reports`: Name, Shared or "Only you", Updated. Primary "New report" (`reportsCreate`): Name and switch "Share with the team". Empty: "No reports yet. Bid results is always here. Create your own to track anything else."
+`h1` "Reports". First row: "Bid results" (fixed). Then `reports`: Name, Shared or "Only you", Updated. Primary "New report" (`reports.write`): Name and switch "Share with the team". Empty: "No reports yet. Bid results is always here. Create your own to track anything else."
 
 ### 18.2 Bid results
 
@@ -1954,7 +1964,7 @@ Grid of `report_widgets`. "Add widget" dialog: Kind (Number, Bar, Line, Table), 
 2. **If** (optional): condition rows Field, Operator, Value, with "All of these" or "Any of these".
 3. **Then**: ordered steps, each a card with Move up, Move down, Remove: Update the record, Create a task, Notify someone, Ask a Bot to do something, Send a templated email (always creates an approval), Call a webhook.
 
-Buttons: primary "Save", secondary "Turn on" or "Turn off". Tab "Runs" (`automation_runs`): Time, Trigger, Status, Step results, Retries (up to 3).
+Buttons: primary "Save", secondary "Test" (a dry run against a sample record, with no effects) and "Turn on" or "Turn off". Tab "Runs" (`automation_runs`): Time, Trigger, Status, Step results, Retries (up to 3).
 
 ## 19. Ops console and reviewer queue (v1)
 
@@ -1978,7 +1988,7 @@ Table: Tenant (name, slug), Plan, Status, MRR, Users, Runs this period (and % of
 
 **Route** `/ops/tenants/$tenantId` (`?tab=`). **Requirements** FR-OPS-1, FR-OPS-2, FR-OPS-3, FR-OPS-5.
 
-Header: name, status pill, plan. Actions (by role): "Start support session", Suspend or Unsuspend, Extend trial (days), Grant credit (amount), Entitlement overrides (key, limit), Schedule deletion or Cancel deletion, Assign reviewer (Managed plan; `reviewer_assignments` **(requested)**).
+Header: name, status pill, plan. Actions (by role): "Start support session", Suspend or Unsuspend, Extend trial (days), Grant credit (amount), Entitlement overrides (key, limit), Schedule deletion or Cancel deletion, Assign reviewers (Managed plan; `PUT /api/ops/tenants/:tenantId/reviewers`).
 
 Tabs: Overview (subscription, trial, period, owner, members), Usage (counters against entitlements, overrides marked "Override"), Costs (per day: AI, SMS, Kontract, enrichment against revenue), Runs (recent failed runs, opening a read-only run view), Billing events (`billing_events`), Flags (this tenant's overrides), Audit (staff actions on this tenant).
 
@@ -2008,64 +2018,64 @@ Table (`feature_flags` with `tenant_id` null): Key, On, Value, Tenant overrides 
 
 **Routes** `/ops/review`, `/ops/review/$approvalId`. **Requirements** FR-OPS-5.
 
-**List.** `h1` "Review queue". Stat: "Your median review time this week: {duration}". Admins also see a table of reviewers with their medians. Tabs: Waiting (`review_stage='staff'`, `status='pending'`, for tenants assigned to me), Sent back, Done today. Rows, oldest first: tenant name, approval title, Bot, effect pill, bid link, waiting time against the 4-hour target (needs tone after 3 hours, problem tone after 4).
+**List.** `h1` "Review queue". List: approvals at the staff stage for tenants assigned to me (admins see all), oldest first, with a Tenant filter. Admins also see median and p90 review time per reviewer and queue depth by age (`GET /api/ops/review-queue/stats`). Rows: tenant name, approval title, Bot, effect pill, bid link, waiting time against the 4-hour target (needs tone after 3 hours, problem tone after 4).
 
 **Detail.** The approval card in reviewer mode ([§22.12](#2212-approval-card)) plus a context column: company profile summary, the bid's brief (read-only link), the tenant's memories, and this tenant's last 10 decided approvals of the same tool.
 
 Actions:
-- Primary "Approve and send to owner": sets `review_stage='owner'`, `staff_decided_by`, `staff_decided_at` **(requested)**. The owner is notified as usual.
+- Opening an unclaimed item shows "Claim" (`POST /api/ops/review-queue/:approvalId/claim`); an item claimed by someone else shows "Claimed by {name}."
+- Primary "Send to owner" (`action: send_to_owner`): `review_stage` becomes `owner`, and the owner is notified as usual.
 - "Edit": edit form as in [§14.3](#143-preview-kinds), then "Save and send to owner".
-- "Send back to Bot": requires "What should the Bot fix?" (`review_notes` **(requested)**). Sets `status='returned'` **(requested)**; the run gets the notes and makes a new approval.
+- "Send back to Bot" (`action: return_to_bot`): requires "What should the Bot fix?" (`review_notes`). The approval closes as skipped by staff, and the run revises with the notes.
 
 Reviewers never send anything to outside recipients. The owner still approves.
 
 `{thing}` = "review queue". Empty: "Nothing to review. New drafts from your workspaces show up here."
+
 ## 20. Text messages: SMS and Telegram
 
-Templates live in `packages/core/channels/templates/` as catalog messages ([§26](#26-internationalization)) and render from the same payload as the web card (FR-APR-1). Examples use `magpie.app` as a stand-in for `APP_HOST` and "Clean Co" as the workspace.
+This section is the copy source for every text and Telegram message. Behavior (parsing, routing, decisions) is in API.md §11.4 to §11.7 and AGENT_RUNTIME §8; where their example strings differ from this section, this section's words are used. Templates live in `packages/core/channels/templates/` as catalog messages ([§26](#26-internationalization)) and render from the same payload as the web card (FR-APR-1). Examples use `magpie.app` as a stand-in for `APP_URL` and "Clean Co" as the workspace.
 
 ### 20.1 Rules for every text
 
 | Rule | Detail |
 |---|---|
-| Character set | GSM-7 only. No curly quotes, dashes other than the hyphen, ellipsis character, emojis, or non-breaking spaces. Avoid `[ ] { } \| ^ ~ \ €`; each counts as two characters. Server formatters run in `style: 'sms'` mode and replace Intl's narrow no-break space before AM and PM with a normal space. A unit test fails any template that renders outside GSM-7. |
-| Segments | One segment holds 160 characters; longer texts split into 153-character segments. Each template states its budget. Budgets assume the worst case for every slot. |
-| Brand | Every text Magpie starts begins with "Magpie". When the person has SMS connected in two or more workspaces, it adds the workspace: "Magpie (Clean Co)". Replies to the person's own texts don't repeat the brand. |
-| Links | Short links `https://{SHORT_HOST}/s/{code}` with a 7-character code, from `short_links` **(requested)**. Budget 36 characters, so `SHORT_HOST` is at most 18 characters. A link opens the app at its target after sign-in and switches to the right workspace. Links expire after 30 days. |
-| Slots | `{title}` notice or bid short title, at most 34 characters in the digest and 40 elsewhere, cut at a word boundary with "...". `{bid}` the deal's short name, at most 30. `{bot}` at most 20. `{company}` at most 24. `{code}` an approval short code, "A" plus 1 to 3 digits. `{amount}` like "$18,400". Dates "Nov 12" or "11/12" in the digest; times "2:00 PM ET" or "Thu 2pm" in the digest. |
-| Times | In the recipient's `users.timezone`. Deadlines add the zone abbreviation; when the deadline's own timezone differs, the text uses the deadline's zone. |
-| Quiet hours | Non-urgent texts wait until the quiet hours end (`notifications.send_after`, FR-CH-5). Always sent at once: verification codes, replies to the person's texts, deadline reminders due within 2 hours, and link confirmation. |
+| Character set | GSM-7 only. No curly quotes, dashes other than the hyphen, ellipsis character, emojis, or non-breaking spaces. Avoid `[ ] { } \| ^ ~ \ €`; each counts as two characters. Formatters run in `style: 'sms'` and replace Intl's narrow no-break space before AM and PM with a normal space. A unit test fails any template that renders outside GSM-7. |
+| Segments | One segment holds 160 characters; longer texts split into 153-character segments. Each template states its budget, assuming the worst case for every slot. |
+| Brand | Every text Magpie starts begins with "Magpie". When the person has texts connected in two or more workspaces, it adds the workspace: "Magpie (Clean Co)". Replies to the person's own texts don't repeat the brand. |
+| Links | Short links `https://{SHORT_HOST}/s/{code}` with a 7-character code (`short_links` **(requested)**), budgeted at 36 characters, so `SHORT_HOST` is at most 18 characters. A link opens the app at its target after sign-in and switches to the right workspace. Links expire after 30 days. Without short links, approval texts use `{APP_URL}/a/{approvalId}` (AGENT_RUNTIME §8.2), about 30 characters longer; the web app serves `/a/$approvalId` either way. |
+| Slots | `{title}` notice or bid short title: at most 34 characters in the digest, 40 elsewhere, cut at a word boundary with "...". `{bid}` the deal's short name, at most 30. `{bot}` at most 20. `{company}` at most 24. `{code}` an approval short code, "A" plus digits. `{amount}` like "$18,400". Dates "Nov 12", or "11/12" in the digest. Times "2:00 PM ET", or "Thu 2pm" in the digest. |
+| Times | In the recipient's `users.timezone`. Deadlines add the zone abbreviation, and use the deadline's own timezone when it differs. |
+| Quiet hours | Non-urgent texts wait for the end of quiet hours (`notifications.send_after`, FR-CH-5). Sent at once: verification codes, replies to the person's texts, link confirmation, and deadline or approval reminders due within 2 hours. |
 | Dedupe | One text per `notifications.dedupe_key` per channel. |
-| Numbering | Match numbers in a digest are stored in that digest's `notifications.payload.refs` as `[{ n, matchId }]`. A reply with a number refers to the most recent digest sent to that number. |
-| Short codes | Unique per person across all their workspaces while pending **(requested)**, so "A7" never needs a workspace prefix. Freed codes are reused, lowest number first. |
+| Numbering | A digest's match numbers are stored in its `notifications.payload.items` as `[{ n, matchId }]` (API.md §15). A number in a reply refers to the latest digest sent to that person on that channel within 7 days. |
+| Short codes | Assigned per AGENT_RUNTIME §8.3: the lowest number not used by that person's approvals in the last 7 days, so a code in an old text never points at a new approval. |
+| Several workspaces | A code or number found in exactly one bound workspace acts there. Found in more than one: no action, and the ambiguous-code reply (API.md §11.7). Free text goes to the workspace that most recently texted this number. |
+| Opt-out keywords | Twilio Advanced Opt-Out answers STOP, START and HELP itself (API.md §11.4). The texts below are configured in the Twilio Messaging Service and must match the 10DLC registration (INTEGRATIONS §12). |
 | Who gets texts | Only verified people in the workspace (PRD §7). Never contacts, subs or agencies. |
 
 ### 20.2 Reply grammar
 
-FR-CH-4, FR-DIS-6, FR-APR-2. Input is trimmed, case-insensitive, and spaces between a letter and its code are optional. Carrier keywords are handled first.
+FR-CH-4, FR-DIS-6. Patterns, order and actions are API.md §11.7. Input is trimmed, inner spaces collapsed, case-insensitive.
 
 | Input | Meaning |
 |---|---|
-| `STOP`, `STOPALL`, `UNSUBSCRIBE`, `CANCEL`, `END`, `QUIT` | Turn texts off for this number (`channel_bindings.is_enabled=false`). Reply: STOP template. |
-| `START`, `UNSTOP`, `YES` | Turn texts back on. Reply: START template. |
-| `HELP`, `INFO` | Reply: HELP template. |
-| `1` to `5`, `Y1`, `Y 1` | Pursue match n from the last digest |
-| `N1`, `N 1` | Dismiss match n (`dismiss_reason='other'`, `dismiss_note='Dismissed by text'`) |
+| `STOP`, `START`, `HELP` and the other carrier keywords | Handled by Twilio before Magpie sees them (texts in [§20.3](#203-templates)) |
+| `1` to `99`, `Y1`, `Y 1` | Pursue match n from the last digest |
+| `N1`, `N 1` | Dismiss match n (reason `other`, note "Dismissed by text") |
 | `A7`, `Y A7`, `YA7` | Approve A7 |
 | `X A7`, `XA7` | Skip A7 |
 | `E A7`, `EA7` | Reply with an edit link for A7 |
-| `A7 A8`, `A7, A8`, `X A7 A8` | The same action for each code; one combined reply |
-| `?` | List what's waiting |
-| `A`, `Y`, `N`, `X`, `E` alone | Help reply for a bare letter |
-| Anything else | Sent to the Assistant as chat in this person's SMS thread (`threads.channel='sms'`) |
+| `?` | List up to 10 waiting approvals and the undecided matches of the last digest |
+| Anything else | Chat with the Assistant in this person's `sms` or `telegram` thread |
 
-The parser lives in `packages/core/channels/grammar.ts` and is tested against a fixture table of inputs and expected replies (FR-CH-4).
+The fixture table `packages/core/channels/test/reply-grammar.fixtures.ts` holds every row above and every reply in [§20.3](#203-templates).
 
 ### 20.3 Templates
 
-Each row gives the exact text with example values, its character count, and its worst-case budget. `{link}` in the examples is `https://magpie.app/s/x7Kp2Qa` (29 characters).
+Each row gives the exact text with example values, its length, and its worst-case budget. `{link}` in the examples is `https://magpie.app/s/x7Kp2Qa` (29 characters).
 
-**Morning digest** (FR-CH-3, FR-DIS-6). Sent at the person's digest hour on their digest days. Example, 459 characters, 3 segments:
+**Morning digest** (FR-CH-3, FR-DIS-6). Sent at the person's digest hour by their digest channels. Example, 459 characters, 3 segments:
 
 ```
 Magpie, Tue Nov 10
@@ -2083,57 +2093,52 @@ Open Magpie: {link}
 | Line | Rule | Max characters |
 |---|---|---|
 | Header | "Magpie, {Ddd Mmm D}" or "Magpie ({workspace}), {Ddd Mmm D}" | 41 |
-| New matches | "New matches:" then up to 5 lines "{n} {title}, {place}. Score {score}, due {mm/dd}" (title 34, place 16), highest score first, `status` new | 12 plus 5 times 76 |
+| New matches | "New matches:" then up to 5 lines "{n} {title}, {place}. Score {score}, due {mm/dd}" (title 34, place 16), highest score first | 12 plus 5 times 76 |
 | Reply hint | "Reply 1 to pursue, N1 to dismiss." Only with matches. | 33 |
 | Waiting | "Waiting for you: " then up to 3 "{code} {title}." then "+{n} more." | 155 |
 | Due soon | "Due soon: " then up to 2 "{bid} {kind} {when}." in the next 7 days. Kind: proposal, questions, site visit, amendment ack, or the label. | 127 |
 | Quotes | "Quotes in: " then up to 2 "{company} {amount}." received since the last digest | 84 |
 | Expiring | "Expiring: {item} {mm/dd}." Earliest library item within 30 days, or "SAM registration {mm/dd}." | 47 |
-| Bot news | One line from the most useful finished run, at most 50 characters | 50 |
+| Bot news | One line from the most useful finished run | 50 |
 | Link | "Open Magpie: {link}" to `/today` | 49 |
 
 Empty sections are left out. Worst case with every slot full: 991 characters, 7 segments, under the PRD's 1,000. Target under 612 characters (4 segments). If a render still exceeds 1,000, drop Bot news, then Expiring, then Quotes, then cut matches to 3 and add "+{n} more in the app." When every section is empty, no digest is sent on any channel.
 
-**Approvals and their replies.**
+**Approvals.**
 
 | Template | Text (example) | Chars | Budget |
 |---|---|---|---|
-| Single approval (FR-APR-1) | `Magpie A7, Sub Finder: Send quote request to ABC Cleaning for Fort Lee grounds. Reply A7 to approve, X A7 to skip, E A7 to edit. {link}` | 157 | 231, 2 segments |
-| Batched (3 or more created within 5 minutes for one person) | `Magpie: 3 things are waiting for you. A7 Send quote request to ABC Cleaning. A8 Send quote request to Green Lawn. A9 Move Fort Lee grounds to Pricing. Reply a code to approve, X and the code to skip. {link}` | 228 | 306, 2 segments (up to 3 listed, then "+{n} more.") |
-| Approved, external | `Approved A7. Sub Finder is sending the quote request to ABC Cleaning.` | 69 | 160 |
-| Approved, internal | `Approved A8. Fort Lee grounds moved to Pricing.` | 47 | 160 |
-| Several codes | `Approved A7 and A8. A9 was already skipped on the web.` | 54 | 306 |
-| Skipped, external | `Skipped A7. Nothing was sent.` | 29 | 160 |
-| Skipped, internal | `Skipped A8. Nothing changed.` | 28 | 160 |
-| Edit link | `Edit A7 here: {link} It waits for you until Nov 13 at 9:00 AM.` | 84 | 160 |
-| `?` with items | `Waiting for you: A7 Send quote request to ABC Cleaning. A8 Move Fort Lee grounds to Pricing. New matches: 1, 2, 3. Reply a code, or open {link}` | 165 | 306, 2 segments |
-| `?` with nothing | `Nothing is waiting for you. Bid Scout checks your searches every 4 hours.` | 73 | 160 |
+| Single approval (FR-APR-1) | `Magpie A7, Sub Finder: Send quote request to ABC Cleaning for Fort Lee grounds. Reply A7 to approve, X A7 to skip, E A7 to edit. {link}` | 157 | 320 (AGENT_RUNTIME §8.2), 3 segments |
+| Batched (3 or more within 10 minutes for one person, AGENT_RUNTIME §8.4) | `Magpie: 3 things are waiting for you. A7 Send quote request to ABC Cleaning. A8 Send quote request to Green Lawn. A9 Move Fort Lee grounds to Pricing. Reply a code to approve, X and the code to skip. {link}` | 228 | 306, 2 segments (3 listed, then "+{n} more.") |
+| Reminder (under 12 hours left) | `Magpie A7 expires in 12 hours: Send quote request to ABC Cleaning. Reply A7 to approve, X A7 to skip. {link}` | 130 | 2 segments |
 
-The approval text title is `approvals.title` plus " for {bid}" when the approval has a deal. On the Managed plan, the owner's text goes out only after the reviewer approves (FR-OPS-5).
+The approval title is `approvals.title` plus " for {bid}" when the approval has a deal. On the Managed plan the owner's text goes out only after the reviewer sends it on (FR-OPS-5).
 
-**Matches by text.**
-
-| Template | Text (example) | Chars |
-|---|---|---|
-| Pursued | `Pursuing match 1, Custodial services, VA Medical Center. Bid Reader is reading it now. {link}` | 115 |
-| Dismissed | `Dismissed match 1, Custodial services, VA Medical Center. Tell Bid Scout why: {link}` | 106 |
-
-**Reply errors.**
+**Replies.**
 
 | Case | Text (example) | Chars |
 |---|---|---|
-| Unknown approval code | `There's no A9 waiting for you. Reply ? to see what is.` | 54 |
-| Already decided | `A7 was already approved on the web at 9:14 AM. Nothing else to do.` (variants: skipped; by text, in Telegram, through the API) | 66 |
-| Expired | `A7 expired on Nov 9 and the Bot went on without it. See what happened: {link}` | 99 |
+| Approved, external | `Approved A7: Send quote request to ABC Cleaning. Sub Finder is on it.` | 69 |
+| Approved, internal | `Approved A8: Move Fort Lee grounds to Pricing.` | 46 |
+| Skipped, external | `Skipped A7: Send quote request to ABC Cleaning. Nothing was sent.` | 65 |
+| Skipped, internal | `Skipped A8: Move Fort Lee grounds to Pricing. Nothing changed.` | 62 |
+| Edit link | `Edit A7 here: {link} It waits for you until Nov 13 at 9:00 AM.` | 84 |
+| Pursued | `Pursuing match 1, Custodial services, VA hospital. Bid Reader is reading it now. {link}` | 109 |
+| Dismissed | `Dismissed match 1, Custodial services, VA hospital.` | 51 |
+| `?` with items | `Waiting for you: A7 Send quote request to ABC Cleaning. A8 Move Fort Lee grounds to Pricing. New matches: 1, 2, 3. Reply a code, or open {link}` | 165, 2 segments (up to 306) |
+| `?` with nothing | `Nothing is waiting for you. Bid Scout checks your searches every 4 hours.` | 73 |
+| Unknown code | `There's no A9 waiting for you. Reply ? to see what's waiting.` | 61 |
+| Already decided | `A7 was already approved on the web at 9:14 AM.` (variants: skipped; by text, in Telegram, by email, through the API) | 46 |
+| Expired | `A7 expired at 3:00 PM and the Bot went on without it. Nothing was sent. {link}` | 100 |
 | Canceled | `A7 was canceled because its bid was archived. Nothing was sent.` (or "because the run was stopped") | 63 |
 | Blocked (suppressed recipient, missing postal address) | `A7 can't be approved yet. ABC Cleaning unsubscribed. Edit it in the app: {link}` | 101 |
+| Viewer | `Your role can't approve this. Ask an owner or admin.` | 52 |
+| Same code in two workspaces | `A7 is waiting in Clean Co and Lee Landscaping. Decide it here: {link}` | 91 |
 | No such match number | `There's no match 6 in your last digest. Reply ? to see what's waiting.` | 70 |
 | Match is already a bid | `Match 1 is already a bid: Custodial services, VA Medical Center. {link}` | 93 |
 | Match was dismissed | `Match 1 was dismissed on Nov 9. Pursue it in the app: {link}` | 82 |
-| Viewer | `You can view this workspace but can't approve. Ask an owner or admin.` | 69 |
 | Read-only workspace | `Clean Co is read-only because a payment failed. An owner can fix it here: {link}` | 102 |
 | Suspended | `Clean Co is suspended. Contact Magpie support at magpie.app/help.` | 65 |
-| Bare letter | `Add the number after the letter, like A7 or N1. Reply ? to see what's waiting.` | 78 |
 | Number not connected | `This number isn't connected to Magpie. Sign in at magpie.app and connect it in Settings.` | 88 |
 | Chat over the monthly allowance | `Clean Co used this month's Bot runs, so the Assistant can't answer by text. An owner can add a run pack in the app.` | 115 |
 
@@ -2156,7 +2161,7 @@ The open-items sentence appears only for `proposal_due` when required requiremen
 | Quote with amount | `Magpie: Green Lawn LLC quoted $18,400 for Fort Lee grounds, valid to Dec 15. Check the numbers before they go in the price sheet: {link}` | 158 | 2 segments |
 | Reply without an amount | `Magpie: Green Lawn LLC replied to your quote request for Fort Lee grounds. {link}` | 103 | 1 segment |
 
-**Runs finished.** Off by default for texts; in-app only unless the person turns it on.
+**Runs finished.** In the app only, unless the person adds Text or Telegram to alerts and the run was one they started.
 
 | Template | Text (example) | Chars |
 |---|---|---|
@@ -2176,49 +2181,49 @@ The open-items sentence appears only for `proposal_due` when required requiremen
 
 What happens at 120% of texts follows BILLING.md; this copy assumes texts pause and other channels carry on.
 
-**Connecting and carrier keywords** (FR-CH-1).
+**Connecting and opt-out** (FR-CH-1).
 
-| Template | Text | Chars |
-|---|---|---|
-| Verification code | `Your Magpie code is 482913. It expires in 10 minutes. Don't share it.` then a blank line and `@magpie.app #482913` (WebOTP) | 90 |
-| Link confirmation | `Magpie: This number is connected to Clean Co. Your morning digest and approvals will come here. Reply HELP for help, STOP to stop. Msg & data rates may apply.` | 158 |
-| STOP | `Magpie: You won't get texts from Magpie on this number. Your digest will come by email. Reply START to turn texts back on.` | 122 |
-| START | `Magpie: Texts are back on for this number. Reply HELP for help, STOP to stop.` | 77 |
-| HELP | `Magpie: Reply 1 to pursue match 1, N1 to dismiss it. A7 approves A7, X A7 skips it, E A7 sends an edit link. ? lists what's waiting. Help: magpie.app/help. STOP to stop.` | 169, 2 segments |
+| Template | Sent by | Text | Chars |
+|---|---|---|---|
+| Verification code | Twilio Verify, service name "Magpie" (custom template if Twilio approves it, else Verify's default) | `Your Magpie code is 482913. It expires in 10 minutes. Don't share it.` then a blank line and `@magpie.app #482913` (WebOTP) | 90 |
+| Link confirmation (welcome) | Magpie, right after verification | `Magpie: This number is connected to Clean Co. Your morning digest and approvals will come here. Reply A7 to approve A7. Reply HELP for help, STOP to opt out.` | 157 |
+| HELP | Twilio (INTEGRATIONS §12, registered) | `Magpie: account alerts and approvals for your workspace. Msg frequency varies. Msg and data rates may apply. Help: https://magpie.app/help/sms. Reply STOP to opt out.` | 166, 2 segments |
+| STOP | Twilio (INTEGRATIONS §12, registered) | `You're unsubscribed from Magpie texts. Reply START to turn them back on.` | 72 |
+| START | Twilio | `Magpie: Texts are back on for this number. Reply HELP for help, STOP to opt out.` **(requested for INTEGRATIONS §12)** | 80 |
 
-STOP also creates an in-app notification (`kind='system'`): "Texts are off for {number} because you replied STOP."
+When STOP turns texts off, Magpie also creates an in-app notification (`kind = 'system'`): "Texts are off for {number} because you replied STOP. Your digest comes by email." The page `/help/sms` lists the reply grammar.
 
 ### 20.4 Telegram
 
-Same words as SMS, with these differences:
+Same words as SMS, with these differences (INTEGRATIONS §13, API.md §11.6):
 
 | Rule | Detail |
 |---|---|
-| Format | `parse_mode: HTML`. Section headings in `<b>`. Up to 4,096 characters; the digest stays under 2,000. |
+| Format | Plain text, no `parse_mode`. Section headings are lines ending with a colon, separated by blank lines. Up to 4,096 characters; the digest stays under 2,000. |
 | Brand | No "Magpie" prefix, since the chat is Magpie. Keep "({workspace})" when the person has two or more workspaces connected. |
 | Links | No raw URLs in the text. Links are URL buttons. |
 | Replies | The reply grammar works the same. Buttons cover the common actions. |
-| Private chats only | Group or channel messages get: "Magpie only works in a private chat. Open a direct chat with Magpie and try again." (FR-CH-2) |
-| Limits | Digest: up to 5 matches (titles up to 60 characters), 5 approvals, 3 deadlines, 3 quotes, 3 Bot news lines. Approval previews: email body up to 600 characters, document excerpt up to 300. |
+| Private chats only | In a group, Magpie leaves the chat (API.md §11.6). |
+| Limits | Digest: up to 5 matches (titles up to 60 characters), 5 approvals, 3 deadlines, 3 quotes, 3 Bot news lines. Approval previews: the first 600 characters (AGENT_RUNTIME §8.2). |
 
 **Digest** (example):
 
 ```
-<b>Tue Nov 10</b>
+Tue Nov 10
 
-<b>New matches</b>
+New matches:
 1. Custodial services, VA hospital, Hampton VA. Score 86, due Nov 24
 2. Grounds maintenance, Fort Lee VA. Score 78, due Dec 2
 3. Snow removal, Shenandoah NP, Luray VA. Score 71, due Dec 5
 
-<b>Waiting for you</b>
+Waiting for you:
 A7 Send quote request to ABC Cleaning
 A8 Move Fort Lee grounds to Pricing
 
-<b>Due soon</b>
+Due soon:
 Fort Lee grounds questions, Thu Nov 12 at 2:00 PM ET
 
-<b>Quotes in</b>
+Quotes in:
 Green Lawn LLC $18,400 for Fort Lee grounds
 
 Tap a button, or reply 1 to pursue and N1 to dismiss.
@@ -2226,10 +2231,10 @@ Tap a button, or reply 1 to pursue and N1 to dismiss.
 
 Keyboard: `[Pursue 1] [Dismiss 1]`, `[Pursue 2] [Dismiss 2]`, `[Pursue 3] [Dismiss 3]`, `[Open Magpie]`.
 
-**Approval** (example, `email` kind). Telegram shows more of the preview than SMS (FR-APR-1):
+**Approval** (example, `email` kind):
 
 ```
-<b>A7, Sub Finder</b>
+A7, Sub Finder
 Send quote request to ABC Cleaning for Fort Lee grounds
 
 Why: ABC Cleaning is 12 miles from the site and quoted similar work in March.
@@ -2241,51 +2246,44 @@ Hi Maria, we're bidding on grounds maintenance at Fort Lee and would like your p
 Leaves your business. Expires Nov 13 at 9:00 AM.
 ```
 
-Keyboard: `[Approve] [Skip]`, then `[Edit in Magpie]`.
+Keyboard: `[Approve] [Skip]`, then `[Edit]` (URL button).
 
-Preview lines by kind: `email` shows To, Subject and the body's first 600 characters; `sms` shows "To {name}" and the text; `record_change` shows one line per change, "{label}: {before} to {after}"; `stage_change` shows "{deal}: {from} to {to}" and the reason; `document` shows title, "Version {n}, about {pages} pages" and the first 300 characters. When the approval has sources, a last line reads "{n} sources. Open Magpie to check them." The Edit in Magpie button opens the full card with its citation chips.
+Preview lines by kind: `email` shows To, Subject and the body's first 600 characters; `record_change` shows one line per change, "{label}: {before} to {after}"; `stage_change` shows "{deal}: {from} to {to}" and the reason; `document` shows the title, the change summary and the first 300 characters. When `afterReadingUntrusted` is true, a line "This Bot read outside documents before asking. Check the details." comes before the buttons. When the approval has sources, a last line reads "{n} sources. Open Magpie to check them."
 
 **Buttons per message.**
 
 | Message | Inline keyboard |
 |---|---|
-| Digest | One row per listed match: [Pursue {n}] [Dismiss {n}] (callback). Last row: [Open Magpie] (URL, `/today`). |
-| Single approval | Row 1: [Approve] [Skip] (callback). Row 2: [Edit in Magpie] (URL, `/approvals/$approvalId`). |
-| `?` or `/waiting` | One row per approval, up to 5: [Approve {code}] [Skip {code}]. Last row: [Open approvals] (URL). |
+| Digest | One row per listed match: [Pursue {n}] [Dismiss {n}]. Last row: [Open Magpie] (URL, `/today`). |
+| Single approval | Row 1: [Approve] [Skip]. Row 2: [Edit] (URL, `/approvals/$approvalId`). |
+| `?` reply | One row per approval, up to 5: [Approve {code}] [Skip {code}]. Last row: [Open approvals] (URL). |
 | Deadline | [Open bid] (URL) |
 | Quote | [Check numbers] (URL to the quote on the bid) |
 | Run finished | [Open] (URL) |
 | Limit alert | [See usage] (URL; owners and admins) or [Open Magpie] |
 
-**After a button press.** Answer the callback with a short toast ("Approved A7", "Skipped A7", "Pursuing match 1", "Dismissed match 1", or the error copy from [§20.3](#203-templates) shortened to 200 characters). Then edit the original message: remove its keyboard and add an italic last line, for example "<i>Approved by you at 9:14 AM.</i>", "<i>Approved on the web by Dana at 9:14 AM.</i>", "<i>Expired on Nov 9.</i>". When an approval is decided anywhere else, the open Telegram message is edited the same way.
+**Callback data** (API.md §11.6, INTEGRATIONS §13). ASCII, at most 42 bytes, under Telegram's 64-byte limit. The handler checks that the pressing chat is the verified private chat bound to the person the approval is for (or an admin), then decides with `decided_via = 'telegram'`.
 
-**Callback data format.** ASCII, 36 bytes, under Telegram's 64-byte limit:
+| Button | `callback_data` | Bytes |
+|---|---|---|
+| Approve | `ap:<approval uuid>:a` | 41 |
+| Skip | `ap:<approval uuid>:s` | 41 |
+| Pursue match | `mt:<match uuid>:p` | 41 |
+| Dismiss match | `mt:<match uuid>:d` | 41 |
 
-```
-1:{op}:{id22}:{mac8}
-1:ap:pUiLXsdHTUuh0iAQoDIfdg:9m6O9Vws
-```
+Edit and every other link are URL buttons, never callback data.
 
-| Part | Meaning |
-|---|---|
-| `1` | Format version. Unknown versions answer "This button is out of date. Open Magpie." |
-| `op` | `ap` approve, `sk` skip, `mp` pursue match, `md` dismiss match, `ms` save match |
-| `id22` | The approval or match id: the UUID's 16 bytes in base64url without padding (22 characters) |
-| `mac8` | First 8 characters of base64url HMAC-SHA256 over `1:{op}:{id22}:{chat_id}` with `TELEGRAM_CALLBACK_SECRET` |
-
-The handler checks the MAC in constant time, resolves the binding by chat id (`binding_for_channel_address`), checks the person's permission and the entity's current state, then acts. Edits always go through the URL button, never a callback.
+**After a button press.** `answerCallbackQuery` with a short line ("Approved A7", "Skipped A7", "Pursuing match 1", "Dismissed match 1", or the matching reply from [§20.3](#203-templates) cut to 200 characters). Then remove the keyboard and append a last line to the message: "Approved by you at 9:14 AM.", "Approved on the web by Dana at 9:14 AM.", "Expired on Nov 9." When an approval is decided anywhere else, its open Telegram message is edited the same way.
 
 **Commands** (registered with `setMyCommands`):
 
 | Command | Reply |
 |---|---|
 | `/start {code}`, success | "Connected to {workspace}. Your morning digest and approvals will come here. Send /stop to disconnect." |
-| `/start {code}`, expired | "This connect link expired. In Magpie, open Settings, then Channels and alerts, and connect Telegram again." |
-| `/start {code}`, used | "This connect link was already used. If this chat isn't connected, get a new link in Magpie." |
+| `/start {code}`, expired or used | "That link expired or was already used. In Magpie, open Settings, then Channels and alerts, and choose Connect Telegram." |
 | `/start` with no code | "To connect, open Magpie, go to Settings, then Channels and alerts, and choose Connect Telegram." |
 | `/stop` | "Disconnected. Magpie won't send messages to this chat. You can connect again from Settings in the app." |
-| `/help` | The HELP text without "STOP to stop", plus "Send /stop to disconnect." |
-| `/waiting` | Same as `?` |
+| `/help` | "Reply 1 to pursue match 1, N1 to dismiss it. A7 approves A7, X A7 skips it, E A7 sends an edit link. ? lists what's waiting. Send /stop to disconnect." |
 
 ## 21. Email templates
 
@@ -2327,7 +2325,7 @@ FR-ACC-1.
 
 ### 21.4 Approval waiting
 
-FR-APR-1, FR-APR-2. Sent when the person's channels for approvals include email, or when no phone channel is connected.
+FR-APR-1, FR-APR-2. Sent when no phone channel is on, and as one reminder when an approval is still waiting after 4 hours (AGENT_RUNTIME §8.4).
 
 | Part | Content |
 |---|---|
@@ -2335,7 +2333,8 @@ FR-APR-1, FR-APR-2. Sent when the person's channels for approvals include email,
 | Preheader | "Why: {preview.why}" (first 90 characters) |
 | `h1` | `approvals.title` |
 | Body | "{bot} wants to do this for {bid}." Then "Why: {why}." Then the preview: email (From, To, Subject, first 400 characters of the body), record change (field, now, after table), stage change ("{from} to {to}"), document (title, version, excerpt). Then "Expires {date time}." When SMS is connected: "Or reply {code} to the text we sent." |
-| Button | "Review in Magpie" (`/approvals/$approvalId`) |
+| Button | "Review in Magpie" (`/a/$approvalId?via=email`, so a decision there records `decided_via = 'email'`) |
+| Reminder | Subject "Still waiting for your yes: {approvals.title}", same body |
 
 No approve or skip links in email, so a link scanner can never approve anything.
 
@@ -2377,6 +2376,7 @@ FR-BIL-6. To owners and admins on the first failure, then on day 3 and day 6, th
 | Ownership transferred | "You're now the owner of {workspace}" and, to the old owner, "You transferred {workspace}" | FR-ACC-5 |
 | Support session opened | "Magpie support opened your workspace" ("Reason: {reason}. It ends within 60 minutes. Every action is in your audit log.") | FR-OPS-2 |
 | Plan canceled | "Your Magpie plan ends on {date}" | FR-BIL-7 |
+
 ## 22. Design system
 
 ### 22.1 Foundations
@@ -2531,32 +2531,33 @@ TanStack Table v8 rendered with shadcn `Table` and TanStack Virtual.
 
 ### 22.11 Citation chip
 
-The component that makes principle 3 true. `<CitationChip citation={Citation} />` in `packages/ui`, with `citationHref(citation, context)` in `apps/web/src/lib/citations.ts`.
+The component that makes principle 3 true. `<CitationChip citation={Citation | SourceCitation} />` in `packages/ui`, with `citationHref(citation, context)` in `apps/web/src/lib/citations.ts`. Shapes are API.md §3 and AGENT_RUNTIME §3.4:
+- `Citation` `{ documentId, page, quote }`: a passage in a `bid_documents` row. Used by requirements, deadlines, price lines, brief facts and parsed quotes (quote replies are stored as bid documents of kind `attachment`).
+- `SourceCitation` `{ kind, ref, page, quote, url }`: anything else.
 
-**`Citation` shape** (zod in `packages/shared`, **(requested)**, discriminated by `kind`):
+| Citation | Label | Opens |
+|---|---|---|
+| `Citation` | "{document short title} p. {page}" | Document sheet at the page, sentence highlighted |
+| `kind = 'bid_document'` | as `Citation` (`ref` is the document id) | as `Citation` |
+| `kind = 'market_text'` | "{document title} p. {page}" | Notice document reader at the page |
+| `kind = 'website'` | "{site name}" with an external-link icon | `url` in a new tab |
+| `kind = 'sam'` | "SAM.gov" | `url` in a new tab |
+| `kind = 'usaspending'` | "Award {ref}" | `url` in a new tab |
+| `kind = 'kontract'` | "Bid data" | `url` when present, else a hover card only |
+| `kind = 'wage_determination'` | "WD {ref}" | `url` in a new tab |
+| `kind = 'profile'` | "Profile: {field label}" | Company profile at that row |
+| `kind = 'library'` | "Library: {title}" | The library item |
+| `kind = 'past_performance'` | "Past performance: {title}" | The past performance entry |
 
-| `kind` | Fields | Label | Opens |
-|---|---|---|---|
-| `bid_document` | `documentId`, `page`, `quote` | "{document short title} p. {page}" | Document sheet at the page, sentence highlighted |
-| `notice_text` | `opportunityId`, `documentRef`, `page`, `quote` | "{document title} p. {page}" | Notice document reader at the page |
-| `url` | `url`, `title` | "{site name}" with an external-link icon | New tab |
-| `record` | `recordType`, `recordId`, `field?` | "{record name}" or "Profile: {field label}" | The record |
-| `quote` | `quoteId`, `page?`, `quote?` | "{company} quote" | Quote check dialog |
-| `past_performance` | `pastPerformanceId` | "Past performance: {title}" | Past performance row |
-| `library_item` | `libraryItemId` | "Library: {title}" | Library item |
-| `message` | `messageId`, `quote?` | "Email from {sender}" | The message in the bid timeline |
-| `award` | `url`, `piid` | "Award {piid}" | New tab |
-
-`bid_requirements.citation`, `bid_deadlines.citation` and `price_lines.citation` keep their stored shape `{documentId, page, quote}`; a missing `kind` means `bid_document`.
-
-**Look.** `rounded-full`, height 1.5rem, `px-2`, `text-xs` weight 500, `--brand` text on `--brand-soft`, a 12px file icon. Document title truncated to 24 characters.
+**Look.** `rounded-full`, height 1.5rem, `px-2`, `text-xs` weight 500, `--brand` text on `--brand-soft`, a 12px icon (file, globe or record). Titles truncated to 24 characters.
 
 **Behavior.**
-- It's a real link (`<a href>` from `citationHref`) so Ctrl-click and middle-click open the full page in a new tab. A plain click is intercepted to open the document sheet: a right sheet at half the viewport on desktop, full screen on phones, with the viewer from [§9.5](#95-documents-tab-and-viewer).
-- Hover or focus for 300 ms opens a hover card: document title, "Page {n}", the quoted sentence in quotation marks (up to 300 characters), and "Open page {n}". The hover card can be hovered, and Esc closes it (WCAG 1.4.13).
-- Accessible name: "Source: {document title}, page {n}".
+- It's a real link (`<a href>` from `citationHref`), so Ctrl-click and middle-click open the full page in a new tab. A plain click on a document citation is intercepted to open the document sheet: a right sheet at half the viewport on desktop, full screen on phones, with the viewer from [§9.5](#95-documents-tab-and-viewer).
+- Hover or focus for 300 ms opens a hover card: title, "Page {n}" when there is one, the quoted sentence in quotation marks (up to 300 characters), and "Open page {n}" or "Open source". The hover card can be hovered, and Esc closes it (WCAG 1.4.13).
+- Accessible name: "Source: {title}, page {n}".
 - More than three citations on one fact: three chips and a "+{n}" chip that opens a list.
-- A citation that no longer resolves renders an outline chip in the problem tone, "Source unavailable", with the tooltip "The document was removed."
+- A document citation that no longer resolves renders an outline chip in the problem tone, "Source unavailable", with the tooltip "The document was removed."
+- `page = null` drops "p. {page}" from the label and opens the first page.
 
 ### 22.12 Approval card
 
@@ -2572,10 +2573,10 @@ The component that makes principle 3 true. `<CitationChip citation={Citation} />
 | Footer | Primary "Approve", secondary "Edit", ghost "Skip" | Internal: "Approve", "Skip". External: "Review" | As full |
 
 - **Edit** replaces the preview with the kind's edit form; the footer becomes "Approve with changes" and "Cancel edit".
-- **Skip** opens a small popover: "Skip this? The Bot won't do it." with an optional "Tell the Bot why" field (sent to the run and stored in `audit_log.data`), and the button "Skip".
+- **Skip** opens a small popover: "Skip this? The Bot won't do it." with an optional "Tell the Bot why" field (`note`, stored as `decision_note` and passed to the Bot), and the button "Skip".
 - **Decided** replaces the footer with the decided line from [§14.2](#142-approval-detail).
 - **Blocked** states disable Approve with a reason line: support session, read-only workspace, suppressed recipient, missing postal address, expired. Viewers see "You can view this but can't approve." and no buttons.
-- **Reviewer mode** footer: "Approve and send to owner", "Edit", "Send back to Bot" ([§19.6](#196-reviewer-queue)).
+- **Reviewer mode** footer: "Send to owner", "Edit", "Send back to Bot" ([§19.6](#196-reviewer-queue)).
 - Container queries (`@container`) switch the header to one column under 28rem, so the same card works in the chat panel and the inbox.
 - Keyboard: Ctrl Enter approves when focus is inside the card, after the person has seen the preview (the card must have been focused).
 
@@ -2600,7 +2601,7 @@ The component that makes principle 3 true. `<CitationChip citation={Citation} />
 | `opportunity_matches.status` | `new`: New (working). `shown`: Seen (neutral). `saved`: Saved (neutral). `dismissed`: Dismissed (neutral). `pursuing`: Pursuing (done). `expired`: Closed (neutral) |
 | Deal stage by `pipeline_stages.category` | `open`: stage name (neutral). `submitted`: stage name (working). `won`: stage name (done). `lost`: stage name (neutral). `no_bid`: stage name (neutral) |
 | `deals.bid_decision.decision` | `bid`: Bid (done). `no_bid`: No bid (neutral). `undecided`: Not decided (needs) |
-| `approvals.status` | `pending`: Waiting (needs). `approved`: Approved (done). `edited`: Approved with changes (done). `rejected`: Skipped (neutral). `expired`: Expired (neutral). `canceled`: Canceled (neutral). `returned` **(requested)**: Sent back (needs) |
+| `approvals.status` | `pending`: Waiting (needs). `approved`: Approved (done). `edited`: Approved with changes (done). `rejected`: Skipped (neutral), or Sent back to the Bot (needs) when `decided_by_type = 'staff'`. `expired`: Expired (neutral). `canceled`: Canceled (neutral) |
 | `approvals.effect` | `external`: Leaves your business (needs). `internal`: Inside Magpie (neutral) |
 | `agent_runs.status` | `queued`: Queued (neutral). `running`: Working (working). `waiting_approval`: Waiting for you (needs). `succeeded`: Done (done). `failed`: Failed (problem). `canceled`: Stopped (neutral). `limit_reached`: Hit a limit (needs) |
 | `bid_requirements.status` | `open`: Open (neutral). `met`: Met (done). `not_met`: Not met (problem). `not_applicable`: Doesn't apply (neutral) |
@@ -2616,7 +2617,7 @@ The component that makes principle 3 true. `<CitationChip citation={Citation} />
 | Contact email `status` | `unknown`: Not checked (neutral). `valid`: Valid (done). `risky`: Risky (needs). `invalid`: Invalid (problem) |
 | `field_suggestions.status` | `pending`: Suggested (working). `accepted`: Approved (done). `rejected`: Skipped (neutral). `superseded`: Replaced (neutral) |
 | `connections.status` | `active`: Connected (done). `expired`: Needs reconnecting (needs). `revoked`: Disconnected (neutral). `error`: Not working (problem) |
-| `channel_bindings` | verified and enabled: Connected (done). `verified_at` null: Not verified (needs). `is_enabled=false`: Off (neutral) |
+| `channel_bindings` | verified and enabled: Connected (done). `verified_at` null: Not verified (needs). `is_enabled=false`: Off (neutral), with the reason from `disabled_reason` ([§17.2](#172-channels-and-alerts)) |
 | `invitations.status` | `pending`: Invited (working). `accepted`: Joined (done). `canceled`: Canceled (neutral). `expired`: Expired (neutral) |
 | `subscriptions.status` | `trialing`: Trial (working). `active`: Active (done). `past_due`: Payment failed (problem). `canceled`: Canceled (neutral). `unpaid`: Unpaid (problem). `incomplete`: Incomplete (needs). `paused`: Paused (needs) |
 | `tenants.status` | `trialing`: Trial. `active`: Active (done). `past_due`: Payment failed (problem). `suspended`: Suspended (problem). `canceled`: Canceled (neutral). `deleting`: Deleting (problem) |
@@ -2665,19 +2666,20 @@ Rules: confirmation titles name the action ("Delete saved search"), never "Are y
 
 ### 22.18 Autosave for the draft editor
 
-FR-DRF-2: editing never loses work.
+FR-DRF-2: editing never loses work. Versions follow API.md §5.12: a draft is a chain of `drafts` rows, the version-1 row's id is the document id in the URL, only the newest version is editable, and autosave updates it in place.
 
 | Part | Rule |
 |---|---|
-| Local copy | Every change writes the TipTap JSON to IndexedDB (`idb-keyval`, key `draft:{userId}:{draftId}`), debounced 500 ms. Cleared on a confirmed server save and on sign-out. |
-| Server save | PATCH `/api/app/drafts/$draftId` with `{ content, contentText, baseUpdatedAt }`. Debounced 1 second after the last keystroke, and at most 5 seconds apart while typing continues. One request in flight; newer changes wait and send next. |
-| Retries | On failure: retry after 2, 4, 8, 16, then every 30 seconds. "Retry now" in the status. |
+| Local copy | Every change writes the TipTap JSON to IndexedDB (`idb-keyval`, key `draft:{userId}:{draftId}`), debounced 500 ms. Cleared after a confirmed server save and on sign-out. |
+| Server save | `PATCH /drafts/$draftId` with `{ content, contentText }` and `If-Match` (the last ETag). Debounced 1 second after the last keystroke, and at most 5 seconds apart while typing continues. One request in flight; newer changes wait and go next. Each response's ETag becomes the next `If-Match`. |
+| Retries | On a network or 5xx failure: retry after 2, 4, 8, 16, then every 30 seconds. "Retry now" in the status. |
 | Status text | In the toolbar, `role="status"`: "Saved" (hover shows "Saved at {time}"), "Saving…", "Offline. Your changes are kept on this device.", "Couldn't save. Retrying in {s} s." with "Retry now". Screen readers hear only the change to offline or failing, and back to saved. |
-| Versions | A snapshot row in `draft_versions` **(requested)** is created when the person chooses "Save version", when a Bot writes, when status changes, before a restore, and at the first save more than 30 minutes after the last snapshot. Autosave alone never creates a version. |
-| Conflict | The server answers `conflict` when `updated_at` moved. Dialog: "This draft changed while you were editing. {name or Bot} saved a newer version." Buttons: primary "Keep both" (saves mine as a new version on top), secondary "Load theirs" (my text stays in a version named "Your unsaved changes, {time}"). Nothing is discarded either way. |
-| Bot writing | While a run writes the draft, the editor is read-only with the banner from [§9.9](#99-draft-editor), and updates live from `draft.updated`. |
+| Versions | "Save version" calls `POST /drafts/$draftId/versions` (optional label), which freezes the current version and starts the next. The editor also saves a version at the first save more than 30 minutes after the last one. Restore calls `POST /drafts/$draftId/versions/$version/restore`, which makes a new current version from the old one; nothing is overwritten. Autosave alone never creates a version. |
+| Conflict | `conflict` with `reason = 'stale'` returns `current`. Dialog: "This draft changed while you were editing. {name or Bot} saved a newer version." Primary "Keep mine": saves a version of their text, then writes mine as the current text. Secondary "Use theirs": loads theirs; my text stays on this device and the Versions panel shows "Your unsaved text, {time}" with Restore for 7 days. Nothing is lost either way. |
+| Approved drafts | `conflict` with `reason = 'state'`: the draft was approved or sent. The editor turns read-only with the banner from [§9.9](#99-draft-editor). |
+| Bot writing | While a run writes the draft, the editor is read-only with the banner from [§9.9](#99-draft-editor) and reloads on `draft.updated` (API.md §9). The editor ignores a `draft.updated` whose `updatedAt` isn't newer than its own last save. |
 | Leaving | With unsaved changes, `beforeunload` asks the browser to confirm. On next open, if the IndexedDB copy is newer than the server's, a banner: "You have unsaved changes from {time} on this device." with "Restore them" and "Discard". |
-| Multiple editors | No live co-editing in v1. Conflicts are caught by `baseUpdatedAt`. |
+| Multiple editors | No live co-editing in v1. Conflicts are caught by `If-Match`. |
 
 ### 22.19 Components
 
@@ -2699,18 +2701,22 @@ From shadcn/ui unless noted. Add a component only when nothing here fits; say wh
 | Not shadcn | TipTap (`@tiptap/react`, StarterKit, Table, Link, Placeholder, plus Magpie's `citation` mark and `comment` mark); `pdfjs-dist` (document viewer); `@dnd-kit/core`, `@dnd-kit/sortable` (kanban and reordering); `react-qr-code` (Telegram connect); `idb-keyval` (draft autosave) |
 | Magpie components (`packages/ui`) | `CitationChip`, `ScoreBadge`, `StatusPill`, `Empty`, `RegionError`, `Banner`, `PageHeader`, `SettingsSection`, `SettingsRow`, `MoneyInput`, `PhoneInput`, `TimezoneSelect`, `CountdownPill`, `BotIcon` |
 | Magpie components (`apps/web`) | `ApprovalCard`, `DocumentViewer`, `DocumentSheet`, `KanbanBoard`, `RecordDetails`, `Timeline`, `ChatPanel`, `DraftEditor`, `PriceSheetTable`, `SearchFilters` |
+
 ## 23. Data access
+
+API.md is the contract for every path, schema, error and event. This section says how the web app uses it.
 
 ### 23.1 Structure and rules
 
 ```
 apps/web/src/
   lib/
-    client.ts          the only fetch in the app
+    client.ts          the only place that calls fetch
     query-client.ts    the one QueryClient, imported everywhere
-    events.ts          the event stream and the event-to-key map
+    events.ts          the event stream and API.md §9's event-to-key map
     errors.ts          problem code to copy (§2.3)
     toast.ts           toast wrapper (§22.15)
+    jobs.ts            useJob(jobId) for background jobs
     <entity>/
       queries.ts       read types, <entity>Keys, queryOptions factories
       mutations.ts     input types, mutationOptions factories
@@ -2719,142 +2725,92 @@ apps/web/src/
 
 | Rule | Detail |
 |---|---|
-| One client | `client<TResult>(path, { method, body, signal, fallback })` prefixes `/api/app`, sends `credentials: 'include'`, serializes `body` (callers pass objects, never strings), parses JSON, and turns problem+json into `ApiError { status, code, title, detail, errors, params }`. `tryClient` returns the `Response` without throwing, for calls where a refusal is the answer. A component never calls `fetch`. |
-| Reads | Every cached read is a `queryOptions` (or `infiniteQueryOptions`) factory named `<subject>QueryOptions` in `lib/<entity>/queries.ts`. The `queryFn` has an explicit return type and unwraps the envelope. |
-| Keys | One `<entity>Keys` factory per entity in `queries.ts`. `all` is the bare entity name and the invalidation root. List parameters go in a trailing object. Arrays are `as const`. No inline keys anywhere. |
-| Writes | Every write is a `mutationOptions` factory named `<verb><Entity>MutationOptions(queryClient)` in `mutations.ts`, with one parameter (a value or a named `variables` object). On success it invalidates; it never patches the cache, except the optimistic cases in [§23.4](#234-optimistic-updates). |
-| One QueryClient | Constructed once in `query-client.ts`, given to `QueryClientProvider` and the router context. Import it; don't call `useQueryClient()`. |
+| One client | `client.ts` wraps `openapi-fetch` typed from `/api/app/openapi.json` (types generated in CI with `openapi-typescript`, API.md §2.11). It sends `credentials: 'include'`; `X-Workspace-Id` with the active workspace; `Idempotency-Key` on every POST (a new UUID per user action, reused on retry); `If-Match` when the caller passes an ETag; `X-Request-Id`. It parses problem+json into `ApiError { status, code, reason, title, detail, errors, requestId, ...extensions }`. On `workspace_switched` it reloads the app; on `unauthorized` it navigates to `/sign-in?reason=expired&redirect=…`. `tryClient` returns the result without throwing, for calls where a refusal is the answer. A component never calls `fetch`. |
+| Reads | Every cached read is a `queryOptions` (or `infiniteQueryOptions`) factory named `<subject>QueryOptions` in `lib/<entity>/queries.ts`, with an explicit return type, unwrapping `{ data }` envelopes. |
+| Keys | One `<entity>Keys` factory per entity, following API.md §9's scheme ([§23.2](#232-query-keys-and-endpoints)). No inline keys anywhere. |
+| Writes | Every write is a `mutationOptions` factory named `<verb><Entity>MutationOptions(queryClient)` in `mutations.ts`, with one parameter (a value or a named `variables` object). On success it invalidates the keys API.md §9 lists for the event the write causes, so the tab that made the change doesn't wait for the stream. It never patches the cache, except the optimistic cases in [§23.4](#234-optimistic-updates). |
+| One QueryClient | Built once in `query-client.ts`, given to `QueryClientProvider` and the router context. Import it; don't call `useQueryClient()`. |
 | Routes | Data that decides whether a page can open is loaded in `beforeLoad` or `loader` with `context.queryClient.ensureQueryData(<factory>)`, sharing the component's factory. |
 | Branches | Components branch pending, error, empty, data, in that order ([§4](#4-how-to-read-a-screen-spec)). |
-| Permissions | Read types carry the server's verdicts (`permissions` on `me`, and per-record flags such as `canEdit`, `canDecide`). The browser never recomputes them. |
-| Secrets | Never in a read type. A stored key is `{ hasKey: true, addedAt }`. |
-| Chat streaming | The one exception to "every request through `client`": AI SDK `useChat` with `DefaultChatTransport` posting to `/api/app/threads/$threadId/messages`, created in `lib/chat/transport.ts` with the same credentials and error mapping. |
-| Uploads | `lib/files/upload.ts`: ask the API for a presigned URL (`POST /api/app/files/uploads`), PUT the file to R2 with progress, then `POST /api/app/files/$fileId/complete`. The PUT is the second allowed direct request and lives only in that file. |
+| Permissions | From `me.permissions` and per-resource flags in responses. The browser never recomputes them. Cost fields arrive `null` for roles without `bots.view_costs`. |
+| Secrets | Never in a read type. A stored key shows as connected with a date. |
+| Concurrency | Records come with an ETag (API.md §2.6). Inline edits send `If-Match`; a `stale` conflict shows the shared copy and reloads the record. Drafts always send it ([§22.18](#2218-autosave-for-the-draft-editor)). |
+| Jobs | Imports, exports, packages, draft exports and scans answer `202` with a `Job`. `useJob(jobId)` reads `['jobs', jobId]`, refreshed by `job.updated` and polled every 3 seconds only while the stream is down. |
+| Chat | AI SDK `useChat` with a transport in `lib/chat/transport.ts` that posts only the new message to `POST /threads/$threadId/chat` (API.md §10), reattaches with `GET /threads/$threadId/stream`, and stops with `POST /threads/$threadId/stop`. Custom parts render as: `data-run` the run status line, `data-approval` an inline approval card, `data-notice` a notice line, `data-problem` the error line under the message. |
+| Uploads | `lib/files/upload.ts`: `POST /files/uploads` for a presigned URL, PUT the file to R2 with progress, then `POST /files/$fileId/complete`. The PUT is the only other direct request in the app. |
 
-**Defaults** (`query-client.ts`): `staleTime` 30 seconds (5 minutes for catalogs: plans, tools, pipelines, fields, tags; 10 minutes for notices), `gcTime` 5 minutes, query retry up to 2 times but never on a 4xx, mutation retry 0, `refetchOnWindowFocus` only while the event stream is disconnected.
+**Defaults** (`query-client.ts`): `staleTime` 30 seconds (5 minutes for plans, pipelines, field definitions, tags and tool policies; 10 minutes for notices), `gcTime` 5 minutes, query retry up to 2 times but never on a 4xx, mutation retry 0, `refetchOnWindowFocus` only while the event stream is disconnected.
 
-**Workspace switch.** Call Better Auth's set-active-organization, then `queryClient.clear()`, close and reopen the event stream, and navigate to `/today`. Events whose `tenantId` isn't the active workspace are dropped. No tenant id in query keys: clearing on switch keeps workspaces apart.
+**Workspace switch.** `POST /workspaces/$tenantId/activate`, then `queryClient.clear()`, reopen the event stream with the new `workspaceId`, and navigate to `/today`. Keys carry no tenant id; clearing on switch keeps workspaces apart.
 
-**Sign-out.** `queryClient.clear()`, close the stream, clear IndexedDB drafts for the person, go to `/sign-in`.
+**Sign-out.** `POST /api/auth/sign-out`, `queryClient.clear()`, close the stream, clear IndexedDB drafts for the person, go to `/sign-in`.
 
 ### 23.2 Query keys and endpoints
 
-Every path is under `/api/app` and is **(requested)** for API.md with these shapes; API.md wins on naming if it differs, and the factories adapt.
+Keys follow API.md §9: `[resource]` is the root, `[resource, {params}]` a filtered list, `[resource, id]` one item, `[resource, id, sub]` a sub-resource. Invalidating a prefix covers everything under it. Each factory exposes `all` (the root) plus the shapes below.
 
-| Entity dir | Keys | Endpoint |
+| Entity dir | Keys | Endpoints |
 |---|---|---|
-| `me` | `["me"]` | `GET /me` (person, memberships, active workspace, role, `permissions`, plan features, banners state) |
-| `workspace` | `["workspace","settings"]` | `GET /workspace/settings`, `PATCH /workspace/settings` |
-| `profile` | `["company-profile"]` | `GET /company-profile`, `PATCH /company-profile`, `POST /company-profile/lookup` (UEI or name), `POST /company-profile/refresh` |
-| `past-performance` | `["past-performance","list"]`, `["past-performance","detail",id]` | `GET/POST /past-performance`, `PATCH/DELETE /past-performance/$id` |
-| `library` | `["library","list",{kind}]` | `GET/POST /library`, `PATCH/DELETE /library/$id` |
-| `onboarding` | `["onboarding"]`, `["onboarding","suggested-searches"]` | `GET/PATCH /onboarding`, `GET /onboarding/suggested-searches` |
-| `today` | `["today"]` | `GET /today` |
-| `search` | `["search",{q}]` | `GET /search?q=` |
-| `matches` | `["matches","list",{status,searchId,minScore,due,setAside,state,source,ineligible,q,sort}]`, `["matches","detail",matchId]`, `["matches","counts"]` | `GET /matches`, `GET /matches/$id`, `GET /matches/counts`, `POST /matches/$id/pursue`, `POST /matches/$id/save`, `POST /matches/$id/dismiss`, `POST /matches/$id/restore`, `POST /matches/bulk` |
-| `notices` | `["notices","search",{filters,page}]`, `["notices","detail",opportunityId]`, `["notices","document",opportunityId,documentRef]` | `GET /notices`, `GET /notices/$id`, `GET /notices/$id/documents/$ref`, `POST /notices/$id/pursue`, `POST /notices/$id/save` |
-| `market` | `["market","sources"]` | `GET /market/sources` |
-| `searches` | `["searches","list"]`, `["searches","preview",{filters}]` | `GET/POST /searches`, `PATCH/DELETE /searches/$id`, `POST /searches/$id/scan`, `POST /searches/preview` |
-| `bids` | `["bids","list",{tab,owner,due,stage,tag,sort}]`, `["bids","detail",dealId]`, `["bids","brief",dealId,{version}]`, `["bids","requirements",dealId,{filters}]`, `["bids","deadlines",dealId]`, `["bids","documents",dealId]`, `["bids","document",documentId]`, `["bids","document-page",documentId,{page}]` | `GET/POST /bids`, `GET/PATCH /bids/$dealId`, `GET /bids/$dealId/brief`, `POST /bids/$dealId/brief/rerun`, `PUT /bids/$dealId/decision`, `GET/POST /bids/$dealId/requirements`, `PATCH/DELETE /bids/$dealId/requirements/$id`, `POST /bids/$dealId/requirements/bulk`, `GET/POST /bids/$dealId/deadlines`, `PATCH/DELETE /bids/$dealId/deadlines/$id`, `GET/POST /bids/$dealId/documents`, `GET /bids/$dealId/documents/$id` (with presigned URL), `GET /bids/$dealId/documents/$id/pages/$page`, `POST /bids/$dealId/submission`, `POST /bids/$dealId/exports`, `GET /bids/$dealId/calendar.ics` |
-| `pricing` | `["price-sheets","list",dealId]`, `["price-sheets","detail",priceSheetId]`, `["award-comparables",dealId]` | `GET/POST /bids/$dealId/price-sheets`, `GET /price-sheets/$id`, `POST /price-sheets/$id/lines`, `PATCH/DELETE /price-lines/$id`, `POST /price-sheets/$id/approve`, `POST /price-sheets/$id/copy`, `GET /bids/$dealId/award-comparables` |
-| `quotes` | `["quote-requests","list",dealId]`, `["quote-requests","detail",quoteRequestId]`, `["quotes","list",dealId]`, `["sub-suggestions","list",dealId]` | `GET /bids/$dealId/quote-requests`, `POST /bids/$dealId/quote-requests/draft`, `GET/PATCH /quote-requests/$id`, `POST /quote-requests/$id/follow-up`, `GET /bids/$dealId/quotes`, `PATCH /quotes/$id`, `POST /quotes/$id/confirm`, `POST /quotes/$id/use`, `GET /bids/$dealId/sub-suggestions`, `POST /bids/$dealId/sub-suggestions/find`, `PATCH /sub-suggestions/$id` |
-| `drafts` | `["drafts","list",{dealId}]`, `["drafts","detail",draftId]`, `["drafts","versions",draftId]`, `["drafts","version",draftId,version]`, `["drafts","comments",draftId]` | `GET/POST /drafts`, `GET/PATCH /drafts/$id`, `POST /drafts/$id/versions`, `GET /drafts/$id/versions/$version`, `POST /drafts/$id/restore`, `GET/POST /drafts/$id/comments`, `PATCH /draft-comments/$id`, `POST /drafts/$id/exports`, `POST /bids/$dealId/drafts/generate` |
-| `deals` | `["deals","list",{pipelineId,viewId,filters,sort,layout}]`, `["deals","detail",dealId]` | `GET/POST /deals`, `GET/PATCH /deals/$id`, `POST /deals/$id/stage`, `POST /deals/bulk` |
-| `pipelines` | `["pipelines"]` | `GET/POST /pipelines`, `PATCH /pipelines/$id`, `POST/PATCH/DELETE /pipelines/$id/stages[/$stageId]` |
-| `companies` | `["companies","list",{viewId,kind,filters,sort}]`, `["companies","detail",companyId]` | `GET/POST /companies`, `GET/PATCH /companies/$id`, `POST /companies/merge`, `POST /companies/bulk` |
-| `contacts` | `["contacts","list",{viewId,filters,sort}]`, `["contacts","detail",contactId]` | `GET/POST /contacts`, `GET/PATCH /contacts/$id`, `POST /contacts/merge`, `POST /contacts/bulk` |
-| `tasks` | `["tasks","list",{assignee,status,priority,recordType,due,viewId}]` | `GET/POST /tasks`, `PATCH /tasks/$id` |
-| `notes` | `["notes",recordType,recordId]` | `GET/POST /notes?recordType=&recordId=`, `PATCH/DELETE /notes/$id` |
-| `timeline` | `["timeline",recordType,recordId,{types}]` (infinite) | `GET /timeline?recordType=&recordId=&types=&cursor=` |
-| `record-history` | `["record-history",recordType,recordId]` | `GET /record-history?recordType=&recordId=` |
-| `field-suggestions` | `["field-suggestions",recordType,recordId]` | `GET /field-suggestions?...`, `POST /field-suggestions/$id/decision` |
-| `files` | `["files",recordType,recordId]` | `GET /files?...`, `POST /files/uploads`, `POST /files/$id/complete`, `DELETE /file-links` |
-| `views` | `["views",object]` | `GET/POST /views?object=`, `PATCH/DELETE /views/$id` |
-| `fields` | `["fields",object]` | `GET/POST /fields?object=`, `PATCH /fields/$id` |
-| `tags` | `["tags"]` | `GET/POST /tags`, `PATCH/DELETE /tags/$id` |
-| `imports` | `["imports","detail",importId]` | `POST /imports`, `GET /imports/$id`, `PATCH /imports/$id` (mapping), `POST /imports/$id/start` |
-| `bots` | `["bots","list"]`, `["bots","detail",botId]`, `["bot-jobs",botId]`, `["tool-policies",botId]`, `["tools"]` | `GET /bots`, `GET/PATCH /bots/$id`, `GET /bots/$id/jobs`, `PATCH /bot-jobs/$id`, `POST /bot-jobs/$id/run`, `GET /bots/$id/tool-policies`, `PUT /bots/$id/tool-policies/$toolKey`, `GET /tools` |
-| `runs` | `["runs","list",{botId,status,trigger,from,to}]`, `["runs","detail",runId]`, `["runs","steps",runId]` | `GET /runs`, `GET /runs/$id`, `GET /runs/$id/steps`, `POST /runs/$id/cancel` |
-| `approvals` | `["approvals","list",{tab,effect,botId,for,record}]`, `["approvals","detail",approvalId]`, `["approvals","count"]` | `GET /approvals`, `GET /approvals/$id`, `GET /approvals/count`, `POST /approvals/$id/decision` (`{ decision: 'approve' \| 'skip', editedArgs?, note? }`), `POST /approvals/bulk-decision` (internal only) |
-| `threads` | `["threads","list"]`, `["threads","messages",threadId]` | `GET/POST /threads`, `GET /threads/$id/messages`, `POST /threads/$id/messages` (stream) |
-| `memories` | `["memories",{about,kind,review,q}]` | `GET/POST /memories`, `PATCH/DELETE /memories/$id` |
-| `notifications` | `["notifications","list",{filter}]` (infinite), `["notifications","unread"]` | `GET /notifications`, `POST /notifications/read` (ids or all) |
-| `channels` | `["channels"]`, `["notification-preferences"]` | `GET /channels`, `POST /channels/sms/start`, `POST /channels/sms/verify`, `POST /channels/telegram/link`, `DELETE /channels/$id`, `POST /channels/web-push`, `GET/PATCH /notification-preferences` |
-| `connections` | `["connections"]` | `GET /connections`, `POST /connections/$provider/start`, `DELETE /connections/$id`, `PUT /connections/keys/$provider`, `DELETE /connections/keys/$provider` |
-| `members` | `["members"]`, `["invitations"]` | `GET /members`, `PATCH/DELETE /members/$id`, `GET/POST /invitations`, `POST /invitations/$id/resend`, `DELETE /invitations/$id` |
-| `account` | `["sessions"]`, `["calendar-feed"]` | `GET /sessions`, `POST /sessions/revoke-all`, `GET/POST /calendar-feed` (POST resets) |
-| `billing` | `["billing","subscription"]`, `["billing","plans"]`, `["usage",{period}]` | `GET /billing/subscription`, `GET /billing/plans`, `POST /billing/checkout`, `POST /billing/portal`, `POST /billing/run-packs`, `POST /billing/cancel`, `POST /billing/resume`, `GET /usage?period=` |
-| `api-keys` | `["api-keys"]` | `GET/POST /api-keys`, `DELETE /api-keys/$id` |
-| `webhooks` | `["webhooks","list"]`, `["webhooks","deliveries",endpointId]` | `GET/POST /webhooks`, `PATCH/DELETE /webhooks/$id`, `GET /webhooks/$id/deliveries`, `POST /webhook-deliveries/$id/resend` |
-| `audit` | `["audit",{actor,bot,action,from,to}]` (infinite) | `GET /audit` |
-| `exports` | `["exports",{kind,dealId}]` | `GET/POST /exports`, `GET /exports/$id/download` |
-| `workspace-lifecycle` | none (writes only) | `POST /workspace/transfer`, `POST /workspace/deletion`, `DELETE /workspace/deletion` |
-| `reports` (v1) | `["reports","list"]`, `["reports","detail",reportId]`, `["reports","widget",widgetId,{range}]`, `["reports","bids",{range}]` | `GET/POST /reports`, `GET/PATCH/DELETE /reports/$id`, `POST/PATCH/DELETE /reports/$id/widgets[/$widgetId]`, `GET /report-widgets/$id/data`, `GET /reports/bids` |
-| `automations` (v1) | `["automations","list"]`, `["automations","detail",id]`, `["automations","runs",id]` | `GET/POST /automations`, `GET/PATCH /automations/$id`, `GET /automations/$id/runs` |
-| `ops` (v1) | `["ops","tenants",{filters}]`, `["ops","tenant",tenantId]`, `["ops","costs",{from,to}]`, `["ops","flags"]`, `["ops","review",{tab}]`, `["ops","review-stats"]` | `/api/ops/*` (staff session; `magpie_ops` pool, every read audited) |
+| `me` | `['me']`, `['me', 'preferences']` | API.md §5.1 |
+| `workspace` | `['workspace']`, `['workspace', 'exports']`, `['workspace', 'deletion']`, `['settings']`, `['members', {params}]`, `['invitations']` | API.md §5.1, §5.2 |
+| `profile` | `['profile']`, `['profile', 'onboarding']`, `['profile', 'samStatus']`, `['profile', 'suggestedSearches']`, `['naics', {q}]`, `['pastPerformance', {params}]`, `['libraryItems', {params}]` | API.md §5.3 |
+| `today` | `['today']`, `['deadlines', {from, to}]` | API.md §5.4, §5.9 |
+| `market` | `['market', 'search', {request}]`, `['market', 'sources']`, `['market', 'notice', source, sourceId]`, `['market', 'opportunity', opportunityId]`, `['market', 'opportunity', opportunityId, 'documents']`, `['market', 'opportunity', opportunityId, 'text', {documentRef, page}]` | API.md §5.5 |
+| `savedSearches` | `['savedSearches', {params}]`, `['savedSearches', id]`, `['savedSearches', 'preview', {filters}]` | API.md §5.6 |
+| `matches` | `['matches', {params}]`, `['matches', id]` | API.md §5.7 |
+| `deals` | `['deals', {params}]`, `['deals', 'board', {pipelineId, filters}]`, `['deals', id]`, and under `['deals', id, …]`: `'bid'`, `'brief'`, `'documents'`, `['documents', documentId, 'page', {page, highlight}]`, `'requirements'`, `'deadlines'`, `'decision'`, `'aiDisclosure'`, `'submissions'`, `'packages'`, `'priceSheets'`, `'comparables'`, `'quoteRequests'`, `'quotes'`, `'quotesCompare'`, `'contacts'` | API.md §5.8, §5.9, §5.10, §5.11 |
+| `pipelines` | `['pipelines']` | API.md §5.8 |
+| `pricing` | `['priceSheets', id]`, `['wageDeterminations', {params}]`, `['wageDeterminations', wdNumber, {revision}]` | API.md §5.10 |
+| `quotes` | `['quoteRequests', id]`, `['subSearch', dealId, {request}]` | API.md §5.11 |
+| `drafts` | `['drafts', {params}]`, `['drafts', id]`, `['drafts', id, 'versions']`, `['drafts', id, 'versions', version]`, `['drafts', id, 'comments']` | API.md §5.12 |
+| `companies`, `contacts` | `['companies', {params}]`, `['companies', id]`; `['contacts', {params}]`, `['contacts', id]` | API.md §5.13 |
+| `tasks` | `['tasks', {params}]`, `['tasks', id]` | API.md §5.14 |
+| `records` | `['records', recordType, recordId, 'notes' \| 'activities' \| 'history' \| 'files']` | API.md §5.14, §5.16, §5.17 |
+| `tags` | `['tags']` | API.md §5.14 |
+| `fields` | `['fieldDefinitions', object]`, `['fieldSuggestions', {params}]` | API.md §5.15 |
+| `views` | `['savedViews', object]` | API.md §5.16 |
+| `search` | `['search', {q, types}]` | API.md §5.16 |
+| `files` | `['files', id]` | API.md §5.17 |
+| `jobs` | `['jobs', id]` | API.md §5.29 |
+| `bots` | `['bots']`, `['bots', id]`, `['bots', id, 'jobs']`, `['bots', id, 'toolPolicies']`, `['toolPolicies']`, `['bots', 'costs', {month}]` | API.md §5.18 |
+| `runs` | `['runs', {params}]`, `['runs', id]`, `['runs', id, 'steps']` | API.md §5.18 |
+| `memories` | `['memories', {params}]` | API.md §5.18 |
+| `threads` | `['threads', {params}]`, `['threads', id]`, `['threads', id, 'messages']` | API.md §5.19 |
+| `approvals` | `['approvals', {params}]`, `['approvals', 'count']`, `['approvals', id]` | API.md §5.20 |
+| `channels` | `['channels']`, `['notifications', {params}]`, `['notifications', 'unreadCount']` | API.md §5.21 |
+| `connections` | `['connections']` | API.md §5.22 |
+| `billing` | `['billing']`, `['billing', 'plans']`, `['billing', 'usage', {period}]` | API.md §5.23 |
+| `apiKeys` | `['apiKeys']`, `['calendarFeed']` | API.md §5.24 |
+| `audit` | `['auditLog', {params}]` | API.md §5.25 |
+| `webhooks` (v1) | `['webhookEndpoints']`, `['webhookEndpoints', id, 'deliveries']` | API.md §5.26 |
+| `automations` (v1) | `['automations', {params}]`, `['automations', id]`, `['automations', id, 'runs']` | API.md §5.27 |
+| `reports` (v1) | `['reports']`, `['reports', id]`, `['reports', 'widgetData', {query}]`, `['reports', 'bidMetrics', {from, to}]` | API.md §5.28 |
+| `ops` (v1) | `['ops', 'tenants', {params}]`, `['ops', 'tenants', id]`, `['ops', 'costs', {params}]`, `['ops', 'flags']`, `['ops', 'reviewQueue', {params}]`, `['ops', 'reviewQueue', id]`, `['ops', 'reviewStats', {params}]` | API.md §6 |
 
-Public routes outside `/api/app`: `GET /calendar/$token.ics` (deadline feed), `POST /u/$token` (unsubscribe), `GET /s/$code` (resolved by the web route, which calls `GET /api/app/short-links/$code`).
+Screens need two response fields API.md doesn't list yet **(requested)**: `BidRequirement.answeredInDraftIds: uuid[]` (Requirements tab "Answered in" and the Gaps filter) and `Me.usageAlerts: [{ key, threshold, used, limit, pauseAt }]` (banners on every page).
 
 ### 23.3 Realtime events and invalidation
 
-`GET /api/app/events` is an `EventSource` (ARCHITECTURE §9). Each message: `id` = `domain_events.id`, `event: domain`, `data: { id, type, tenantId, payload, createdAt }`. The server also sends `event: ping` every 25 seconds and `event: reset` when `Last-Event-ID` is older than the 7-day replay window (the client then invalidates everything). Reconnect with backoff 1, 2, 5, 10, then every 30 seconds.
+The stream is `GET /api/app/events?workspaceId={tenantId}` (API.md §8): frames `event: <type>`, envelope `{ id, type, occurredAt, actor, payload }`, a `: ping` comment every 25 seconds, the server closing each stream after 10 minutes, and `event: reset` when replay isn't possible. The event types and the keys each one invalidates are API.md §9; `lib/events.ts` implements that table as written, and ARCHITECTURE §9's names are part of it. The UI uses no event outside that list.
 
-The map lives in `packages/shared/src/events.ts` (types and payloads) and `apps/web/src/lib/events.ts` (invalidations). The five names in ARCHITECTURE §9 are kept as they are; the rest are **(requested)**. Payloads carry ids only, never record content.
+On top of invalidation, the UI reacts to these events:
 
-| Event `type` | Payload | Invalidates |
-|---|---|---|
-| `deal.created` | `dealId, kind` | `bids.list`, `deals.list`, `today` |
-| `deal.updated` | `dealId, kind, fields[]` | `bids.detail(dealId)`, `deals.detail(dealId)`, `bids.list`, `deals.list`, `today` |
-| `deal.stage_changed` | `dealId, fromStageId, toStageId` | as `deal.updated`, plus `timeline("deal", dealId)` |
-| `deal.archived` | `dealId` | `bids.list`, `deals.list`, `today` |
-| `company.created`, `company.updated`, `company.archived`, `company.merged` | `companyId, mergedIntoId?` | `companies.list`, `companies.detail(companyId)` |
-| `contact.created`, `contact.updated`, `contact.archived`, `contact.merged` | `contactId, mergedIntoId?` | `contacts.list`, `contacts.detail(contactId)` |
-| `task.created`, `task.updated` | `taskId, recordType?, recordId?` | `tasks.list`, `today`, `bids.detail(recordId)` when the record is a deal |
-| `note.created`, `note.updated` | `noteId, recordType, recordId` | `notes(recordType, recordId)`, `timeline(recordType, recordId)` |
-| `activity.created` | `activityId, links: [{recordType, recordId}]` | `timeline` for each link |
-| `field_suggestion.created`, `field_suggestion.decided` | `recordType, recordId` | `field-suggestions(recordType, recordId)`, the record's detail |
-| `match.created` | `matchId, searchId` | `matches.list`, `matches.counts`, `today` |
-| `match.updated` | `matchId, status, dealId?` | `matches.detail(matchId)`, `matches.list`, `matches.counts`, `today` |
-| `search.updated`, `search.scanned` | `searchId` | `searches.list` |
-| `bid_document.updated` | `dealId, documentId, textStatus, scanStatus` | `bids.documents(dealId)`, `bids.document(documentId)`, `bids.brief(dealId)` |
-| `bid.brief_updated` | `dealId, briefId, status` | `bids.brief(dealId)`, `bids.detail(dealId)`, `today` |
-| `bid.requirements_updated` | `dealId` | `bids.requirements(dealId)`, `bids.detail(dealId)` |
-| `bid.deadlines_updated` | `dealId` | `bids.deadlines(dealId)`, `bids.list`, `today` |
-| `submission.created` | `dealId` | `bids.detail(dealId)` |
-| `price_sheet.updated` | `dealId, priceSheetId` | `price-sheets.list(dealId)`, `price-sheets.detail(priceSheetId)` |
-| `award_comparables.updated` | `dealId` | `award-comparables(dealId)` |
-| `quote_request.updated` | `dealId, quoteRequestId` | `quote-requests.list(dealId)`, `quote-requests.detail(quoteRequestId)` |
-| `quote.received`, `quote.updated` | `dealId, quoteId` | `quotes.list(dealId)`, `today`, `bids.detail(dealId)` |
-| `sub_suggestions.updated` | `dealId` | `sub-suggestions.list(dealId)` |
-| `message.received` | `messageId, dealId?, quoteRequestId?` | `quote-requests.detail(quoteRequestId)`, `timeline("deal", dealId)` |
-| `draft.updated` | `draftId, dealId, updatedAt, runId?` | `drafts.list({dealId})`; `drafts.detail(draftId)` unless `updatedAt` equals the editor's own last save |
-| `draft.version_created` | `draftId, version` | `drafts.versions(draftId)` |
-| `draft.comment_created` | `draftId` | `drafts.comments(draftId)` |
-| `approval.requested` | `approvalId, requestedForUserId, effect, recordType?, recordId?` | `approvals.list`, `approvals.count`, `today`, `bids.detail(recordId)`; toast when for me ([§22.15](#2215-toasts)) |
-| `approval.decided` | `approvalId, status, via` | `approvals.detail(approvalId)`, `approvals.list`, `approvals.count`, `today`, `runs.detail(runId)` |
-| `approval.expired` | `approvalId` | as `approval.decided` |
-| `run.updated` | `runId, botId, status` | `runs.detail(runId)`, `runs.steps(runId)`, `runs.list`, `bots.list`; `today` when finished |
-| `thread.message_created` | `threadId, messageId` | `threads.list`; `threads.messages(threadId)` unless that thread is streaming in this tab |
-| `notification.created` | `notificationId, userId, kind` | `notifications.list`, `notifications.unread` |
-| `bot.updated`, `bot_job.updated` | `botId` | `bots.list`, `bots.detail(botId)`, `bot-jobs(botId)` |
-| `tool_policy.updated` | `botId, toolKey` | `tool-policies(botId)` |
-| `memory.updated` | `memoryId` | `memories` |
-| `channel.updated` | `userId, channel` | `channels` (only for me) |
-| `connection.updated` | `connectionId` | `connections` |
-| `membership.updated`, `invitation.updated` | `userId?` | `members`, `invitations`; `me` when it's me |
-| `settings.updated` | `keys[]` | `workspace.settings`, `me` |
-| `company_profile.updated` | | `company-profile`, `today` |
-| `library_item.updated` | `libraryItemId` | `library`, `today` |
-| `past_performance.updated` | `pastPerformanceId` | `past-performance` |
-| `pipeline.updated` | `pipelineId` | `pipelines`, `deals.list` |
-| `field_definition.updated` | `object` | `fields(object)` |
-| `tag.updated` | `tagId` | `tags` |
-| `view.updated` | `object` | `views(object)` |
-| `import.updated` | `importId, status, processed, total` | `imports.detail(importId)`; on finish `contacts.list` or `companies.list` |
-| `export.updated` | `exportId, kind, status, dealId?` | `exports` |
-| `usage.threshold_reached` | `key, percent` | `usage`, `me` |
-| `subscription.updated` | | `billing.subscription`, `usage`, `me` |
-| `report.updated`, `automation.updated` (v1) | `reportId` or `automationId` | the matching list and detail |
+| Event | UI reaction |
+|---|---|
+| `approval.requested` for me, `reviewStage = 'owner'` | Toast "{Bot} needs your yes: {title}" with Review, unless the person is on Approvals |
+| `approval.decided`, `approval.expired`, `approval.canceled` | An open card for that approval switches to its decided state |
+| `draft.updated` | The open editor ignores it when `updatedAt` isn't newer than its own last save. Otherwise it reloads if it has no unsaved changes, or shows the conflict dialog ([§22.18](#2218-autosave-for-the-draft-editor)). |
+| `run.updated` for a run on screen | Run detail appends steps; a "Bot is writing" banner clears when the run ends |
+| `run.finished` started in this tab | Toast "{Bot} finished." with Open |
+| `job.updated` | Progress text on imports, exports and packages; on success a toast with Download or Open |
+| `package.ready` | Toast "Your bid package is ready." with Download |
+| `bid.amendment_detected` | Amendment banner on the bid ([§9.2](#92-bid-workspace-frame)) |
+| `usage.threshold_reached`, `billing.updated` | Banners re-render from `me` |
+| `member.updated` removing me | After the `reset`, the app shows "You no longer have access to {workspace}." and goes to `/workspaces` |
+| `channel.updated` | Onboarding step 5 and Channels and alerts move on when Telegram connects |
+| `reset` | Invalidate every query |
+
+Stream state: reconnects after the server's 10-minute close are silent. Down for more than 10 seconds: the header shows "Reconnecting…".
 
 ### 23.4 Optimistic updates
 
@@ -2862,10 +2818,10 @@ Allowed only where the server computes nothing the person would see differently,
 
 | Write | Optimistic change |
 |---|---|
-| Move a deal card to an open stage | Card moves to the new column |
+| Move a deal card to an open stage (`POST /deals/:id/move`) | Card moves to the new column |
 | Task done or not done | Checkbox and grouping |
-| Requirement status, owner, position | The row |
-| Notification read, mark all read | Dot and unread state |
+| Requirement status, owner, order | The row |
+| Notification read, mark all read | Dot and unread count |
 | Match save for later, dismiss, restore | Row leaves or returns to the tab |
 | Approval decision | Item leaves Waiting; count drops by one |
 | Switches: Bot job on or off, saved search active, Bot on or off (after its confirmation) | The switch |
@@ -2880,7 +2836,7 @@ onMutate: async (variables) => {
   queryClient.setQueriesData({ queryKey: dealKeys.all }, (data) => moveCard(data, variables));
   return { snapshot };
 },
-onError: (_error, _variables, context) => {
+onError: (_error, variables, context) => {
   context?.snapshot.forEach(([key, data]) => queryClient.setQueryData(key, data));
   toast.error(t`Couldn't move ${variables.dealName}. It's back in ${variables.fromStageName}.`);
 },
@@ -2891,10 +2847,11 @@ Never optimistic: creates (ids come from the server), price totals (previewed on
 
 ### 23.5 Lists, prefetch and freshness
 
-- Lists use cursor pagination (`?cursor=&limit=50`) and `infiniteQueryOptions`. The response is `{ items, nextCursor, total }`.
+- Lists use cursor pagination (API.md §2.4): `limit` 25 by default, 50 for tables, `nextCursor`, and `includeTotal=true` where the screen shows a count ("10,000+" when `totalIsCapped`).
+- Saved views run through `POST /<records>/query` with the view's `filters` and `sort` unchanged.
 - Hovering a row link for 150 ms prefetches the detail factory.
-- Route loaders prefetch the first tab of a page (`/bids/$dealId` loads `bids.detail` and `bids.brief` together).
-- Notices and plans are global; they're never invalidated by events and use longer stale times.
+- Route loaders prefetch the first tab of a page (`/bids/$dealId` loads `['deals', id]`, `['deals', id, 'bid']` and `['deals', id, 'brief']` together).
+- Notices and plans are global; no event invalidates them, so they use longer stale times.
 
 ## 24. Accessibility
 
@@ -2981,9 +2938,9 @@ Components that live in panels of different widths (approval card, record detail
 
 On iPhone and iPad the card appears only when installed (iOS 16.4 and later). In Safari tabs the switch is replaced by: "On iPhone, add Magpie to your home screen first. Then you can turn on notifications." If permission is denied: "Notifications are blocked in your browser settings. Turn them on there, then try again."
 
-Success writes `channel_bindings` with `channel='web_push'`, the endpoint as `address`, the keys in `push_subscription`, and `label` from the browser and OS ("Chrome on Mac").
+The browser subscribes with the key from `GET /channels/web-push/key`, then `POST /channels/web-push` creates the `channel_bindings` row (`channel = 'web_push'`).
 
-**Payloads.** `{ title, body, tag, url, approvalId?, actions? }`. Title at most 50 characters, body at most 120. `tag` is the notification's `dedupe_key`, so updates replace earlier ones.
+**Payloads.** `{ title, body, tag, url, workspaceId, approvalId?, actions? }`. Title at most 50 characters, body at most 120. `tag` is the notification's `dedupe_key`, so updates replace earlier ones.
 
 | Kind | Title | Body | Actions |
 |---|---|---|---|
@@ -2994,7 +2951,7 @@ Success writes `channel_bindings` with `channel='web_push'`, the endpoint as `ad
 | Run finished | "{Bot} finished" | `output_summary` | none |
 | Alert | "Usage alert" or "Payment failed" | the SMS text without "Magpie:" and the link | none |
 
-Action buttons post from the service worker to `POST /api/app/approvals/$id/decision` with the session cookie (`decided_via='web'`). If that fails (signed out, already decided), the worker opens the approval page instead.
+Action buttons post from the service worker to `POST /api/app/approvals/$id/decision` with the session cookie and `X-Workspace-Id` from the payload (`decided_via = 'web'`). If that fails (signed out, already decided), the worker opens the approval page instead.
 
 ## 26. Internationalization
 
@@ -3016,110 +2973,13 @@ US English at launch (PRD §7). Everything is ready for French and Spanish.
 
 ## 27. Schema additions requested
 
-These are not in PRD.md, ARCHITECTURE.md or DATA_MODEL.md. The spine docs were not edited. Each item names its table or contract, its columns, and the screens and requirements that need it. Tenant tables follow DATA_MODEL §1 and §2 (tenant column, RLS template, indexes, `set_updated_at` trigger).
+These are not in PRD.md, ARCHITECTURE.md or DATA_MODEL.md, and not already requested by API.md §15 or AGENT_RUNTIME.md. The spine docs were not edited. Tenant tables follow DATA_MODEL §1 and §2 (tenant column, RLS template, indexes, `set_updated_at` trigger).
 
-**New tables**
+**Already requested elsewhere and relied on here** (no new request): `deals.bid_brief`, `member_preferences`, `approvals.review_notes`, `channel_bindings.disabled_reason`, `file_links.purpose = 'export'`, `field_provenance` record type `company_profile`, `api_keys` scope `calendar:read` (API.md §15); `approvals.decision_note` (AGENT_RUNTIME §15); `tenant_settings.settings` keys `postalAddress`, `marginFloorBps`, `quoteFollowups`, `onboarding`, `bot_jobs.config.learningMode`, `notifications.payload.items` for digests, the drafts version chain, and draft comments as `notes` (API.md §15 clarifications).
 
-1. **`bid_briefs`** (module `bids`). The brief has no home today. Brief tab, Today, run notifications. FR-BID-2.
-   ```sql
-   create table bid_briefs (
-     id uuid primary key,
-     tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
-     deal_id uuid not null references deals(id) on delete cascade,
-     version int not null default 1,
-     status text not null default 'pending' check (status in ('pending','reading','ready','failed')),
-     sections jsonb not null default '[]',      -- BidBriefSection[] (zod): [{key, items:[{text, citations: Citation[], isUnknown}]}]
-                                                -- key in ('red_flags','scope','place','dates','contract','evaluation','bonding_insurance','wage','site_visit','submission','ai_use')
-     source_document_ids uuid[] not null default '{}',
-     error jsonb,
-     run_id uuid,
-     created_at timestamptz not null default now(),
-     updated_at timestamptz not null default now(),
-     unique (deal_id, version)
-   );
-   ```
-2. **`draft_versions`** (module `drafts`). Immutable snapshots, so autosave can write the living `drafts` row in place. Treat `drafts.version` as the latest snapshot number and `parent_draft_id` as "copied from". Draft editor, Versions panel, conflict handling. FR-DRF-2.
-   ```sql
-   create table draft_versions (
-     id uuid primary key,
-     tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
-     draft_id uuid not null references drafts(id) on delete cascade,
-     version int not null,
-     content jsonb not null,
-     content_text text not null,
-     label text,                                 -- e.g. 'Your unsaved changes, 10:42 AM'
-     created_by_type text not null check (created_by_type in ('user','bot')),
-     created_by_id uuid,
-     run_id uuid,
-     created_at timestamptz not null default now(),
-     unique (draft_id, version)
-   );
-   ```
-3. **`draft_comments`** (module `drafts`). Comments panel. FR-DRF-2.
-   ```sql
-   create table draft_comments (
-     id uuid primary key,
-     tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
-     draft_id uuid not null references drafts(id) on delete cascade,
-     parent_comment_id uuid references draft_comments(id) on delete cascade,
-     anchor jsonb,                               -- {from, to, quote}; null on replies
-     body text not null,
-     author_type text not null check (author_type in ('user','bot')),
-     author_id uuid not null,
-     resolved_at timestamptz,
-     resolved_by uuid references users(id),
-     created_at timestamptz not null default now(),
-     updated_at timestamptz not null default now()
-   );
-   ```
-4. **`draft_requirement_links`** (module `drafts`). Which draft answers which requirement, for coverage and gaps. Requirements tab, Drafts tab, editor panel. FR-DRF-1.
-   ```sql
-   create table draft_requirement_links (
-     tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
-     draft_id uuid not null references drafts(id) on delete cascade,
-     requirement_id uuid not null references bid_requirements(id) on delete cascade,
-     anchor text,                                -- id of the heading or block in the draft
-     created_by_type text not null check (created_by_type in ('user','bot')),
-     created_at timestamptz not null default now(),
-     primary key (draft_id, requirement_id)
-   );
-   create index on draft_requirement_links (tenant_id, requirement_id);
-   ```
-5. **`sub_suggestions`** (module `quotes`). Sub Finder's candidates before they're in the CRM. Subs and quotes tab. FR-SUB-1. For `source='places'`, store only `place_id` in `source_ref` and leave `contact` empty (Google terms); fetch contact details live.
-   ```sql
-   create table sub_suggestions (
-     id uuid primary key,
-     tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
-     deal_id uuid not null references deals(id) on delete cascade,
-     company_id uuid references companies(id) on delete set null,
-     name text not null,
-     trade text,
-     distance_miles numeric(7,1),
-     source text not null check (source in ('crm','sam','kontract','website','places')),
-     source_ref text,
-     contact_path text not null default 'none' check (contact_path in ('email','phone','web_form','none')),
-     contact jsonb not null default '{}',        -- {email, phone, website}
-     status text not null default 'suggested' check (status in ('suggested','added','requested','dismissed')),
-     run_id uuid,
-     created_at timestamptz not null default now(),
-     updated_at timestamptz not null default now()
-   );
-   ```
-6. **`notification_preferences`** (module `notifications`). Per person, per workspace: digest hour and days, channels per kind, personal quiet hours. ARCHITECTURE §7.4 already reads a per-user digest hour. Onboarding step 5, Channels and alerts. FR-CH-3, FR-CH-5, FR-CH-8.
-   ```sql
-   create table notification_preferences (
-     tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
-     user_id uuid not null references users(id) on delete cascade,
-     is_digest_enabled boolean not null default true,
-     digest_hour smallint check (digest_hour between 0 and 23),   -- null = tenant_settings.digest_hour
-     digest_days smallint[] not null default '{1,2,3,4,5}',       -- ISO weekdays
-     channels jsonb not null default '{}',       -- {digest|approval|deadline|quote_received|run_finished|alert|billing: notifications.channel[]}
-     quiet_hours jsonb,                          -- null = tenant_settings.quiet_hours
-     updated_at timestamptz not null default now(),
-     primary key (tenant_id, user_id)
-   );
-   ```
-7. **`short_links`** (module `channels`) and resolver `short_link_target(code text) returns table (tenant_id uuid, user_id uuid, target text, expires_at timestamptz)` (security definer, as in DATA_MODEL §2.2). Links in texts and Telegram. [§20.1](#201-rules-for-every-text).
+**Schema**
+
+1. **`short_links`** (module `channels`) and the resolver `short_link_target(code text) returns table (tenant_id uuid, user_id uuid, target text, expires_at timestamptz)` (security definer, as in DATA_MODEL §2.2). Keeps links in texts at 36 characters, which keeps most texts to one segment and saves metered SMS segments ([§20.1](#201-rules-for-every-text)). Without it, texts use `{APP_URL}/a/{approvalId}` and budgets grow by about 30 characters per link.
    ```sql
    create table short_links (
      code text primary key,                      -- 7 characters, base62
@@ -3130,97 +2990,37 @@ These are not in PRD.md, ARCHITECTURE.md or DATA_MODEL.md. The spine docs were n
      created_at timestamptz not null default now()
    );
    ```
-8. **`calendar_feeds`** (module `bids`) and resolver `tenant_for_calendar_token(token_hash text) returns table (tenant_id uuid, user_id uuid, feed_id uuid)`. ICS deadline feed. Your account. FR-BID-4.
-   ```sql
-   create table calendar_feeds (
-     id uuid primary key,
-     tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
-     user_id uuid not null references users(id) on delete cascade,
-     token_hash text not null unique,            -- sha256 of the secret in the feed URL
-     last_fetched_at timestamptz,
-     revoked_at timestamptz,
-     created_at timestamptz not null default now()
-   );
-   ```
-9. **`imports`** (module `crm`). CSV import progress and per-row errors. Import screens. FR-CRM-8.
-   ```sql
-   create table imports (
-     id uuid primary key,
-     tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
-     object text not null check (object in ('company','contact')),
-     file_id uuid not null references files(id),
-     mapping jsonb not null default '{}',        -- {csvHeader: fieldKey | null}
-     dedupe text not null default 'update' check (dedupe in ('update','skip','create')),
-     status text not null default 'draft' check (status in ('draft','queued','running','succeeded','failed')),
-     total_rows int,
-     processed_rows int not null default 0,
-     created_count int not null default 0,
-     updated_count int not null default 0,
-     skipped_count int not null default 0,
-     error_count int not null default 0,
-     errors_file_id uuid references files(id),
-     created_by uuid not null references users(id),
-     created_at timestamptz not null default now(),
-     finished_at timestamptz
-   );
-   ```
-10. **`reviewer_assignments`** (module `ops`, `magpie_ops` pool only, like `impersonations`). "Reviewers see only their assigned tenants." Tenant detail, reviewer queue. FR-OPS-5.
-    ```sql
-    create table reviewer_assignments (
-      staff_user_id uuid not null references users(id) on delete cascade,
-      tenant_id uuid not null references tenants(id) on delete cascade,
-      created_by uuid not null references users(id),
-      created_at timestamptz not null default now(),
-      primary key (staff_user_id, tenant_id)
-    );
-    ```
-11. **`market_source_health`** (module `market`, global like `market_opportunities`: `magpie_app` select only, written by `worker`). Source health on Matches and Bids. PRD §12.
-    ```sql
-    create table market_source_health (
-      source text primary key check (source in ('sam','sled')),
-      status text not null check (status in ('ok','degraded','down')),
-      last_success_at timestamptz,
-      checked_at timestamptz not null default now(),
-      message text
-    );
-    ```
-
-**New columns and enum values**
-
-12. **`approvals`** (FR-OPS-5, FR-CH-4):
-    - `status` adds `'returned'` (staff sent it back to the Bot).
-    - New columns `staff_decided_by uuid references users(id)`, `staff_decided_at timestamptz`, `review_notes text`. Owner decisions keep using `decided_*`, so the reviewer's decision isn't overwritten and median review time can be computed.
-    - Short codes unique per person across workspaces while pending: replace the per-tenant unique index with `create unique index on approvals (requested_for_user_id, short_code) where status = 'pending';` and allocate through a security definer function `allocate_approval_short_code(user_id uuid) returns text` (lowest free "A{n}").
-13. **`opportunity_matches`** (FR-DIS-5): `dismiss_reason` constrained to `('not_our_work','too_far','too_big','too_small','not_eligible','due_too_soon','strong_incumbent','other')`, plus `dismiss_note text`.
-14. **`bid_deadlines.timezone text not null`** (IANA; default from `tenants.timezone` in the service). FR-BID-4 says "in the solicitation's timezone"; the table stores only `at`.
-15. **`deals.work_category text check (work_category in ('services','general_construction','special_trade','supplies'))`**, null until Bid Reader or a person sets it. Picks the FAR 52.219-14 cap. FR-PRC-5.
-16. **`tenant_settings.margin_floor_bps int`**, null for no warning. Workspace general, Pricing. FR-PRC-4.
-17. **`bot_jobs.is_learning_mode boolean not null default false`**. Learning mode is set per job; runs copy it to `agent_runs.is_learning_mode`. FR-BOT-5.
-18. **`memberships.onboarded_at timestamptz`** for invited people's short onboarding, and the documented shape of `tenant_settings.settings.onboarding`: `{ currentStep: 'business'|'work'|'area'|'limits'|'phone'|'done', completed: string[], skipped: string[], finishedAt: string|null, dismissedAt: string|null }`. FR-PRO-1.
-19. **`users.locale text not null default 'en-US'`**. i18n readiness, server-rendered text. PRD §7.
-20. **`data_exports`**: `kind text not null default 'workspace' check (kind in ('workspace','bid_package'))`, `deal_id uuid references deals(id) on delete cascade`, `expires_at timestamptz`. Bid package export and download expiry. FR-BID-9, FR-ACC-5.
-21. **`channel_bindings.label text`**: Telegram username or push device name, shown in Channels and alerts. FR-CH-2, FR-CH-8.
-22. **`market_opportunities.search tsvector generated always as (to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(solicitation_number,'') || ' ' || coalesce(agency,''))) stored`** with a GIN index, and a trigram index on `title`. FR-CRM-6 includes matches in global search; this is the only searched table without one.
-
-**Shared contracts (zod in `packages/shared`, no migration)**
-
-23. **`Citation`**: the discriminated union in [§22.11](#2211-citation-chip). Stored `{documentId, page, quote}` without `kind` means `bid_document`.
-24. **`ApprovalPreview`**: the per-kind shapes in [§14.3](#143-preview-kinds), each with `why: string` and `sources: Citation[]` (FR-APR-1 asks for "why" and "sources"; `approvals` has no column for them).
-25. **`notifications.payload`**: `{ title (max 80), body (max 160), url, refs?: [{ n, matchId }] }`. `refs` holds digest numbering for the reply grammar.
-26. **`me.permissions`**: the flag object in [§3.7](#37-permissions-in-the-ui).
-27. **Domain event types**: the names and payloads in [§23.3](#233-realtime-events-and-invalidation) beyond the five in ARCHITECTURE §9.
+2. **`bid_deadlines.timezone text not null`** (IANA; the service defaults it to `tenants.timezone`). FR-BID-4 says deadlines show "in the solicitation's timezone", and `timestamptz` keeps the instant but not the zone. Used by every deadline display and text ([§9.13](#913-deadlines)).
+3. **`member_preferences.onboarded_at timestamptz`**, added to API.md §15 item 6. Marks that an invited person finished or skipped the short onboarding ([§6.1](#61-frame)).
+4. **`users.locale text not null default 'en-US'`**. Server-rendered text (texts, Telegram, email, push) needs the person's language once French and Spanish ship (PRD §7, [§26](#26-internationalization)).
+5. **`market_opportunities.search tsvector generated always as (to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(solicitation_number,'') || ' ' || coalesce(agency,''))) stored`** with a GIN index, and a trigram GIN index on `title`. FR-CRM-6 searches matches, and this is the only searched table without a `search` column.
 
 **API (for API.md)**
 
-28. The `/api/app` routes in [§23.2](#232-query-keys-and-endpoints), including the non-CRUD ones the screens depend on: `GET /today`, `GET /search`, `GET /market/sources`, `POST /matches/$id/pursue|save|dismiss|restore`, `POST /notices/$id/pursue|save`, `PUT /bids/$dealId/decision`, `GET /bids/$dealId/documents/$id/pages/$page`, `POST /bids/$dealId/exports`, `POST /approvals/$id/decision`, `POST /approvals/bulk-decision`, `GET /approvals/count`, `POST /channels/sms/start|verify`, `POST /channels/telegram/link`, `POST /runs/$id/cancel`, `POST /bot-jobs/$id/run`, `GET /tools`, `POST /billing/checkout|portal|run-packs|cancel|resume`, `GET /usage`, `GET /short-links/$code`, and the public `GET /calendar/$token.ics` and `POST /u/$token`.
-29. The problem `code` list in [§2.3](#23-shared-copy).
+6. `BidRequirement.answeredInDraftIds: uuid[]` in requirement responses ([§9.4](#94-requirements-tab)).
+7. `Me.usageAlerts: [{ key, threshold, used, limit, pauseAt }]` for banners ([§3.5](#35-banners)).
+8. `Me.permissions` returns exactly SECURITY.md §4.1's keys for the person's role ([§3.7](#37-permissions-in-the-ui)); API.md §5.1 shows only examples.
+9. `GET /short-links/:code` returning `{ target, tenantId }` for the `/s/$code` route, if item 1 is accepted.
+
+**Copy and configuration**
+
+10. The START reply in [§20.3](#203-templates), for the Twilio Messaging Service and the 10DLC registration (INTEGRATIONS §12 defines HELP and STOP only).
+11. Reply and Telegram strings in API.md §11.6 and §11.7 and AGENT_RUNTIME §8.3 should use [§20.3](#203-templates)'s words, and name the settings page "Channels and alerts" (API.md says "Phone and chat").
 
 **Stack additions (for ARCHITECTURE §3)**
 
-30. Lingui v5 (i18n), React Email (email templates), `vite-plugin-pwa`, `pdfjs-dist`, `@dnd-kit/core` and `@dnd-kit/sortable`, `idb-keyval`, Sonner, TanStack Table and TanStack Virtual, Recharts (through shadcn `Chart`), `react-qr-code`, `lucide-react`.
+12. Lingui v5 (i18n), React Email (email templates), `openapi-fetch` and `openapi-typescript` (typed client), `vite-plugin-pwa`, `pdfjs-dist`, `@dnd-kit/core` and `@dnd-kit/sortable`, `idb-keyval`, Sonner, TanStack Table and TanStack Virtual, Recharts (through shadcn `Chart`), `react-qr-code`, `lucide-react`.
 
-**Clarifications (no change, confirm the reading)**
+**Conflicts between sibling specs** (UX follows the first doc named in each item; the coordinator should settle each)
 
-31. `tenant_settings.outreach_footer` holds the postal address block; the server appends the unsubscribe line when sending.
-32. `approvals.decided_via='email'` is unused by the app in v1: email links open the app, and decisions there and from web push record `'web'`.
-33. Entitlement keys the Usage page expects: `ai_runs`, `doc_pages`, `sms_segments`, `saved_searches`, `users` (BILLING.md owns the list).
+13. Telegram callback data: API.md §11.6 and INTEGRATIONS §13 use `ap:<uuid>:a`; AGENT_RUNTIME §8.5 uses `apr:<id>:<a|s|e>`.
+14. Notification preferences: API.md §15 `member_preferences`; AGENT_RUNTIME §8.4 `memberships.notification_prefs`.
+15. Reviewer assignment: API.md §6.2 `tenants.metadata.managedReview.reviewerUserIds`; AGENT_RUNTIME §8.1 `staff_assignments` (SECURITY §20). UX only calls the API.
+16. Model tier: AGENT_RUNTIME §2.1 says workspaces can't change tiers in v1; API.md §5.18 allows `PATCH /bots/:id { modelTier }`. UX shows the tier read-only.
+17. The same short code in two workspaces: API.md §11.7 answers with a link; AGENT_RUNTIME §8.3 asks for the workspace initial plus the code. UX copy follows API.md.
+18. Decisions from approval emails: AGENT_RUNTIME §8.5 records `decided_via = 'email'` when the card was opened with `?via=email`; API.md §5.20 records every web decision as `web` and its request has no channel field. UX links emails to `/a/$approvalId?via=email` and needs the decision request to carry it.
+19. Business memories: SECURITY.md §4.1 lets members add them (`memory.write`); API.md §5.18 requires admin.
+20. Shared saved views and tags: SECURITY.md §4.1 lets members save shared views and edit tags (`records.write`); API.md §5.14 and §5.16 require admin.
+21. API keys: SECURITY.md §4.1 gives `api_keys.manage` to admins and owners only; API.md §5.24 lets members create their own.
+22. Canceling the plan: SECURITY.md §4.1 gives `billing.cancel` to the owner only; API.md §5.23 allows admins.
+23. Roles: SECURITY.md §4.3 lets admins change any role except the owner's; API.md §5.1 says only the owner grants or removes admin.

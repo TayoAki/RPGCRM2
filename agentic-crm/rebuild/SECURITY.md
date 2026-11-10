@@ -128,7 +128,7 @@ Google and Microsoft sign-ups arrive verified. The banner says "Verify your emai
 
 ## 4. Authorization
 
-All checks happen in `packages/core` (the records layer and services), not only in routes. Routes enforce the minimum role in API.md §5; core enforces the permission. If API.md §5's role column and the matrix in §4.3 disagree, raise it rather than pick one (API.md §2.10).
+All checks happen in `packages/core` (the records layer and services), not only in routes. Routes enforce the minimum role in API.md §5; core enforces the permission. The matrix in §4.3 was checked against API.md §5's role column on 2026-11-10; if they drift apart, raise it rather than pick one (API.md §2.10).
 
 ### 4.1 Permission keys
 
@@ -141,7 +141,7 @@ All checks happen in `packages/core` (the records layer and services), not only 
 | `records.archive` | Archive and restore records |
 | `records.bulk` | Bulk actions, import, merge |
 | `records.export` | CSV export of a view |
-| `schema.manage` | Custom field definitions, pipelines and stages |
+| `schema.manage` | Custom field definitions, pipelines and stages, renaming and deleting tags |
 | `profile.write` | Company profile, past performance, library |
 | `searches.write` | Saved searches |
 | `matches.decide` | Pursue, save, dismiss matches |
@@ -163,10 +163,10 @@ All checks happen in `packages/core` (the records layer and services), not only 
 | `members.manage` | Invitations, roles, removal |
 | `settings.manage` | Workspace settings, digest and quiet hours, AI drafting switch, provider exclusions, outreach footer, approval expiry |
 | `connections.manage` | Workspace-wide connections and bring-your-own keys |
-| `billing.manage` | Plan changes, payment method, run packs |
-| `billing.cancel` | Cancel the subscription |
+| `billing.manage` | Plan changes, payment method, run packs, cancel and resume the subscription |
 | `usage.view` | Usage page |
-| `api_keys.manage` | API keys |
+| `api_keys.own` | Create and revoke your own API keys |
+| `api_keys.manage` | Revoke anyone's API keys in the workspace |
 | `webhooks.manage` | Outgoing webhook endpoints |
 | `automations.manage` | Automations |
 | `reports.write` | Create and edit reports |
@@ -178,9 +178,9 @@ All checks happen in `packages/core` (the records layer and services), not only 
 | Role | Permissions |
 |---|---|
 | `viewer` | `records.read`, `bots.chat` (Bots get read tools only) |
-| `member` | viewer, plus `records.write`, `records.archive`, `records.bulk`, `records.export`, `profile.write`, `searches.write`, `matches.decide`, `bids.write`, `bids.decide`, `pricing.write`, `pricing.approve`, `quotes.write`, `drafts.write`, `outreach.send`, `approvals.decide`, `memory.write`, `reports.write` |
+| `member` | viewer, plus `records.write`, `records.archive`, `records.bulk`, `records.export`, `profile.write`, `searches.write`, `matches.decide`, `bids.write`, `bids.decide`, `pricing.write`, `pricing.approve`, `quotes.write`, `drafts.write`, `outreach.send`, `approvals.decide`, `memory.write`, `reports.write`, `api_keys.own` |
 | `admin` | member, plus `schema.manage`, `bids.ai_override`, `approvals.decide_any`, `bots.configure`, `bots.autonomy`, `bots.view_costs`, `memory.manage`, `members.manage`, `settings.manage`, `connections.manage`, `billing.manage`, `usage.view`, `api_keys.manage`, `webhooks.manage`, `automations.manage` |
-| `owner` | admin, plus `billing.cancel`, `audit.read`, `workspace.export`, `workspace.delete`, `ownership.transfer` |
+| `owner` | admin, plus `audit.read`, `workspace.export`, `workspace.delete`, `ownership.transfer` |
 
 Everyone can manage their own channels, notification preferences, personal saved views, personal memories, own calendar feed link and own session.
 
@@ -215,13 +215,13 @@ There are no per-record or per-field restrictions: every member of a workspace c
 | CRM (FR-CRM) | View records, timelines, field history | yes | yes | yes | yes |
 | | Create, edit, archive, tag, bulk actions, merge, import | yes | yes | yes | no |
 | | Export a view to CSV | yes | yes | yes | no |
-| | Custom fields, pipelines and stages | yes | yes | no | no |
+| | Custom fields, pipelines and stages; rename or delete tags | yes | yes | no | no |
 | | Personal saved views | yes | yes | yes | yes |
 | | Shared saved views | yes | yes | yes | no |
 | Bots (FR-BOT) | Chat, Ask a Bot | yes | yes | yes | yes, read tools only |
 | | Rename, instructions, turn on or off, job times, custom jobs | yes | yes | no | no |
 | | Tool policies, earned-autonomy suggestions (FR-BOT-3, FR-BOT-4) | yes | yes | no | no |
-| | Runs log | all | all | own | own |
+| | Runs log (FR-BOT-7) | yes | yes | yes | yes |
 | | Cost per Bot (FR-BOT-7) | yes | yes | no | no |
 | | Add business memories | yes | yes | yes | no |
 | | Delete business memories | any | any | own | no |
@@ -232,11 +232,11 @@ There are no per-record or per-field restrictions: every member of a workspace c
 | | Digest hour, quiet hours | yes | yes | no | no |
 | Billing (FR-BIL) | View plan, usage and cost per Bot (FR-BIL-3) | yes | yes | no | no |
 | | Change plan, payment method, buy run packs | yes | yes | no | no |
-| | Cancel the subscription (FR-BIL-7) | yes | no | no | no |
+| | Cancel or resume the subscription (FR-BIL-7) | yes | yes | no | no |
 | Settings (FR-SET) | Workspace settings, AI drafting switch, provider exclusions (FR-SET-1) | yes | yes | no | no |
 | | Connect own Gmail or Outlook for sending (FR-SET-2) | yes | yes | yes | no |
 | | Workspace-wide connections and bring-your-own keys | yes | yes | no | no |
-| | API keys (FR-SET-3) | yes | yes | no | no |
+| | API keys (FR-SET-3) | own; revoke any | own; revoke any | own | no |
 | | Own calendar feed link | yes | yes | yes | yes |
 | | Audit log viewer (FR-SET-4) | yes | no | no | no |
 | API and MCP (FR-API) | Use the API or MCP | as the key's or token's person | same | same | same |
@@ -259,11 +259,11 @@ There are no per-record or per-field restrictions: every member of a workspace c
 | Format | `mgp_` plus 40 random base62 characters (about 238 bits). `api_keys.prefix` is the first 8 characters (for example `mgp_AbC1`); on a prefix collision, generate a new key. |
 | Storage | `key_hash` is the SHA-256 of the full key. The key is shown once at creation and never again. |
 | Lookup | `tenant_for_api_key_prefix(prefix)`, then a constant-time hash comparison. No cache, so revocation is immediate (FR-SET-3). |
-| Identity | A key acts as `api_keys.user_id` with that person's current role, narrowed by `scopes` (`read`: GET only; `write`: adds writes, including deciding approvals) (API.md §2.10). |
-| Lifetime | Creation suggests a 1-year expiry; keys without one are listed with a warning. Owners and admins get an email 14 days before a key expires. |
+| Identity | A key acts as `api_keys.user_id` with that person's current role, narrowed by `scopes` (`read`: GET only; `write`: adds writes, including deciding approvals; `calendar:read`: only the person's calendar feed) (API.md §2.10, §15 item 7). Members create keys for themselves; admins and owners can revoke anyone's. |
+| Lifetime | Creation suggests a 1-year expiry; keys without one are listed with a warning. The key's person gets an email 14 days before it expires. |
 | Removal | A key stops working when revoked, expired, or when its person leaves the workspace or is downgraded to a role without the needed permission. |
 | Usage | `last_used_at` updated at most once a minute; rate limit 600 requests a minute per key (FR-API-1) and the `api_requests_per_day` entitlement (BILLING §3). |
-| Never | Keys never appear in URLs, logs or error messages. The calendar feed token in `/ics/<token>.ics` is a separate read-only key limited to the person's own deadlines; it can be rotated from settings. |
+| Never | Keys never appear in URLs, logs or error messages. The one exception is the calendar feed (`/ics/<token>.ics`): its key has only the `calendar:read` scope, shows only the person's own deadlines, and can be rotated from settings. |
 | MCP | OAuth 2.1 with PKCE through Better Auth's MCP plugins (API.md §4). Access tokens last 1 hour, refresh tokens 30 days. A grant is bound to one workspace and one person, writes follow approval rules (FR-API-2), and grants can be revoked under "Connected AI apps". **Verify** token lifetimes are configurable in the pinned plugin. |
 
 ### 4.6 Staff roles
@@ -279,7 +279,7 @@ Staff are not workspace members. They reach customer data only through the ops c
 | Suspend, unsuspend, extend trial, grant credit, entitlement overrides (FR-OPS-3) | no | no | yes |
 | Schedule or cancel deletion | no | no | yes |
 | Feature flags (FR-OPS-4) | no | no | yes |
-| Cost dashboard (FR-OPS-6) | read | no | yes |
+| Cost dashboard across tenants (FR-OPS-6) | no | no | yes |
 | Change staff roles | no | no | no; founders only, by audited CLI |
 
 ### 4.7 Impersonation
@@ -305,9 +305,9 @@ Staff are not workspace members. They reach customer data only through the ops c
 
 ## 5. Environment variables
 
-`packages/shared/src/env.ts` validates these with zod at boot; a process with invalid or missing required values exits (ARCHITECTURE §10). Each process validates only the variables it uses. A fake `.env.example` lives in the repository; real values live only in Railway variables (sealed where Railway supports it) and in GitHub Actions secrets for CI. Preview and staging use test-mode Stripe and Twilio credentials. Nothing tenant-specific is ever an environment variable.
+`packages/shared/src/env.ts` validates these with zod at boot; a process with invalid or missing required values exits (ARCHITECTURE §10). Each process validates only the variables it uses. This is the full list: it includes the variables INTEGRATIONS.md §25 adds, with the same names. A fake `.env.example` lives in the repository; real values live only in Railway variables (sealed where Railway supports it) and in GitHub Actions secrets for CI. Preview and staging use test-mode Stripe and Twilio credentials. Nothing tenant-specific is ever an environment variable.
 
-"Secret" means the value must never be logged, committed or shown in the UI.
+"Secret" means the value must never be logged, committed or shown in the UI. An integration whose required variables are missing runs as "not configured" outside production; production boot fails if an MVP integration is not configured (INTEGRATIONS §2.5).
 
 ### 5.1 Runtime and URLs
 
@@ -315,13 +315,15 @@ Staff are not workspace members. They reach customer data only through the ops c
 |---|---|---|---|
 | `APP_ENV` | api, worker, web build | no | `local`, `preview`, `staging` or `production`. |
 | `NODE_ENV` | api, worker | no | `production` everywhere except local development and tests. |
-| `APP_URL` | api, worker, web build | no | Public origin of the app and api (API.md §1). Used for links in messages, the CSRF origin check, Better Auth `baseURL`, and the base URL in Twilio signature checks. |
+| `APP_URL` | api, worker, web build | no | Public origin of the app and api (API.md §1). Used for links in messages, the CSRF origin check and Better Auth `baseURL`. UX.md's `{APP_HOST}` is its host. |
+| `SHORT_HOST` | api, worker | no | Optional host for short links in texts (`https://<SHORT_HOST>/s/<code>`, at most 18 characters, UX.md). Unset means texts use `APP_URL` links. |
+| `MCP_ALLOWED_ORIGINS` | api | no | Comma-separated browser origins allowed to call `/mcp` (API.md §13). |
 | `PORT` | api | no | Port the api listens on; set by Railway. |
 | `LOG_LEVEL` | api, worker | no | pino level; default `info`. |
 | `RELEASE` | api, worker, web build | no | Git SHA of the build, sent to Sentry and logs. |
-| `SIGNUPS_ENABLED` | api | no | `true` by default; `false` closes sign-up (incident switch). |
+| `SIGNUPS_ENABLED` | api | no | `true` by default; `false` closes sign-up (incident switch, §17). |
 
-### 5.2 Database
+### 5.2 Database and DBOS
 
 | Variable | Used by | Secret | Description |
 |---|---|---|---|
@@ -344,30 +346,31 @@ Staff are not workspace members. They reach customer data only through the ops c
 | `MASTER_KEY_VERSION` | api, worker | no | Integer version of `MASTER_KEY`, stored in `secrets.key_version`. |
 | `MASTER_KEY_PREVIOUS` | api, worker | yes | `<version>:<base64>` of the previous master key, set only during a rotation. |
 | `KMS_KEY_ID` | api, worker | no | From M10: the KMS key that wraps data keys. Cloud credentials are added by the ADR that picks the KMS. |
-| `LINK_SIGNING_SECRET` | api, worker | yes | HMAC-SHA256 key for unsubscribe links, shared file links, one-time approval edit links and pagination cursors (API.md §2.4). |
+| `LINK_SIGNING_KEY` | api, worker | yes | HMAC-SHA256 key for `/unsubscribe` and `/files/shared` tokens, one-time approval edit links and pagination cursors (API.md §2.4, §7). |
 | `TRIAL_CLAIM_PEPPER` | api | yes | HMAC key for `trial_claims` hashes (BILLING §7). |
 | `BETTER_AUTH_SECRET` | api | yes | Better Auth secret, at least 32 random bytes. |
-| `GOOGLE_CLIENT_ID` | api | no | Google OAuth client for sign-in and the `gmail.send` connection. |
-| `GOOGLE_CLIENT_SECRET` | api | yes | |
-| `MICROSOFT_CLIENT_ID` | api | no | Entra app for sign-in and `Mail.Send`. |
-| `MICROSOFT_CLIENT_SECRET` | api | yes | |
-| `MICROSOFT_TENANT_ID` | api | no | `common`. |
+| `GOOGLE_OAUTH_CLIENT_ID` | api | no | Google OAuth client for sign-in and the `gmail.send` connection (INTEGRATIONS §10). |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | api | yes | |
+| `MICROSOFT_OAUTH_CLIENT_ID` | api | no | Entra app for sign-in and `Mail.Send` (INTEGRATIONS §11). Tenant `common` is fixed in code. |
+| `MICROSOFT_OAUTH_CLIENT_SECRET` | api | yes | |
 | `STAFF_GOOGLE_DOMAIN` | api | no | Google Workspace domain for staff sign-in (§3.5). |
 | `TURNSTILE_SECRET_KEY` | api | yes | Cloudflare Turnstile server key for sign-up and magic-link requests. |
 
-### 5.4 Models and market data
+### 5.4 Models, market data and verification
 
 | Variable | Used by | Secret | Description |
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | worker | yes | Model calls run only in the worker. |
 | `OPENAI_API_KEY` | worker | yes | Model calls and embeddings. |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | worker | yes | Only if `models.json` lists Google entries; paid tier only (§18.11). |
-| `KONTRACT_BASE_URL` | api, worker | no | Kontract engine base URL. |
-| `KONTRACT_API_KEY` | api, worker | yes | Kontract service key. |
-| `SAM_API_KEY` | api, worker | yes | SAM.gov key for the fallback adapter. |
-| `GOOGLE_PLACES_API_KEY` | worker | yes | Optional; only if Magpie calls Places directly. v1 does not (Kontract does). |
+| `KONTRACT_URL` | api, worker | no | Kontract engine base URL (INTEGRATIONS §3). |
+| `KONTRACT_SERVICE_KEY` | api, worker | yes | Kontract service key. |
+| `SAM_GOV_API_KEY` | api, worker | yes | SAM.gov key for the fallback adapter and entity lookups (INTEGRATIONS §4, §5). |
+| `MILLIONVERIFIER_API_KEY` | worker | yes | Platform key for email verification; a workspace's own key takes precedence (INTEGRATIONS §19). It travels as a query parameter, so request URLs to MillionVerifier are never logged. |
+| `MILLIONVERIFIER_COST_MICROS` | worker | no | Cost per lookup for metering (BILLING §9). |
+| `GOOGLE_PLACES_API_KEY` | worker | yes | Optional; only if Magpie calls Places directly (INTEGRATIONS §20). |
 
-### 5.5 Billing, messaging and files
+### 5.5 Billing, messaging, files and documents
 
 | Variable | Used by | Secret | Description |
 |---|---|---|---|
@@ -380,22 +383,28 @@ Staff are not workspace members. They reach customer data only through the ops c
 | `TWILIO_API_KEY_SID` | worker | no | REST calls use an API key, not the auth token. |
 | `TWILIO_API_KEY_SECRET` | worker | yes | |
 | `TWILIO_MESSAGING_SERVICE_SID` | worker | no | Messaging service tied to the 10DLC campaign. |
+| `TWILIO_VERIFY_SERVICE_SID` | api | no | Twilio Verify service that sends and checks SMS verification codes (INTEGRATIONS §12). |
+| `TWILIO_WEBHOOK_BASE_URL` | api, worker | no | Exact public origin Twilio calls; signatures are computed over it (§12). |
 | `TELEGRAM_BOT_TOKEN` | api, worker | yes | |
 | `TELEGRAM_WEBHOOK_SECRET` | api | yes | `secret_token` given to `setWebhook`: 1 to 256 characters of `A-Z a-z 0-9 _ -`. |
 | `TELEGRAM_BOT_USERNAME` | api | no | For deep links. |
-| `POSTMARK_SERVER_TOKEN` | api, worker | yes | api sends auth emails; worker sends the rest. |
-| `POSTMARK_TRANSACTIONAL_STREAM` | api, worker | no | Stream for Magpie's own emails to its users. |
-| `POSTMARK_OUTREACH_STREAM` | worker | no | Separate stream for quote requests and Bot emails sent from Magpie's domain (**verify** Postmark's policy for this traffic). |
-| `EMAIL_FROM_DOMAIN` | api, worker | no | Sending domain with SPF, DKIM and return path. |
-| `INBOUND_EMAIL_DOMAIN` | api, worker | no | Domain of tracked reply addresses. |
-| `POSTMARK_INBOUND_USER`, `POSTMARK_INBOUND_PASSWORD` | api | yes | Basic auth credentials in the inbound webhook URL (§12). |
-| `MAGPIE_POSTAL_ADDRESS` | api, worker | no | Magpie's postal address for its own emails. |
-| `WEB_PUSH_VAPID_PUBLIC_KEY` | api | no | |
-| `WEB_PUSH_VAPID_PRIVATE_KEY` | worker | yes | |
-| `WEB_PUSH_SUBJECT` | worker | no | `mailto:` contact for push services. |
-| `R2_ACCOUNT_ID`, `R2_ENDPOINT`, `R2_BUCKET` | api, worker | no | File storage. |
+| `POSTMARK_TRANSACTIONAL_TOKEN` | api, worker | yes | Server token of the transactional server (Magpie's own email and inbound), INTEGRATIONS §9. |
+| `POSTMARK_OUTREACH_TOKEN` | worker | yes | Server token of the separate outreach server, so outreach can never hurt sign-in and digest delivery. |
+| `POSTMARK_INBOUND_BASIC_USER`, `POSTMARK_INBOUND_BASIC_PASSWORD` | api | yes | Basic auth in the inbound webhook URL (§12). |
+| `POSTMARK_EVENTS_BASIC_USER`, `POSTMARK_EVENTS_BASIC_PASSWORD` | api | yes | Basic auth in the bounce and spam events webhook URL (§12). |
+| `POSTMARK_WEBHOOK_IPS` | api | no | Optional allowlist of Postmark's published webhook IPs. |
+| `EMAIL_FROM_DOMAIN` | api, worker | no | Domain of Magpie's own email (UX.md's `{MAIL_DOMAIN}`), with SPF, DKIM and return path. |
+| `OUTREACH_FROM_DOMAIN` | worker | no | Domain outreach is sent from when the person has no connected mailbox. |
+| `INBOUND_EMAIL_DOMAIN` | api, worker | no | Domain of tracked reply addresses (`q-<token>`, `u-<token>`). |
+| `MAGPIE_POSTAL_ADDRESS` | api, worker | no | Magpie's postal address for the footer of its own emails (UX.md). |
+| `VAPID_PUBLIC_KEY` | api | no | Web push public key (INTEGRATIONS §23). |
+| `VAPID_PRIVATE_KEY` | worker | yes | |
+| `VAPID_SUBJECT` | worker | no | `mailto:` contact for push services. |
+| `R2_ACCOUNT_ID`, `R2_BUCKET` | api, worker | no | File storage (INTEGRATIONS §15). |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | api, worker | yes | Token scoped to `R2_BUCKET` only. |
-| `MALWARE_SCAN_URL` | worker | no | Private network address of the malware scanner (§10.3). |
+| `CLAMD_HOST`, `CLAMD_PORT` | worker | no | Private network address of the ClamAV service (§10.3, INTEGRATIONS §16). |
+| `CLAMAV_DISABLED` | worker | no | `true` skips scanning in local and preview only; boot fails if it is set in staging or production. |
+| `GOTENBERG_URL` | worker | no | Private network address of the document rendering service (INTEGRATIONS §18). |
 
 ### 5.6 Backups and observability
 
@@ -406,14 +415,16 @@ Staff are not workspace members. They reach customer data only through the ops c
 | `BACKUP_ACCESS_KEY_ID`, `BACKUP_SECRET_ACCESS_KEY` | backup job | yes | Write-only token for the backup bucket. |
 | `BACKUP_AGE_RECIPIENT` | backup job | no | Public key backups are encrypted to; the private key is held offline by the founders. |
 | `SENTRY_DSN` | api, worker | no | |
+| `SENTRY_ENVIRONMENT` | api, worker | no | Usually equal to `APP_ENV`. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | api, worker | no | Traces endpoint. |
 | `OTEL_EXPORTER_OTLP_HEADERS` | api, worker | yes | Auth header for the traces backend. |
+| `OTEL_TRACES_SAMPLER_ARG` | api, worker | no | Trace sampling ratio (INTEGRATIONS §22). |
 | `OTEL_SERVICE_NAME` | api, worker | no | `magpie-api` or `magpie-worker`. |
 | `CSP_REPORT_URL` | api | no | Endpoint for CSP violation reports (§13). |
 
 ### 5.7 Web build (public)
 
-These are compiled into the browser bundle and must never hold a secret: `VITE_APP_URL`, `VITE_APP_ENV`, `VITE_RELEASE`, `VITE_SENTRY_DSN`, `VITE_TURNSTILE_SITE_KEY`, `VITE_WEB_PUSH_VAPID_PUBLIC_KEY`, `VITE_TELEGRAM_BOT_USERNAME`. A CI check fails the build if any `VITE_` variable name contains `SECRET`, `TOKEN`, `PASSWORD` or `KEY_SECRET`.
+These are compiled into the browser bundle and must never hold a secret: `VITE_APP_URL`, `VITE_APP_ENV`, `VITE_RELEASE`, `VITE_SENTRY_DSN`, `VITE_TURNSTILE_SITE_KEY`, `VITE_VAPID_PUBLIC_KEY`, `VITE_TELEGRAM_BOT_USERNAME`. A CI check fails the build if any `VITE_` variable name contains `SECRET`, `TOKEN`, `PASSWORD` or `PRIVATE`.
 
 ## 6. Secrets and envelope encryption
 
@@ -443,7 +454,7 @@ These are compiled into the browser bundle and must never hold a secret: `VITE_A
 | Data keys | when the value changes (OAuth refresh token rotation, a new BYOK key) | New random data key per write. |
 | Provider keys and webhook secrets | yearly, on staff departure, on suspected exposure | Create the new credential, deploy, revoke the old. |
 | `BETTER_AUTH_SECRET` | on suspected exposure | Rotation signs everyone out unless the pinned Better Auth supports several secrets (**verify**). |
-| `LINK_SIGNING_SECRET` | yearly | Accept the previous secret for 30 days so sent unsubscribe links keep working (CAN-SPAM requires 30 days, §18.4). |
+| `LINK_SIGNING_KEY` | yearly | Accept the previous secret for 30 days so sent unsubscribe links keep working (CAN-SPAM requires 30 days, §18.4). |
 
 ### 6.5 Never logged, stored in plain text or sent to Sentry
 
@@ -519,15 +530,15 @@ These are compiled into the browser bundle and must never hold a secret: `VITE_A
 
 | Type | Extensions | Content types | Max size |
 |---|---|---|---|
-| PDF | `.pdf` | `application/pdf` | 50 MB |
-| Word | `.docx` | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | 25 MB |
-| Excel | `.xlsx` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | 25 MB |
-| CSV (imports, attachments) | `.csv` | `text/csv` | 25 MB |
-| Text | `.txt` | `text/plain` | 5 MB |
-| Images | `.png`, `.jpg`, `.jpeg`, `.webp` | `image/png`, `image/jpeg`, `image/webp` | 15 MB |
-| Logo and avatar | `.png`, `.jpg`, `.jpeg`, `.webp` | same | 2 MB, re-encoded server-side |
+| PDF | `.pdf` | `application/pdf` | 100 MB as a bid document, 25 MB otherwise |
+| Word | `.docx` | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | same |
+| Excel | `.xlsx` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | same |
+| CSV (imports, attachments) | `.csv` | `text/csv` | same |
+| Text | `.txt` | `text/plain` | same |
+| Images | `.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, `.heic` | `image/png`, `image/jpeg`, `image/tiff`, `image/heic` | same |
+| Logo and avatar | `.png`, `.jpg`, `.jpeg` | `image/png`, `image/jpeg` | 2 MB, re-encoded server-side |
 
-Refused: anything else, including SVG, HTML, macro-enabled Office files (`.docm`, `.xlsm`), old binary Office formats, archives and executables. The file's first bytes must match the declared type; extension, content type and magic bytes must agree.
+These match API.md's upload route (100 MB for purpose `bid_document`, 25 MB otherwise). Refused: anything else, including SVG, HTML, macro-enabled Office files (`.docm`, `.xlsm`), old binary Office formats, archives and executables. The file's first bytes must match the declared type; extension, content type and magic bytes must agree.
 
 ### 10.2 Upload flow
 
@@ -544,7 +555,7 @@ Refused: anything else, including SVG, HTML, macro-enabled Office files (`.docm`
 
 ### 10.3 Malware scanning
 
-The scanner is a ClamAV daemon (`clamd`) reached at `MALWARE_SCAN_URL` on Railway's private network, with signatures updated at least daily (INTEGRATIONS.md owns the deployment details). Files never leave Magpie's infrastructure to be scanned. This is a third deployable besides `api` and `worker` (ARCHITECTURE §2 lists two); record it in an ADR.
+The scanner is ClamAV (`clamd`) from the official image, run as a private Railway service reached at `CLAMD_HOST`:`CLAMD_PORT`, with signatures updated 4 times a day (INTEGRATIONS §16 owns sizing, limits and the protocol client). Files never leave Magpie's infrastructure to be scanned. A file larger than clamd's scan limits is treated as infected (`AlertExceedsMax`), never as clean. `CLAMAV_DISABLED` exists only for local and preview environments.
 
 ### 10.4 Extraction sandbox
 
@@ -559,7 +570,8 @@ The scanner is a ClamAV daemon (`clamd`) reached at `MALWARE_SCAN_URL` on Railwa
 - PDFs are previewed in-app by rendering their bytes with pdf.js to canvas, with script evaluation off.
 - Images are shown from presigned URLs. Other types show extracted text only.
 - File names are cleaned (path parts and control characters removed, at most 200 characters) and sent as `filename*` in headers.
-- Shared links for subcontractors (`/files/shared/<token>`) are HMAC-signed with `LINK_SIGNING_SECRET`, name one file, expire 7 days after the quote request's due date, and always download as attachments.
+- Shared links for subcontractors (`/files/shared/<token>`) are HMAC-signed with `LINK_SIGNING_KEY`, name one file, expire 7 days after the quote request's due date, and always download as attachments.
+- The market document proxy (API.md: the route that streams a notice's original file through the api for the viewer) serves inline only files whose magic bytes are PDF or a raster image, with the content type set from those bytes, `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Anything else (HTML, SVG, Office files) is sent as an attachment. This is the one place outside files Magpie stores where bytes from outside are served from the `APP_URL` origin.
 
 ### 10.6 Controlled markings
 
@@ -576,6 +588,7 @@ Magpie's servers fetch outside URLs only on these paths:
 | Provider APIs (Stripe, Twilio, Telegram, Postmark, Google, Microsoft, Kontract, model providers, R2) | Fixed base URLs from configuration; never built from user input. |
 | Outgoing customer webhooks (FR-API-3) | Customer-supplied URLs, guarded as below. |
 | Web push endpoints | Must be `https` on known push service hosts (Apple, Google, Mozilla, Microsoft), checked when the subscription is saved. |
+| Document rendering (Gotenberg) and scanning (ClamAV) | Private services that receive only bytes Magpie sends. Gotenberg's LibreOffice route converts Magpie-generated DOCX only; never send it HTML or URLs. Both services get no outbound internet access except ClamAV's signature updates (**verify** how Railway restricts egress; if it cannot, keep the inputs rule). |
 
 Guard for customer-supplied URLs (`packages/integrations/http/safe-fetch.ts`):
 1. `https` only, port 443 only, no credentials in the URL, hostname not an IP literal.
@@ -591,14 +604,19 @@ Guard for customer-supplied URLs (`packages/integrations/http/safe-fetch.ts`):
 
 Every inbound webhook verifies before parsing the body as trusted input, records `webhook_receipts (provider, external_id)` (or `billing_events` for Stripe) before doing work, and answers quickly; the work runs in a workflow (ARCHITECTURE §7.3).
 
-| Provider | Verification | Dedupe id | Body limit |
+API.md §11.2 is the route-level contract; this table states the security rule for each.
+
+| Endpoint | Verification | Dedupe id | Body limit |
 |---|---|---|---|
-| Stripe `/webhooks/stripe` | `Stripe-Signature` checked with the official library on the raw body, 300-second tolerance | `event.id` in `billing_events` | 1 MB |
-| Twilio `/webhooks/twilio` | `X-Twilio-Signature` (HMAC-SHA1 of the full public URL plus sorted POST parameters, keyed by `TWILIO_AUTH_TOKEN`) with the official helper; the URL is rebuilt from `APP_URL`, never from proxy headers | `MessageSid` plus status for callbacks | 64 KB |
-| Telegram `/webhooks/telegram` | `X-Telegram-Bot-Api-Secret-Token` equals `TELEGRAM_WEBHOOK_SECRET` (constant-time); private chats only | `update_id` | 1 MB |
-| Postmark inbound `/webhooks/postmark-inbound` | Postmark does not sign inbound webhooks: HTTPS with basic auth credentials in the URL, compared in constant time; optional allowlist of Postmark's published IPs (**verify** the current list); reply token resolved with `tenant_for_reply_token` | Postmark `MessageID` | 35 MB (attachments) |
-| Google `/webhooks/google` | v1 uses it only for Cross-Account Protection (RISC) security events: a JWT signed by Google, checked against Google's published keys with issuer and audience (**verify**). On a token-revoked or account-disabled event, Magpie marks the connection revoked and deletes its tokens. | `jti` | 64 KB |
-| Microsoft `/webhooks/microsoft` | Not used in v1. Reserved for Graph change notifications in v2 (validation token handshake and `clientState`). Returns 404 until then. | | |
+| `POST /webhooks/stripe` | `Stripe-Signature` checked with the official library on the raw body, 300-second tolerance | `event.id` in `billing_events` | 1 MB |
+| `POST /webhooks/twilio/sms`, `POST /webhooks/twilio/status` | `X-Twilio-Signature` (HMAC-SHA1 of `TWILIO_WEBHOOK_BASE_URL` plus the path and query, plus the sorted POST parameters, keyed by `TWILIO_AUTH_TOKEN`) with the official helper, never rebuilt from proxy headers; `AccountSid` and `MessagingServiceSid` must be Magpie's; duplicate form keys rejected | `MessageSid`; `status:<MessageSid>:<MessageStatus>` | 64 KB |
+| `POST /webhooks/telegram` | `X-Telegram-Bot-Api-Secret-Token` equals `TELEGRAM_WEBHOOK_SECRET` (constant-time); private chats only | `update_id` | 256 KB |
+| `POST /webhooks/postmark-inbound` | Postmark does not sign webhooks: HTTPS with basic auth credentials in the URL (`POSTMARK_INBOUND_BASIC_*`), compared in constant time; optional allowlist `POSTMARK_WEBHOOK_IPS` (**verify** the current list); reply token resolved with `tenant_for_reply_token` | Postmark `MessageID` | 50 MB (base64 attachments) |
+| `POST /webhooks/postmark-events` | Basic auth (`POSTMARK_EVENTS_BASIC_*`), constant-time; the tenant in `Metadata` is accepted only if a matching outbound row exists in that tenant | `<RecordType>:<ID>` | 1 MB |
+| `POST /webhooks/automation/:tenantId/:automationId` (v1) | HMAC-SHA256 signature over timestamp and body with the automation's secret from `secrets`, timestamp within 5 minutes, checked inside `withTenant` | `Magpie-Webhook-Id`, else body hash | 1 MB |
+| `/webhooks/google`, `/webhooks/microsoft` | Not used in v1; answer 404 (API.md §11.2). Reserved for v2 mailbox reading. | | |
+
+Inbound email content is untrusted (AGENT_RUNTIME §7): SPF and DKIM results from Postmark's headers are stored and shown, and mail that fails both is marked `spam` in `inbound_emails.routing_status` and not routed to a Bot.
 
 Outgoing webhooks (FR-API-3, M8) are signed with HMAC-SHA256 over `<timestamp>.<raw body>` using the endpoint's `webhook_signing_secret`. The timestamp is in the signature header, and receivers should reject anything older than 5 minutes. API.md defines the header names; the secret is shown once and can be rolled with a 24-hour overlap.
 
@@ -610,6 +628,7 @@ Set by `apps/api` on every response (the web app is served by the api from the s
 |---|---|
 | `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` |
 | `Content-Security-Policy` | see below |
+| `Reporting-Endpoints` | `csp-endpoint="<CSP_REPORT_URL>"` |
 | `X-Content-Type-Options` | `nosniff` |
 | `X-Frame-Options` | `DENY` |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
@@ -781,6 +800,7 @@ Controls the build already provides, with evidence:
 | Google (Gemini API) | Model calls, only if enabled in `models.json` | Prompts and outputs | US |
 | Kontract | Market data, bid text, website reading | Search filters, UEIs, notice ids, URLs, an opaque workspace label | US (**verify** the operating entity and hosting) |
 | Stripe | Billing and tax | Billing contact, address, tax ids, payment data | US |
+| MillionVerifier | Email address verification before outreach (platform key; a workspace's own key makes the workspace the customer) | Contact email addresses | **verify** |
 | Twilio | SMS to workspace users | Users' phone numbers and message text | US |
 | Telegram | Messages to users who connect Telegram | Telegram chat id and message text | Telegram's infrastructure (**verify**) |
 | Postmark (ActiveCampaign) | Email sending and inbound replies | Email addresses and message content | US |
@@ -798,10 +818,10 @@ Outreach email (quote requests, follow-ups, Bot emails to outside contacts) is s
 |---|---|
 | Accurate header information | From names the owner and their business; sent from the owner's connected mailbox or Magpie's domain naming the owner; `Reply-To` is the tracked address |
 | Non-deceptive subject lines | Subjects are shown in the approval preview; the platform prompt forbids misleading subjects |
-| Physical postal address | The workspace's `tenant_settings.outreach_footer` postal address is required before any outreach is sent |
+| Physical postal address | The workspace's postal address (`tenant_settings.settings.postalAddress`, rendered with `outreach_footer`) is required before any outreach is sent (API.md §15 item 11) |
 | Clear opt-out | Every outreach email has a working unsubscribe link (`/unsubscribe/<token>`) and a `List-Unsubscribe` header |
 | Opt-out honored | Immediately (the law allows 10 business days): the address goes into `suppressions` and sending to it is blocked |
-| Opt-out works for 30 days after sending | Links stay valid for at least 30 days, including across `LINK_SIGNING_SECRET` rotations (§6.4) |
+| Opt-out works for 30 days after sending | Links stay valid for at least 30 days, including across `LINK_SIGNING_KEY` rotations (§6.4) |
 | No sale or transfer of opted-out addresses | Suppressions are never exported to other workspaces |
 | Monitoring | The Terms make customers responsible for their outreach; Magpie limits volume with `emails_sent` and approval of every message |
 
@@ -809,11 +829,11 @@ Bounces and spam complaints from Postmark also add `suppressions` rows (`hard_bo
 
 ### 18.5 TCPA and 10DLC
 
-Magpie texts only its own users: owners and staff of a workspace who verified their own number in the app (PRD §7, ARCHITECTURE §14.7). It never texts contacts, subcontractors or customers of a workspace in v1.
+Magpie texts only its own users: owners and staff of a workspace who verified their own number in the app (PRD §7, ARCHITECTURE §14, decision 7). It never texts contacts, subcontractors or customers of a workspace in v1.
 
 - **Consent.**
   - Connecting SMS shows, next to an unchecked box: "Text me approval requests, deadline reminders and my daily digest from Magpie. Message frequency varies. Message and data rates may apply. Reply STOP to stop, HELP for help. Terms and Privacy." The links go to the Terms and Privacy pages.
-  - The 6-digit code confirms the number belongs to the person (FR-CH-1).
+  - The 6-digit code, sent and checked by Twilio Verify rather than through the campaign (INTEGRATIONS §12), confirms the number belongs to the person (FR-CH-1).
   - Consent is recorded as an `audit_log` row `channel.sms_opt_in` with the text version, number, IP, user agent and time.
 - **Opt-out.**
   - STOP, and the standard synonyms Twilio recognizes, turn SMS off for that number (`channel_bindings.is_enabled = false`); Twilio's opt-out handling on the messaging service is also on.
@@ -914,8 +934,8 @@ Product controls (PRD principle 5, FR-BID-6):
 3. DBOS connection requirements (pooler or direct), `DBOS__APPVERSION` and `DBOS__VMID` names (§5.2).
 4. R2: enforcing a signed `Content-Length` on presigned `PUT`, object versioning, location hints (§10.2, §16).
 5. Neon history retention on the chosen plan, and Neon and Railway regions (§16, §18.3).
-6. Postmark: current inbound IP list, policy for outreach on a second stream (§12, §5.5).
-7. Google: RISC event verification, Limited Use statement wording, CASA tier process and cost (§12, §18.6).
+6. Postmark: current webhook IP list, and written confirmation that quote-request outreach is acceptable on the outreach server (INTEGRATIONS §9) (§12, §5.5).
+7. Google: Limited Use statement wording, CASA tier process and cost (§18.6).
 8. Twilio: campaign use case for chat plus notifications; restricted Stripe key permissions (§18.5, §5.5).
 9. Google Places caching terms version (§18.8).
 10. GSAR 552.239-7001 status and any FAR case on AI in proposals (§18.9).
@@ -940,7 +960,7 @@ These are not in DATA_MODEL.md. Do not build them until the data model is update
    ```
    Needed for "reviewers see only their assigned tenants" (FR-OPS-5) and reviewer routing (AGENT_RUNTIME §8.1).
 2. **`impersonations.impersonated_user_id uuid not null references users(id)`** and **`impersonations.expires_at timestamptz not null`**: who was impersonated and the 60-minute limit (FR-OPS-2).
-3. **Better Auth admin plugin user fields** on `users`, mapped through `fields`: `auth_role text not null default 'user' check (auth_role in ('user','admin'))`, `banned boolean not null default false`, `ban_reason text`, `ban_expires timestamptz`. **Verify** the exact field list of the pinned admin plugin. `auth_role = 'admin'` is set only for staff with `staff_role` in (`support`, `admin`) so the plugin's impersonation endpoint accepts them.
+3. **Better Auth admin plugin user fields.** Same need as API.md §15 item 16; decide once. The plugin expects `role`, `banned`, `banReason` and `banExpires` on users (**verify** for the pinned version). This file prefers a separate column over mapping `role` to `staff_role`: `users.auth_role text not null default 'user' check (auth_role in ('user','admin'))`, plus `banned boolean not null default false`, `ban_reason text`, `ban_expires timestamptz`. Reason: the plugin writes a default role for every new user, and `staff_role`'s check allows only staff values. `auth_role = 'admin'` is set only for staff with `staff_role` in (`support`, `admin`), so the plugin's impersonation endpoint accepts them.
 4. **Role `magpie_dbos`**: `create role magpie_dbos nologin;` owning only the DBOS system schema, with no grants on application tables. DBOS then never runs with `magpie_owner` rights.
 5. **Role `magpie_backup`**: `create role magpie_backup nologin bypassrls;` with `select` on all tables and sequences, for `pg_dump` (§16). `pg_dump` needs `BYPASSRLS` to read every tenant's rows.
 6. **Table `rate_limits`**, already requested in API.md §15 for Better Auth's `rateLimit` model and the API limiter; this file depends on it.

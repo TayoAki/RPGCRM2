@@ -296,7 +296,7 @@ result: { file: { fileId: string; filename: string; contentType: string; sizeByt
 
 "web.read_url"
 args: z.strictObject({ url: z.url().max(2000) })
-result: { url: string; finalUrl: string; title: string | null; facts: { name?: string; phones?: string[]; emails?: string[]; address?: string; services?: string[]; licenses?: string[] }; text: string }
+result: { url: string; facts: { emails?: string[]; phones?: string[]; licenses?: string[]; services?: string[]; serviceArea?: string; insured?: boolean; experience?: string; pages?: string[] } }
 
 "pricing.find_wage_determination"
 args: z.strictObject({ dealId: z.uuid(), laborCategories: z.array(z.string().min(2).max(120)).max(20).optional(), state: z.string().length(2).optional(), county: z.string().max(80).optional() })
@@ -338,10 +338,10 @@ result: { memories: Array<{ memoryId: string; kind: "fact" | "preference" | "ins
 | `docs.search` | Search one bid's documents. | `hybrid` merges exact vector search and keyword search by reciprocal rank fusion. Only documents with `text_status = 'ready'`. Vector search is exact within the bid's chunks (§12.2). |
 | `docs.read_pages` | Read pages or chunks of one document. | At most 10 pages per call. |
 | `files.read` | Read text from a workspace file. | The file must be linked to a record the acting user can read and have `scan_status = 'clean'` (else `file_not_ready`). Text is extracted with the bid document extractor. |
-| `web.read_url` | Read a public web page safely. | Only through Kontract `POST /api/v1/websites/read`. Magpie never fetches arbitrary URLs itself. The host must be known from a CRM record, a `subs.search` candidate, the notice's links or the acting user's own message in this thread; otherwise `url_not_allowed` (§7). The query string is dropped. Verify the response shape against Kontract. |
+| `web.read_url` | Read a public web page safely. | Only through Kontract `POST /api/v1/websites/read`. Magpie never fetches arbitrary URLs itself. The host must be known from a CRM record, a `subs.search` candidate, the notice's links or the acting user's own message in this thread; otherwise `url_not_allowed` (§7). The query string is dropped. Kontract returns extracted site facts, not page text (INTEGRATIONS §3). It is a paid call: its `X-Kontract-Cost-Micro` is metered as `kontract_calls` and checked against the `ai_cost_micros` ceiling (BILLING §3.1). |
 | `pricing.find_wage_determination` | The applicable Service Contract Act or Davis-Bacon determination and its rates. | Order: a `bid_documents` row of kind `wage_determination` (Kontract's `text` route leaves wage determinations out, so the documents pipeline downloads and extracts them itself); else a WD number cited in the solicitation, fetched through the `WageDeterminationSource` adapter (INTEGRATIONS.md; **verify** the SAM.gov wage determination source). Rates are parsed by a `standard` tier pipeline and cited. If none is found, `notFound` lists what is missing and the Bot asks (FR-PRC-1). |
 | `pricing.get_price_sheet` | A price sheet version with lines and warnings. | Latest version by default. |
-| `subs.search` | Subcontractor candidates near the place of performance. | CRM companies of kind `subcontractor` first, then `OpportunitySource.findSubcontractors`. Only `place_id` is ever stored from Google Places data (SECURITY §18.8). Candidates are kept in the step result for 24 hours so `quotes.draft_request` can reference `candidateId`. |
+| `subs.search` | Subcontractor candidates near the place of performance. | CRM companies of kind `subcontractor` first, then `OpportunitySource.findSubcontractors` (a paid Kontract call, metered and checked like `web.read_url`). Only `place_id` is ever stored from Google Places data (SECURITY §18.8). Candidates are kept in the step result for 24 hours so `quotes.draft_request` can reference `candidateId`. |
 | `quotes.list` | Quote requests and quotes for a bid. | |
 | `drafts.get` | Draft text and coverage. | `contentText` trimmed to 20,000 characters. |
 | `memory.recall` | Explicit memory lookup. | Confirmed memories only (§12.2). |
@@ -487,7 +487,7 @@ result: { priceSheetId: string; version: number; totalCents: number; marginBps: 
 | Tool | Description | Notes |
 |---|---|---|
 | `pricing.find_comparables` | Comparable past awards and a price range (FR-PRC-2). | `OpportunitySource.findComparables` (Kontract `POST /api/v1/pricing`). Inserts `award_comparables` rows with `run_id`; the UI shows the latest run's rows. |
-| `pricing.draft_price_sheet` | Draft a new price sheet version (FR-PRC-3). | The model proposes lines; code computes every amount. Labor unit cost is the higher of the profile's rate (`company_profiles.labor_rates`) and the wage rate plus fringe, times one plus the role's `burdenPct`. `subcontract` lines need a `quoteId` whose quote has `is_confirmed = true`. Overhead and profit lines are computed from `overheadBps` and `profitBps` (default from memories or `tenant_settings.settings.pricingDefaults`). Warnings: price outside the comparable range or margin below `tenant_settings.settings.marginFloorBps` (FR-PRC-4); subcontract share above the FAR 52.219-14 cap for set-aside bids, 50% services, 85% general construction, 75% special trades (FR-PRC-5). Writes `price_sheets` status `draft`, version n+1, with `price_lines`. Blocked when AI drafting is not allowed (§3.13). |
+| `pricing.draft_price_sheet` | Draft a new price sheet version (FR-PRC-3). | The model proposes lines; code computes every amount. Labor unit cost is the higher of the profile's rate (`company_profiles.labor_rates`) and the wage rate plus fringe, times one plus the role's `burdenPct`. `subcontract` lines need a `quoteId` whose quote has `is_confirmed = true`. Overhead and profit lines are computed from `overheadBps` and `profitBps` (defaults from `tenant_settings.settings.pricingDefaults`, overridden by a confirmed memory) and stored as lines with `unit = 'percent'` and `quantity` = bps / 100 (API.md §15 item 10). Warnings: price outside the comparable range or margin below `tenant_settings.settings.marginFloorBps` (FR-PRC-4); subcontract share above the FAR 52.219-14 cap for set-aside bids, 50% services, 85% general construction, 75% special trades (FR-PRC-5). Writes `price_sheets` status `draft`, version n+1, with `price_lines`. Blocked when AI drafting is not allowed (§3.13). |
 
 ### 3.10 Subcontractors and quotes
 
@@ -559,7 +559,7 @@ result: { messageId: string; provider: "gmail" | "graph" | "postmark" }
 | Tool | Description | Notes |
 |---|---|---|
 | `drafts.create` | Draft a proposal section, letter or other document (FR-DRF-1). | Markdown converted to TipTap JSON and `content_text`. `is_ai_generated = true`, `created_by_type = 'bot'`. Runs the fact check (§6.4) and stores `coverage` (§15). Updates `drafts.ai_disclosure` (`{models, runIds, sections}`) when the bid requires disclosure. Blocked when AI drafting is not allowed (§3.13). |
-| `drafts.update` | New version of a draft. | Always a new row: `version` n+1, `parent_draft_id` the previous row. Drafts in status `approved` or `sent` return `validation_failed`. |
+| `drafts.update` | New version of a draft. | Always a new row: `version` n+1, `parent_draft_id` the version-1 row, which is the document's id (API.md §15 item 9). Drafts in status `approved` or `sent` return `validation_failed`. |
 | `email.draft` | Draft an email to CRM contacts. | Recipients must be CRM contacts holding that address, so a Bot cannot address a stranger. Creates a `drafts` row of kind `email` and a `messages` row with status `draft`. On a bid that bans AI, drafting to the deal's buyer contacts (`deal_contacts.role` in `contracting_officer`, `contract_specialist`, `buyer`) returns `ai_drafting_not_allowed`. |
 | `email.send` | Send an email draft (external). | Preview `email`. Gmail or Outlook when the acting user connected one, else Postmark with a tracked `Reply-To` (`messages.thread_key`). Outreach footer (CAN-SPAM) unless every recipient is a contact of a company of kind `customer` with an existing email history. Suppression checked at send time. |
 
@@ -813,7 +813,7 @@ Validation and permission errors are returned to the model as results, not throw
 
 Inside `modelTurn` and every pipeline model call, `packages/llm` does this:
 
-1. **Reserve** (BILLING §6.3): on the run's first model call, count one AI run (`ai_runs`) with a check against the 120% rule for job and event runs; reserve the call's estimated maximum cost in `ai_cost_reserved` against `ai_cost_micros`; check the per-run cost cap. Failing any check returns `limit_reached` and no provider call is made.
+1. **Reserve** (BILLING §6.3): on the run's first model call, count one AI run (`ai_runs`), checked against the 120% rule for job runs and for event runs not caused by a person (BILLING §6.4); reserve the call's estimated maximum cost in `ai_cost_reserved` against `ai_cost_micros`; check the per-run cost cap. Failing any check returns `limit_reached` and no provider call is made.
 2. Call the provider (with failover, §4.10).
 3. **Settle**, in one `withTenant` transaction:
    - insert `agent_steps` (kind `model_call`, provider, model, tier, tokens, `cost_micros`, `latency_ms`, `tool_key` for pipeline calls);
@@ -893,6 +893,16 @@ Write the results into `docs/decisions/0001-dbos.md` (BUILD_PLAN M0 task 8) befo
 11. Size limits for step outputs; keep step results under 64 KB and store large text in tables.
 12. The cron API for ARCHITECTURE §7.4 schedules (`DBOS.createSchedule` in current docs).
 13. `cancelWorkflow` on a workflow mid-step, and cancellation of children.
+
+### 4.14 Direct tool calls (MCP and automations)
+
+MCP write tools (API.md §13.4) and automation steps that call a single tool run one Bot tool without a model turn:
+
+1. The caller creates an `agent_runs` row for the `assistant` Bot (or the automation's Bot) with trigger `api` or `automation`, the person as acting user, and `input.directCall = { toolKey, args }`, then enqueues `agentRunWorkflow` as in §4.2.
+2. In `loadContext`, a direct call skips prompt assembly. The segment treats `directCall` as the only tool call of a turn: it goes through the same gate (§4.5) with the Bot's effective policy, state guards and permission checks.
+3. `execute` runs the tool and finishes the run with the result. `needs_approval` creates the approval and its waiter (§4.4); the caller gets `pending_approval` with the approval id and short code. When the approval is decided, the next segment executes the approved call and finishes, with no model turn.
+4. A direct call makes no model call, so it is not an AI run (BILLING §6.1). Pipeline tools are not offered as direct calls.
+5. `drafts.create` from MCP records the MCP client's name in `drafts.ai_disclosure`.
 
 ## 5. Context assembly
 
@@ -1170,7 +1180,7 @@ The Approvals inbox lists `pending` approvals for the user (all workspace approv
 
 ## 9. Quote follow-ups and FR-SUB-4
 
-PRD FR-SUB-4 lets an owner allow quote follow-ups to send without asking after 10 unchanged approvals, but PRD §4.1, FR-BOT-3 and ARCHITECTURE §14.4 say no setting turns off approval for external actions in v1. Until the founder resolves this:
+PRD FR-SUB-4 lets an owner allow quote follow-ups to send without asking after 10 unchanged approvals, but PRD §4 (principle 1), FR-BOT-3 and ARCHITECTURE §14 (decision 4) say no setting turns off approval for external actions in v1. Until the founder resolves this:
 
 - `quotes.send_followup` stays locked to `needs_approval`.
 - The exception ships behind feature flag `quote_followup_preapproval`, off by default. When on, after 10 unchanged approvals of follow-ups for one Bot, Magpie offers once to pre-approve the follow-up template. If accepted, the stored template text is saved in `tenant_settings.settings.preapprovedTemplates`, and each follow-up still creates an `approvals` row that is auto-decided (`decided_by_type = 'system'`, `decided_via` null, `audit_log` row) only when the rendered body equals the template with only the sub's name, the bid name, the due date and the reply address filled in. Any other text needs a person.
@@ -1201,7 +1211,7 @@ The suggestion:
 
 ### 10.3 Learning mode (FR-BOT-5)
 
-- A new custom job (`bot_jobs.kind = 'custom'`) runs its first 3 firings in learning mode (`bot_jobs.config.learningRuns`, default 3). An owner or admin can end learning mode early or extend it. Seeded jobs do not use learning mode.
+- A new custom job (`bot_jobs.kind = 'custom'`) starts with `bot_jobs.config.learningMode = true` and runs its first `config.learningRuns` firings (default 3) in learning mode; then `learningMode` is set to false. An owner or admin can end learning mode early or turn it back on (`PATCH /bot-jobs/:id`, API.md). Seeded jobs do not use learning mode.
 - Owners and admins can also start any Bot task in learning mode from the Bot's page ("Try it without doing anything").
 - In learning mode, `read` tools execute; `internal` and `external` tools never execute and no approvals are created. The gate returns a simulated result so the Bot can continue planning.
 - `finish` writes a report as a `notice` thread message and a `run_finished` notification: "Here's what I would have done", one line per simulated call with its preview.
@@ -1220,7 +1230,7 @@ Cron schedules are global (ARCHITECTURE §7.4). Each fan-out reads due work acro
 | `daily_digest` | `assistant` | `0 <digest_hour> * * *`, kept equal to `tenant_settings.digest_hour` | `send-digests` (15 min) | `fanout_due_digests` |
 | `deadline_watch` | `deadline_keeper` | null (event and schedule driven) | `deadline-watch` (15 min) | `fanout_due_deadline_reminders` |
 | `quote_followups` | `follow_up` | null | `quote-followups` (60 min) | `fanout_due_quote_followups` |
-| `award_watch` | `bid_scout` | `15 */6 * * *` | `bot-jobs` (5 min) | `fanout_due_bot_jobs(['award_watch', 'custom'])` |
+| `award_watch` | `bid_scout` | `0 8 * * *` (daily) | `bot-jobs` (5 min) | `fanout_due_bot_jobs(['award_watch', 'custom'])` |
 | `custom` | any | set by the person | `bot-jobs` (5 min) | same |
 
 - After each firing, `last_run_at` and `next_run_at` (the next cron time in the tenant timezone) are set.
@@ -1246,7 +1256,7 @@ Cron schedules are global (ARCHITECTURE §7.4). Each fan-out reads due work acro
 2. Enqueue `digestWorkflow` on `messaging` with id `digest:<tenant>:<user>:<yyyy-mm-dd>` (ARCHITECTURE §7.3).
 3. Gather in one read: top 5 new eligible matches by score; deadlines in the next 7 days; pending approvals for the user; quotes received since the last digest; library items expiring within 30 days (FR-PRO-4); SAM expiry within 60 days (FR-PRO-6); one line per Bot built from template counts of its runs since the last digest ("Bid Reader read 2 solicitations").
 4. Render with the UX.md templates: SMS under 1,000 characters with numbered items and a link; Telegram; email with everything (FR-CH-3).
-5. In one transaction: notification rows per channel with `dedupe_key` `digest:<yyyy-mm-dd>` and `payload.items` = `[{ n, kind: "match" | "approval", id }]`, which the reply grammar uses to resolve `1`, `Y1` and `N1`; listed matches get `status = 'shown'` and `shown_at`.
+5. In one transaction: notification rows per channel with `dedupe_key` `digest:<yyyy-mm-dd>` and `payload.items` = `[{ n, matchId }]` (API.md §15 item 13), which the reply grammar uses to resolve `1`, `Y1` and `N1`; approvals are answered by their short codes, not digest numbers; listed matches get `status = 'shown'` and `shown_at`.
 6. When every section is empty, no SMS or Telegram is sent; the email goes out on Mondays only.
 
 ### 11.4 `deadline_watch`
@@ -1266,38 +1276,40 @@ Cron schedules are global (ARCHITECTURE §7.4). Each fan-out reads due work acro
 1. `quote-followups` fires hourly. `fanout_due_quote_followups(now)` returns quote requests that are all of these:
    - status `sent`;
    - `next_followup_at <= now()`;
-   - `followups_sent < config.maxFollowups` (default 2);
+   - `followups_sent < tenant_settings.settings.quoteFollowups.count` (default 2; API.md §15 item 11);
    - `due_at > now() + 24 hours`;
-   - the tenant's local time is inside its send window (`config.sendWindow`, default business days 08:00 to 17:00).
+   - the tenant's local time is inside the send window (business days, 08:00 to 17:00).
 2. Group by tenant: one Follow-up run per tenant per hour, workflow id `run:<tenant>:job:<bot_job>:<yyyy-mm-ddThh:00>`, input `{ quoteRequestIds }` (at most 10).
 3. The run reads each request's thread (`quotes.list`), writes a short follow-up and calls `quotes.send_followup`, which creates an approval (§9).
-4. Spacing set when a request is sent:
+4. Spacing, set when a request is sent and after each follow-up:
    - follow-up 1 at 40% of the time between the send and `due_at`;
    - follow-up 2 at 75%;
+   - at least `quoteFollowups.minHoursBetween` hours (default 48) after the previous message;
    - never later than 24 hours before `due_at`;
    - moved to the next send window.
+   If those rules leave no valid time, no follow-up is scheduled.
 5. A reply (`message.received` on the request) sets status `replied`, clears `next_followup_at` and cancels pending follow-up approvals for that request.
 6. Daily, in the same job: requests past `due_at` with no reply after the last follow-up become `no_response`.
 
 ### 11.6 `award_watch` (code; Bid Reader runs only for amendments)
 
-1. `bot-jobs` fan-out; `awardWatchWorkflow` on `sync` with id `award:<tenant>:<yyyy-mm-ddThh>`.
-2. **Amendments**, on every firing, for bids with `opportunity_id`, stage category `open` and `due_at` in the future:
-   1. `OpportunitySource.get` and `listDocuments`.
-   2. Compare the document set and the notice's modified date with the stored ones.
+1. `bot-jobs` fan-out, daily; `awardWatchWorkflow` on `sync` with id `award:<tenant>:<yyyy-mm-dd>`.
+2. **Amendments**, once a day, for bids with `opportunity_id`, stage category `open` and `due_at` in the future (also on demand from the bid page, INTEGRATIONS §3):
+   1. `OpportunitySource.getDetails`, which returns the documents list and a `fingerprint`.
+   2. A fingerprint different from `market_opportunities.documents_fingerprint` (INTEGRATIONS §26) means new or changed documents.
    3. New documents become `bid_documents` (kind `amendment` unless detected as another kind) through `bidDocumentsWorkflow` (`docs:<deal>:<fingerprint>`).
    4. Notify the bid owner ("Amendment 0002 was posted").
    5. When the text is ready, emit `bid.amendment_ready`, which starts Bid Reader in amendment mode (FR-DIS-7).
-3. **Awards**, once a day after 07:00 tenant time, for bids in stage category `submitted`:
-   1. Look for an award notice for the same notice or solicitation number.
-   2. Awardee UEI equals `company_profiles.uei`: move to Won and set `won_at`.
-   3. Awardee present and different: move to Lost, set `lost_at` and `lost_reason` "Awarded to <name>".
-   4. Anything unclear (no UEI, several awardees, partial award, a name-only match): create a task "Confirm the award result" for the bid owner (source `system`) and send a notification. No guess is made.
+3. **Awards**, for bids in stage category `submitted`:
+   1. Look in `market_opportunities` for an award notice (`notice_type = 'award'`) with the same solicitation number. The platform `award-sweep` schedule loads yesterday's award notices once a day for every tenant (INTEGRATIONS §4), so this step makes no outside calls.
+   2. Awardee UEI equals `company_profiles.uei`, or, when the award has no UEI, the awardee's normalized legal name equals the profile's: move to Won and set `won_at`.
+   3. A different UEI, or a different name when there is no UEI: move to Lost, set `lost_at` and `lost_reason` "Awarded to <name>".
+   4. Anything unclear (several awardees, a partial award, a missing awardee): create a task "Confirm the award result" for the bid owner (source `system`) and send a notification. No guess is made.
    5. Moves are made by core services with actor `system`, written to `record_history`, activities and `audit_log` (FR-DIS-7).
 
 ### 11.7 `custom`
 
-`config` holds `{ instructions, record?: RecordRef, learningRuns }`. Each firing starts a run for the job's Bot with trigger `job`, the instructions as input, and learning mode for the first `learningRuns` firings (§10.3). Custom jobs count against entitlement `bot_jobs`.
+`config` holds `{ instructions, record?: RecordRef, learningMode, learningRuns }`. Each firing starts a run for the job's Bot with trigger `job` and the instructions as input, in learning mode while `learningMode` is true (§10.3). Custom jobs count against entitlement `bot_jobs`.
 
 ## 12. Memory
 
