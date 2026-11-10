@@ -929,7 +929,7 @@ The prompt is built in this order so the stable part comes first and providers c
 - Layers 2 to 5 are the first system block and layers 6 to 9 a second system block. Neither contains the time except layer 9.
 - Anthropic: `cacheControl` on the last block of layer 5, on layer 9, and on the tail through the AI SDK's provider options (**verify** the option names in the pinned AI SDK). OpenAI: automatic prefix caching plus a per-tenant cache key (**verify** `promptCacheKey` support in the AI SDK).
 - Chat history: the latest 20 user and assistant messages of the thread. Tool results from earlier runs are not replayed; only their text summaries are.
-- Channel length rules: SMS replies at most 320 characters, Telegram at most 1,000, web unlimited but short.
+- Channel length rules (UX.md): SMS replies at most 480 characters (longer answers are cut at a sentence with a link to the thread), Telegram at most 1,000, web unlimited but short.
 
 ### 5.2 Token budgets
 
@@ -1085,7 +1085,7 @@ type DocumentPreview = { kind: "document"; draftId: string | null; title: string
   - **Telegram**: the title, the first 600 characters, and Approve, Edit and Skip buttons;
   - **SMS**: the short form below;
   - **email**: the full preview with links.
-- SMS form, at most 320 characters: `A7 Sub Finder: Send quote request to ABC Cleaning for "Fort Lee custodial", due Nov 14. Reply A7 to approve, X A7 to skip, E A7 to edit. <APP_URL>/a/<id>` (FR-APR-1, FR-CH-4).
+- SMS form, at most 320 characters (UX.md holds the templates): `Magpie A7, Sub Finder: Send quote request to ABC Cleaning for Fort Lee custodial. Reply A7 to approve, X A7 to skip, E A7 to edit. <link>`, where the link is `<APP_URL>/a/<approval id>` or a short link when `SHORT_HOST` is set (FR-APR-1, FR-CH-4).
 
 ### 8.3 Short codes
 
@@ -1257,7 +1257,7 @@ Cron schedules are global (ARCHITECTURE §7.4). Each fan-out reads due work acro
 3. Gather in one read: top 5 new eligible matches by score; deadlines in the next 7 days; pending approvals for the user; quotes received since the last digest; library items expiring within 30 days (FR-PRO-4); SAM expiry within 60 days (FR-PRO-6); one line per Bot built from template counts of its runs since the last digest ("Bid Reader read 2 solicitations").
 4. Render with the UX.md templates: SMS under 1,000 characters with numbered items and a link; Telegram; email with everything (FR-CH-3).
 5. In one transaction: notification rows per channel with `dedupe_key` `digest:<yyyy-mm-dd>` and `payload.items` = `[{ n, matchId }]` (API.md §15 item 13), which the reply grammar uses to resolve `1`, `Y1` and `N1`; approvals are answered by their short codes, not digest numbers; listed matches get `status = 'shown'` and `shown_at`.
-6. When every section is empty, no SMS or Telegram is sent; the email goes out on Mondays only.
+6. When every section is empty, no digest is sent on any channel (UX.md).
 
 ### 11.4 `deadline_watch`
 

@@ -131,7 +131,7 @@ Notes:
 |---|---|---|---|---|---|---|
 | `users` | people | count | `none` | none; counts memberships with role `owner`, `admin` or `member` plus pending invitations for those roles | inviting, changing a viewer's role, accepting an invitation | Seats for people who can write. Viewers are free and do not count, up to 25 per workspace. |
 | `ai_runs` | runs | counter | `month` | `ai_runs` | a run's first model call | AI runs per billing period (PRD §8). 120% rule (§6.4). |
-| `ai_cost_micros` | micros | counter | `month` | `ai_cost`, plus `ai_cost_reserved` | before each model call | Hard ceiling on model cost per period. At 100% every model call stops. |
+| `ai_cost_micros` | micros | counter | `month` | `ai_cost`, plus `ai_cost_reserved` | before each model call and each paid vendor call | Hard ceiling on per-call variable cost per period: model calls, paid Kontract calls (`websites/read`, `subcontractors`) and email verifications on Magpie's MillionVerifier key (INTEGRATIONS §3, §19). At 100% all of them stop. |
 | `doc_pages` | pages | counter | `month` | `doc_pages` | when a bid document's text becomes ready | Document pages read (§6.1). 120% rule. |
 | `saved_searches` | searches | count | `none` | none; counts `opportunity_searches` with `is_active` | creating or activating a search | Active saved searches that are scanned. |
 | `sms_segments` | segments | counter | `month` | `sms_segments` | before each SMS | SMS segments sent to the workspace's users. |
@@ -143,7 +143,7 @@ Notes:
 | `max_steps_per_run` | steps | per run | `none` | none | the gate (AGENT_RUNTIME §4.8) | Step cap per run (FR-BOT-9). |
 | `max_cost_micros_per_run` | micros | per run | `none` | none | before each model call | Cost cap per run (FR-BOT-9). |
 
-Counter keys without an entitlement: `ai_cost_reserved` (reservations, §6.3). `usage_events` keys used only for cost: `kontract_calls`, `enrichment_lookups` (bring-your-own keys, cost 0), `payment_fees` (§9). `api_requests` is counted only in `usage_counters`, never in `usage_events`, because it has no cost and would add a row per API call.
+Counter keys without an entitlement: `ai_cost_reserved` (reservations, §6.3). `usage_events` keys used only for cost: `kontract_calls`, `enrichment_lookups` (cost 0 with a workspace's own key), `payment_fees` (§9). The cost of `kontract_calls` and platform-key `enrichment_lookups` events is also added to the `ai_cost` counter, so one ceiling bounds all per-call variable cost; their `usage_events` rows keep their own keys for reporting. `api_requests` is counted only in `usage_counters`, never in `usage_events`, because it has no cost and would add a row per API call.
 
 ### 3.2 Values per plan
 
@@ -199,7 +199,7 @@ source         = override exists ? 'override' : (addons or grants contribute ? '
 
 | Stripe object | Magpie | Metadata | Notes |
 |---|---|---|---|
-| Customer | One per workspace, created at the first Checkout | `tenant_id` | Idempotency key `customer:<tenant_id>`. Email is the owner's, name is `tenants.name`. Stored in `subscriptions.stripe_customer_id` (nullable during the trial, §11). |
+| Customer | One per workspace, created in the sign-up hook before the seed transaction, because `subscriptions.stripe_customer_id` is `not null` (API.md §15 item 15) | `tenant_id` | Idempotency key `customer:<tenant_id>`. Email is the owner's, name is `tenants.name`. If Stripe is unreachable, sign-up fails with `external_unavailable` and can be retried; the idempotency key prevents duplicates. |
 | Product | One per plan key: `bid_desk`, `bid_desk_pro`, `managed`, `team`, `run_pack` | `plan_key` | Tax code for business SaaS (**verify**, likely `txcd_10103001`). |
 | Price | Monthly recurring USD for subscription plans (per unit for `team`), one-time for `run_pack` | `plan_key`, `catalog_version` | `lookup_key` `magpie_<plan_key>_v<n>`; `tax_behavior: exclusive`. Its id goes into `plans.stripe_price_id` for that environment. |
 | Subscription | One per workspace at most | `tenant_id`, `plan_key` | `subscriptions.stripe_subscription_id`. |
@@ -213,28 +213,29 @@ source         = override exists ? 'override' : (addons or grants contribute ? '
 ### 4.2 Checkout
 
 **Subscription** (first purchase, or coming back after a cancellation):
-1. An owner or admin picks a plan on the billing page. `POST /api/app/billing/checkout { planKey, seats? }` with an `Idempotency-Key`.
+1. An owner or admin picks a plan on the billing page. `POST /api/app/billing/checkout-session { planKey, successPath, cancelPath }` (API.md §5.23) with an `Idempotency-Key`.
 2. The api checks:
    - the person has `billing.manage` and a verified email;
    - the workspace has no live Stripe subscription (otherwise `409 conflict`; plan changes go through the Portal, §4.3);
    - the plan is public and purchasable.
-3. Ensure the Customer exists (create with the idempotency key).
+3. Use the workspace's Customer (created at sign-up, §4.1).
 4. Create the Checkout Session:
    - `mode: "subscription"`, `customer`, `line_items: [{ price, quantity: 1 }]` (seats for `team`);
    - `client_reference_id`, `metadata`, `subscription_data.metadata: { tenant_id, plan_key }`;
+   - unused trial days carry over (API.md §5.23): while `tenants.trial_ends_at` is in the future, set `subscription_data.trial_end` to it, so the first charge happens when the trial would have ended (**verify** Stripe's minimum lead time for `trial_end`; if the trial ends sooner than that, omit it and charge now). Checkout still collects the card;
    - `automatic_tax: { enabled: true }`, `customer_update: { address: "auto", name: "auto" }`, `billing_address_collection: "required"`, `tax_id_collection: { enabled: true }`;
    - `allow_promotion_codes: true` for pilot codes;
-   - `success_url: <APP_URL>/settings/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}` and `cancel_url: <APP_URL>/settings/billing`.
+   - `success_url` and `cancel_url` built from `APP_URL` and the request's paths; the success URL carries `session_id={CHECKOUT_SESSION_ID}`.
 5. The browser goes to Stripe. On return, the page shows "Finishing setup" until `subscription.updated` arrives over SSE, or polls `GET /api/app/billing` for up to 60 seconds.
 6. The `checkout.session.completed` webhook does the work (§4.4); the success page never activates anything itself.
 
-**Run pack** (§6.6): the same steps with `mode: "payment"`, the `run_pack` price, `quantity` 1 to 5, `invoice_creation: { enabled: true }` so a paid invoice and receipt exist, `automatic_tax`, and `metadata` and `payment_intent_data.metadata` of `{ tenant_id, kind: "run_pack", quantity, period_start }`.
+**Run pack** (§6.6, `POST /api/app/billing/run-packs/checkout-session`): the same steps with `mode: "payment"`, the `run_pack` price, `quantity` 1 to 5, `invoice_creation: { enabled: true }` so a paid invoice and receipt exist, `automatic_tax`, and `metadata` and `payment_intent_data.metadata` of `{ tenant_id, kind: "run_pack", quantity, period_start }`.
 
 Payment methods: cards only in v1, so failures and retries follow one path. Bank debits can come later.
 
 ### 4.3 Customer Portal
 
-One portal configuration per Stripe mode, id in `STRIPE_PORTAL_CONFIGURATION_ID`. `POST /api/app/billing/portal` creates a session with `return_url` `<APP_URL>/settings/billing`; a "Change plan" button uses the portal's subscription update deep link (**verify** `flow_data` options).
+One portal configuration per Stripe mode, id in `STRIPE_PORTAL_CONFIGURATION_ID`. `POST /api/app/billing/portal-session` creates a session with `return_url` `<APP_URL>/settings/billing`; a "Change plan" button uses the portal's subscription update deep link (**verify** `flow_data` options).
 
 | Portal feature | Setting |
 |---|---|
@@ -253,7 +254,7 @@ Upgrading to Managed notifies ops to assign a reviewer (`staff_assignments`, SEC
 
 | Event | Action |
 |---|---|
-| `checkout.session.completed` (`mode: subscription`) | Retrieve the subscription. Set `stripe_subscription_id`, `plan_key` (from the price's metadata), `status`, `seats`, periods (from the item), `cancel_at`, `trial_end` null. Set `tenants.status = 'active'`, `plan_key`, clear `status_reason`; delete any `tenant_deletions` row. Recompute entitlements. Start a new usage period (§6.8). Notify owners and admins. |
+| `checkout.session.completed` (`mode: subscription`) | Retrieve the subscription. Set `stripe_subscription_id`, `plan_key` (matching the price to `plans.stripe_price_id`), `status` (`trialing` while carried-over trial days remain), `seats`, periods (from the item), `cancel_at`, `trial_end`. Set `tenants.status = 'active'`, `plan_key`, clear `status_reason`; delete any `tenant_deletions` row. Recompute entitlements. Start a new usage period (§6.8). Notify owners and admins. |
 | `checkout.session.completed` (`mode: payment`, `payment_status: paid`) | Run pack: insert `credit_grants` (unique on the session id), recompute, notify (§6.6). If `payment_status` is not `paid`, wait for the async event. |
 | `checkout.session.async_payment_succeeded` / `failed` | Same as above on success; notify the buyer on failure. Not expected with cards only. |
 | `customer.subscription.created`, `customer.subscription.updated` | Sync `subscriptions` (status, plan, seats, periods, `cancel_at`). Recompute on plan or seat change. A new period triggers the rollover (§6.8). `cancel_at_period_end` shows the end-date banner. Status changes drive §5. |
@@ -268,7 +269,9 @@ Upgrading to Managed notifies ops to assign a reviewer (`staff_assignments`, SEC
 | `charge.dispute.created` | Alert ops; flag the tenant on the ops console. |
 | `radar.early_fraud_warning.created` | Alert ops; ops decides whether to refund and cancel before a dispute. |
 
-Configure the Stripe endpoint to send only these events. `customer.subscription.trial_will_end` and Stripe's entitlement events are not used, because the trial lives in Magpie and entitlements are computed in Magpie.
+| `customer.subscription.trial_will_end` | Only for carried-over trial days: email owners and admins "Your first charge of $149 is on Dec 3." |
+
+Configure the Stripe endpoint to send these events plus `customer.subscription.paused` and `resumed` (stored, no action; Magpie never pauses subscriptions). Stripe's entitlement events are not used, because entitlements are computed in Magpie.
 
 ### 4.5 Idempotency
 
@@ -303,20 +306,22 @@ The product state is `tenants.status` plus `tenants.status_reason` and `tenants.
 
 | `subscriptions.status` | Effect on `tenants.status` |
 |---|---|
-| `trialing` (Magpie's own trial row) | `trialing` |
+| `trialing` with no Stripe subscription (Magpie's own trial row) | `trialing` |
 | `active` | `active`, unless `suspended` or `deleting` |
 | `past_due` | `past_due` |
 | `canceled` | `canceled` with the reason from §4.4 |
-| `incomplete`, `incomplete_expired` | no change; the first payment did not finish, so the workspace stays as it was |
+| `trialing` with a Stripe subscription (carried-over trial days after Checkout) | `active`, with the chosen plan's entitlements |
+| `incomplete` | no change; the first payment did not finish, so the workspace stays as it was |
+| `incomplete_expired` | stored as `canceled` in `subscriptions` (its check has no `incomplete_expired`, INTEGRATIONS §26 item 5); the workspace stays as it was before Checkout |
 | `unpaid`, `paused` | not used; Stripe is set to cancel after retries (§5.2) |
 
 ### 5.2 Transitions and timings
 
 | From | Event | To | Timing and notices |
 |---|---|---|---|
-| (none) | Sign-up | `trialing` | `trial_ends_at` = sign-up + 14 days. `subscriptions` row with `plan_key = 'trial'`, `status = 'trialing'`, no Stripe ids. Trial entitlements. |
+| (none) | Sign-up | `trialing` | `trial_ends_at` = sign-up + 14 days. `subscriptions` row with `plan_key = 'trial'`, `status = 'trialing'`, the Stripe customer id (§4.1) and no Stripe subscription. Trial entitlements. |
 | `trialing` | Daily lifecycle | `trialing` | Reminders 3 days and 1 day before `trial_ends_at` by email and in-app (FR-BIL-1). |
-| `trialing` | Checkout completed | `active` | New usage period from the subscription start; trial usage stays in the old period. |
+| `trialing` | Checkout completed | `active` | The chosen plan applies at once. Unused trial days carry over as Stripe `trial_end`, so the first charge is at the original trial end; `trial_will_end` sends a reminder 3 days before. New usage period from the subscription start; trial usage stays in the old period. |
 | `trialing` | `trial_ends_at` passes | `canceled` (`trial_ended`) | Read-only. Deletion scheduled 30 days later (`tenant_deletions.scheduled_for`), with emails 7 days and 1 day before. |
 | `active` | `invoice.payment_failed` | `past_due` | Day 0. Emails on days 0, 3 and 6; banner; in-app notice. Stripe Smart Retries runs up to 8 retries within 2 weeks (Stripe's default for new accounts; set it explicitly). |
 | `past_due` | `invoice.paid` | `active` | Clears `past_due_since`; jobs resume. |
@@ -479,7 +484,7 @@ Since the actual cost cannot exceed the estimate (output is capped by `max_token
 
 ### 6.7 Stripe Meters
 
-v1 does not report usage to Stripe Meters. No plan charges for usage in v1: limits plus run packs cover overuse, so Meters would be a second source of truth with nothing to bill. `usage_events.stripe_reported_at` stays null. The `report-usage` schedule (ARCHITECTURE §7.4) is registered but returns at once while feature flag `billing.stripe_meters` is off. Revisit for Team in v1.5 if per-seat overage pricing is chosen; Stripe's Meters API then receives one event per settled unit, keyed by the `usage_events.id` as the meter event identifier (**verify** the meter event API at that time).
+v1 does not report usage to Stripe Meters. No plan charges for usage in v1: limits plus run packs cover overuse, so Meters would be a second source of truth with nothing to bill. `usage_events.stripe_reported_at` stays null. The `report-usage` schedule (ARCHITECTURE §7.4) and its reporting path (INTEGRATIONS §14) are built but return at once while feature flag `billing.stripe_meters` is off; no key is reported in v1. Revisit for Team in v1.5 if per-seat overage pricing is chosen; Stripe's Meters API then receives one event per settled unit, keyed by the `usage_events.id` as the meter event identifier (**verify** the meter event API at that time).
 
 ### 6.8 Period rollover
 
@@ -515,9 +520,9 @@ A trial costs real money (up to the $25 AI cost ceiling plus SMS and email), and
 
 ### 8.1 Cancellation (FR-BIL-7)
 
-- Owners cancel in Settings > Billing. One screen: what happens (access until the period end date, then read-only, data kept 60 days, export any time), an optional reason (a short list plus free text), and a Cancel plan button. No calls, no discount offers, no extra steps.
+- Owners and admins cancel in Settings > Billing (`POST /api/app/billing/cancel`, API.md §5.23). One screen: what happens (access until the period end date, then read-only, data kept 60 days, export any time), an optional reason (a short list plus free text), and a Cancel plan button. No calls, no discount offers, no extra steps.
 - `stripe.subscriptions.update(id, { cancel_at_period_end: true, cancellation_details: { feedback, comment } })` with an idempotency key; audited.
-- Until the period ends, a banner shows the end date with "Keep my plan", which sets `cancel_at_period_end: false`.
+- Until the period ends, a banner shows the end date with "Keep my plan" (`POST /api/app/billing/resume`), which sets `cancel_at_period_end: false`.
 - After the period ends: `canceled` (`owner_canceled`), read-only, export available, deletion after 60 days (§5.2). Coming back before deletion restores everything.
 
 ### 8.2 Refunds
@@ -558,7 +563,8 @@ Every cost is a `usage_events.cost_micros` value, so costs sum by `tenant_id`, `
 | Models and embeddings | `usage_events` key `ai_cost` | Exact per call (§6.1) |
 | SMS | `sms_segments` events | Settled segments times the Twilio unit price, plus carrier fees from `unit-costs.json` |
 | Outreach and notification email | `emails_sent` events, plus a daily `notification_emails` estimate | Postmark unit price |
-| Kontract | `kontract_calls` events | Kontract reports cost per workspace label (`GET /api/v1/usage?workspace=<tenant_id>`, KONTRACT.md); a nightly job writes one event per workspace per day |
+| Kontract | `kontract_calls` events | Exact per call from Kontract's `X-Kontract-Cost-Micro` header (INTEGRATIONS §3); the monthly `kontract-usage-reconcile` job compares totals with Kontract's `GET /api/v1/usage?workspace=<tenant_id>` and alerts ops on a difference |
+| Email verification | `enrichment_lookups` events | `MILLIONVERIFIER_COST_MICROS` per lookup on Magpie's key; 0 on a workspace's own key (INTEGRATIONS §19) |
 | Storage | daily accrual from the `storage_bytes` gauge | R2 price per GB-month / 30 |
 | Payment fees | `payment_fees` event on each `invoice.paid` and run pack payment | The Stripe fee from the charge's balance transaction, plus Stripe Billing and Stripe Tax fees at their published rates (**verify**) |
 | Hosting | allocation, not an event | Fixed monthly platform cost from `unit-costs.json` divided by active workspaces and days |
@@ -594,16 +600,16 @@ Queries run on the `magpie_ops` pool from `packages/core/ops`, and each view is 
 4. Smart Retries settings (retry count and window) and the "cancel the subscription" outcome; that `customer.subscription.deleted` follows.
 5. The business SaaS tax code, Stripe Tax registration steps, Stripe Billing and Stripe Tax fee rates.
 6. Restricted key permissions needed for this integration (SECURITY §5.5).
-7. Twilio segment counts in status callbacks and per-segment prices; Postmark and R2 unit prices; Kontract's usage endpoint per workspace label.
+7. Twilio segment counts in status callbacks and per-segment prices; Postmark, R2 and MillionVerifier unit prices; Kontract's cost header and usage endpoint per workspace label.
+8. Stripe's minimum lead time for `subscription_data.trial_end` in Checkout (§4.2).
 
 ## 11. Schema additions requested
 
 These are not in DATA_MODEL.md. Do not build them until the data model is updated.
 
 1. **`plans.billing_interval`**: add `'one_time'` to the check, so the run pack is a `plans` row (PRD §8 lists it with the plans).
-2. **`subscriptions.stripe_customer_id`**: drop `not null` (keep `unique`). The trial needs no card and no Stripe customer; the customer is created at the first Checkout (§4.1).
-3. **`entitlements.reset_period`**: add `'day'` to the check, for `api_requests_per_day`.
-4. **Table `credit_grants`** (module `billing`, standard tenant RLS; written by webhook processing inside `withTenant`, and by ops through the ops pool):
+2. **`entitlements.reset_period`**: add `'day'` to the check, for `api_requests_per_day`.
+3. **Table `credit_grants`** (module `billing`, standard tenant RLS; written by webhook processing inside `withTenant`, and by ops through the ops pool):
    ```sql
    create table credit_grants (
      id uuid primary key,
@@ -621,7 +627,7 @@ These are not in DATA_MODEL.md. Do not build them until the data model is update
    create index on credit_grants (tenant_id, period_start);
    ```
    `grants` is `{ "<entitlement key>": integer }`. Needed for run packs (FR-BIL-5), ops credits (FR-OPS-3) and carry-over.
-5. **Table `entitlement_overrides`** (module `billing`, standard tenant RLS; written only through the ops pool):
+4. **Table `entitlement_overrides`** (module `billing`, standard tenant RLS; written only through the ops pool):
    ```sql
    create table entitlement_overrides (
      tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
@@ -635,8 +641,8 @@ These are not in DATA_MODEL.md. Do not build them until the data model is update
    );
    ```
    Needed because `entitlements` holds only the effective value, and an override must survive recomputes (FR-OPS-3).
-6. **`tenants.status_reason text`** with `check (status_reason in ('trial_ended','payment_failed','owner_canceled','ops','abuse'))`, and **`tenants.past_due_since timestamptz`**. Needed to tell apart the read-only reasons (they map to different problem codes, API.md §2.9) and to time the day-7 and day-14 rules (FR-BIL-6).
-7. **Table `trial_claims`** (`magpie_ops` pool only, no tenant policy; add to DATA_MODEL §2.1):
+5. **`tenants.status_reason text`** with `check (status_reason in ('trial_ended','payment_failed','owner_canceled','ops','abuse'))`, and **`tenants.past_due_since timestamptz`**. Needed to tell apart the read-only reasons (they map to different problem codes, API.md §2.9) and to time the day-7 and day-14 rules (FR-BIL-6).
+6. **Table `trial_claims`** (`magpie_ops` pool only, no tenant policy; add to DATA_MODEL §2.1):
    ```sql
    create table trial_claims (
      id uuid primary key,
@@ -649,5 +655,5 @@ These are not in DATA_MODEL.md. Do not build them until the data model is update
    create index on trial_claims (kind, value_hash, created_at);
    ```
    Needed for one trial per identity (§7); it must outlive deleted workspaces. `email_domain` allows several rows so the 3-per-90-days rule can count them.
-8. **Materialized view `ops_tenant_daily`** (owned by `magpie_owner`, `select` for `magpie_ops`, refreshed nightly): per tenant per day, revenue, cost by `usage_events.key`, and run counts. Needed so the ops console loads fast at 5,000 workspaces (ARCHITECTURE §13).
-9. **Comment-only update** to `usage_events.key`'s list in DATA_MODEL §14: add `payment_fees` and `notification_emails`. `usage_counters` also uses `ai_cost_reserved` and `api_requests`. Neither column has a check constraint, so no migration is needed.
+7. **Materialized view `ops_tenant_daily`** (owned by `magpie_owner`, `select` for `magpie_ops`, refreshed nightly): per tenant per day, revenue, cost by `usage_events.key`, and run counts. Needed so the ops console loads fast at 5,000 workspaces (ARCHITECTURE §13).
+8. **Comment-only update** to `usage_events.key`'s list in DATA_MODEL §14: add `payment_fees` and `notification_emails`. `usage_counters` also uses `ai_cost_reserved` and `api_requests`. Neither column has a check constraint, so no migration is needed.
