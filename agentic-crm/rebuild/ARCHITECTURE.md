@@ -1,6 +1,6 @@
 # Magpie: system architecture
 
-This is the technical spine for rebuilding Magpie as a multi-tenant SaaS from scratch. Read [PRD.md](PRD.md) first for what the product does. Read [DATA_MODEL.md](DATA_MODEL.md) next for every table. Every other spec uses the names defined in these three files. If two docs disagree, this file and DATA_MODEL.md win.
+This is the technical spine for rebuilding Magpie as a multi-tenant SaaS from scratch. Read [PRD.md](PRD.md) first for what the product does. Read [DATA_MODEL.md](DATA_MODEL.md) next for every table. Every other spec uses the names defined in these three files. If two docs disagree, this file (including the rulings in §15) and DATA_MODEL.md (including §18) win.
 
 ## 1. Goals and constraints
 
@@ -76,6 +76,9 @@ Each choice is final for v1 unless a milestone's verification step proves it unw
 | Logs and traces | pino JSON logs, OpenTelemetry traces exported via OTLP | Vendor-neutral | none |
 | Hosting | Railway: `api` and `worker` services from Dockerfiles; Neon for Postgres; R2 for files | The team already runs Railway; one project, not one per customer | Fly.io or Render |
 | Tests | Vitest (unit, integration against real Postgres), Playwright (e2e), MSW for HTTP fakes | Fast, standard | none |
+| Malware scanning | ClamAV (`clamd`) as a private service from its vendor image | Uploads and inbound attachments are scanned before reading | a hosted scanning API |
+| DOCX to PDF | Gotenberg as a private service from its vendor image | Bid package export | LibreOffice in the worker image |
+| Web libraries | Lingui v5 (i18n), React Email (templates), openapi-fetch and openapi-typescript (typed client), vite-plugin-pwa, pdfjs-dist, dnd-kit, idb-keyval, Sonner, TanStack Table and Virtual, Recharts via shadcn Chart, react-qr-code, lucide-react | Named so the agent does not pick alternatives | none |
 
 **Library APIs move.** Before using any third-party API in this table, check its current docs and pin the version in the lockfile. Do not write code from memory for DBOS, Better Auth, AI SDK, Stripe, Twilio, Telegram, Postmark or Kontract.
 
@@ -231,11 +234,17 @@ Cron schedules are **global**, not per tenant. One schedule per job type fires e
 | `report-usage` | 60 min | tenants with unreported usage for Stripe meters |
 | `expire-approvals` | 15 min | approvals past `expires_at` |
 | `trial-lifecycle` | daily | trials ending in 3 days, ended trials |
-| `cleanup` | daily | expired link codes, oauth states, old SSE cursors |
+| `cleanup` | daily | expired link codes, oauth states, idempotency keys, short links, old SSE cursors |
+| `award-sweep` | daily | one SAM.gov sweep of award notices, matched to every tenant's submitted bids |
+| `sam-status-refresh` | daily | SAM registration status and expiry for every company profile with a UEI |
+| `kontract-usage-reconcile` | monthly | compare Kontract's usage report with our `usage_events` |
+| `telegram-webhook-check` | at worker start | confirm the Telegram webhook URL and secret are set |
+
+The `report-usage` schedule is registered behind the feature flag `stripe_meters`, off in v1 (BILLING.md). Schedules find due work across tenants through the `fanout_*` security definer functions in DATA_MODEL §18.5, then open `withTenant` per item.
 
 ### 7.5 Durable agent runs and approvals
 
-An agent run is a DBOS workflow (`agentRunWorkflow`). Each model call and each tool call is a step. When a tool needs approval, the workflow writes an `approvals` row, emits `approval.requested`, sends notifications, then waits with `DBOS.recv("approval:<id>", timeoutSeconds)`. Deciding an approval (web, SMS, Telegram, API) updates the row and calls `DBOS.send(workflowId, decision, "approval:<id>")`. On timeout the approval expires and the run continues without that action. Details in [AGENT_RUNTIME.md](AGENT_RUNTIME.md).
+An agent run is a DBOS workflow (`agentRunWorkflow`). Each model call and each tool call is a step. When a tool needs approval, the workflow writes an `approvals` row, emits `approval.requested`, sends notifications, then waits with `DBOS.recv("approval:<id>", timeoutSeconds)`. Because DBOS counts a waiting workflow against its queue's concurrency, the run is split into segments: a segment ends at an approval, a small waiter workflow outside the `agent` queue does the `recv`, and the decision enqueues the next segment (AGENT_RUNTIME.md). A pending approval therefore never holds one of the tenant's agent slots. Deciding an approval (web, SMS, Telegram, API) updates the row and calls `DBOS.send(workflowId, decision, "approval:<id>")`. On timeout the approval expires and the run continues without that action. Details in [AGENT_RUNTIME.md](AGENT_RUNTIME.md).
 
 ### 7.6 Outbox relays
 
@@ -247,7 +256,7 @@ Every model call in the system goes through `llm.generate()`, `llm.stream()` or 
 
 - **Model catalog** in `packages/llm/models.json`: entries with `id` (our name, for example `standard`), `provider`, `providerModelId`, `inputPerMTokMicros`, `cachedInputPerMTokMicros`, `outputPerMTokMicros`, `contextWindow`, `supportsTools`, `supportsVision`. Prices are configuration, set at deploy and checked against the provider's price page.
 - **Tiers** used by code: `fast` (classification, extraction, routing), `standard` (agent turns, drafting), `deep` (long document reasoning), `embed`. Each tier maps to an ordered list of catalog entries (primary, then fallbacks).
-- **Initial defaults** (verify ids and prices before launch): `standard` → `anthropic:claude-sonnet-5-5`, then `openai:<current flagship>`; `fast` → `anthropic:claude-haiku-5-5`, then `openai:<current small model>`; `deep` → `anthropic:claude-opus-5-5`; `embed` → `openai:text-embedding-3-small` (1536 dimensions).
+- **Initial defaults** (verify ids and prices before launch): `standard` → `anthropic:claude-sonnet-5-5`, then `openai:<current flagship>`; `fast` → `anthropic:claude-haiku-5-5`, then `openai:<current small model>`; `deep` → `anthropic:claude-opus-5-5`, then `openai:<current flagship>`; every tier must keep at least one non-Anthropic entry, because some defense customers must exclude Anthropic; `embed` → `openai:text-embedding-3-small` (1536 dimensions).
 - **Tenant model policy** (`tenant_settings.model_policy`): allowed providers and excluded providers. A tenant may exclude a provider (for example, defense contractors that must not use one vendor). The gateway skips excluded entries; if a tier has no allowed entry, the call fails with `model_unavailable` and the run stops with a clear message.
 - **Metering.** After each call the gateway writes an `agent_steps` row (if inside a run) and a `usage_events` row with tokens, cached tokens, cost in micros, tier, provider, model, `bot_id`, `run_id`, and `feature`.
 - **Budgets.** Before each call: check the tenant's monthly AI allowance (entitlement `ai_runs` and the hard cost ceiling `ai_cost_micros`), and the per-run step and cost caps. Over the limit, the call fails with `limit_reached`.
@@ -311,3 +320,35 @@ Every model call in the system goes through `llm.generate()`, `llm.stream()` or 
 6. Gmail and Outlook are used to **send** only in v1 (non-restricted scopes). Replies come back through tracked reply addresses on Postmark inbound. Reading mailboxes waits for Google's CASA assessment (v2).
 7. We text only our own users (owners and their staff) in v1, under one Magpie messaging campaign.
 8. Plans and prices are data in `plans`, not code.
+
+## 15. Rulings across the specs
+
+The supporting specs were written in parallel. Where they disagreed, these rulings decide. Code follows the ruling even if a sibling spec still says otherwise.
+
+| # | Topic | Ruling |
+|---|---|---|
+| 1 | Telegram callback data | `apr:<approval uuid>:<a\|s\|e>` (42 bytes): approve, skip, edit link. |
+| 2 | Notification preferences | `memberships.notification_prefs` (jsonb) plus `memberships.onboarded_at`. No `member_preferences` or `notification_preferences` table. A person's `digestHour` there overrides `tenant_settings.digest_hour`. |
+| 3 | Calendar feed | An `api_keys` row with scope `calendar:read`; the feed URL is `/ics/<key>.ics`. No `calendar_feeds` table. |
+| 4 | Bid brief storage | The `bid_briefs` table (versioned, one `current` row per deal), served as `BidBrief` by `GET /deals/:id/brief`. Not a column on `deals`. |
+| 5 | Reviewer assignment (Managed plan) | `staff_assignments`. Not tenant metadata. |
+| 6 | Bot model tier | Read-only for workspaces in v1. Staff can change it through ops. |
+| 7 | Approval short codes across workspaces | Unique across all of a person's pending approvals in every workspace (`short_code_available`). If an ambiguity ever happens anyway, reply with a link. |
+| 8 | Decisions made from an approval email | The email links to `/a/<approvalId>?via=email`; the decide request carries `via` (`web` or `email`, default `web`), stored in `decided_via`. |
+| 9 | Memories | Members add and delete their own memories. Business-wide memories (`user_id` null) need admin or owner. |
+| 10 | Shared saved views and tags | Members can create shared views and create and apply tags. Renaming or deleting a shared view or tag someone else made needs admin or owner. |
+| 11 | API keys | Members can create keys for themselves; a key never exceeds its creator's role. Admins and owners can list and revoke every key. |
+| 12 | Billing | Admins and owners change the plan, payment method and buy run packs. Only the owner cancels the subscription or deletes the workspace. |
+| 13 | Roles | Only the owner grants or removes admin and transfers ownership. Admins invite people and set member or viewer roles. |
+| 14 | Bot jobs | Owners and admins can change job times and turn jobs on or off. |
+| 15 | Quote follow-ups | Every follow-up needs approval in v1, like every external action. The flag `quote_followup_preapproval` exists and stays off. |
+| 16 | Model provider exclusions | The setting ships in MVP (FR-SET-1). |
+| 17 | Better Auth admin plugin fields | The plugin's role maps to `users.auth_role`; add `banned`, `ban_reason`, `ban_expires` (DATA_MODEL §18.1). `auth_role = 'admin'` only for staff with `staff_role` support or admin. |
+| 18 | Stripe `incomplete_expired` | Stored as `canceled`. |
+| 19 | Stripe customer | Created at sign-up, before the seed transaction. |
+| 20 | Stripe usage reporting | Off in v1 (`stripe_meters` flag). Allowances and prepaid run packs only. |
+| 21 | Phone verification | Twilio Verify sends and checks the code; `link_codes.code` holds our challenge id. |
+| 22 | Kontract workspace id | `magpie-<tenant_id>`. |
+| 23 | Route and field names | API.md wins over UX.md on route and field names. UX.md wins on user-facing words; the settings page is "Channels and alerts". |
+| 24 | Outreach email provider | Quote requests go out from the owner's connected Gmail or Outlook. Postmark sends quote requests only after Postmark confirms in writing that this use is allowed; until then a workspace without a connected mailbox can't send quote requests and is asked to connect one. Postmark always handles transactional mail and inbound replies. |
+| 25 | Private services | `clamav` and `gotenberg` run beside `api` and `worker` in the same Railway project and in `infra/docker-compose.yml`. |

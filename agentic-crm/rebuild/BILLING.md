@@ -605,6 +605,8 @@ Queries run on the `magpie_ops` pool from `packages/core/ops`, and each view is 
 
 ## 11. Schema additions requested
 
+> **Settled.** Adopted in [DATA_MODEL.md §18](DATA_MODEL.md#18-additions-adopted-from-the-supporting-specs). Conflicts with the other specs are settled in [ARCHITECTURE.md §15](ARCHITECTURE.md#15-rulings-across-the-specs), which wins over this file.
+
 These are not in DATA_MODEL.md. Do not build them until the data model is updated.
 
 1. **`plans.billing_interval`**: add `'one_time'` to the check, so the run pack is a `plans` row (PRD §8 lists it with the plans).

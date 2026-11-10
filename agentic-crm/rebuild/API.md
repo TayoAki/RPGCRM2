@@ -651,7 +651,7 @@ Allowed types: PDF, DOCX, XLSX, CSV, TXT, PNG, JPEG, TIFF, HEIC. Max size 100 MB
 |---|---|---|---|---|---|---|---|
 | GET | `/bots` | The Bot team (not paged) | viewer | | `{ data: Bot[] }` | BOT-1 | |
 | GET | `/bots/:id` | One Bot with jobs and this month's run count | viewer | | `BotDetail` | BOT-1 | |
-| PATCH | `/bots/:id` | Rename, instructions, `isEnabled` (off stops its jobs), `modelTier` | admin | `BotUpdate` | `Bot` | BOT-1 | |
+| PATCH | `/bots/:id` | Rename, instructions, `isEnabled` (off stops its jobs). `modelTier` is read-only in v1 (ARCHITECTURE §15) | admin | `BotUpdate` | `Bot` | BOT-1 | |
 | POST | `/bots/:id/runs` | Start a task for a Bot, optionally about a record, optionally in learning mode (trigger `api`) | member | `BotTaskRequest` `{ instructions, record?: RecordRef, isLearningMode? }` | `AgentRun` (202) | CH-6, CH-7, BOT-5 | `conflict` (`state`: Bot off), `limit_reached`, `model_unavailable` |
 | GET | `/bots/:id/jobs` | Jobs | viewer | | `{ data: BotJob[] }` | BOT-6 | |
 | POST | `/bots/:id/jobs` | Create a `custom` job | admin | `BotJobCreate` `{ name, scheduleCron?, config }` | `BotJob` (201) | BOT-6 | |
@@ -1044,7 +1044,7 @@ Status only moves forward: `queued` < `sent` < `delivered`; `failed` and `undeli
 ### 11.6 Telegram
 
 - Only `message` updates from chats with `type = 'private'` are handled. In a group, the bot calls `leaveChat`. `my_chat_member` with status `kicked` (the person blocked the bot) disables the binding with `disabled_reason = 'blocked'`.
-- `/start <code>`: `<code>` matches `^[A-Za-z0-9_-]{32,64}$`; `tenant_for_link_code` must return channel `telegram`, unexpired, unused. The workflow creates `channel_bindings` (`channel = 'telegram'`, `address` = `chat.id` as a string, `verified_at = now()`), marks the code used, and replies "Connected. You'll get approvals and your morning digest here. Send /stop to disconnect." An invalid code gets "That link expired or was already used. Open Magpie, go to Settings, then Phone and chat, and choose Connect Telegram."
+- `/start <code>`: `<code>` matches `^[A-Za-z0-9_-]{32,64}$`; `tenant_for_link_code` must return channel `telegram`, unexpired, unused. The workflow creates `channel_bindings` (`channel = 'telegram'`, `address` = `chat.id` as a string, `verified_at = now()`), marks the code used, and replies "Connected. You'll get approvals and your morning digest here. Send /stop to disconnect." An invalid code gets "That link expired or was already used. Open Magpie, go to Settings, then Channels and alerts, and choose Connect Telegram."
 - `/stop`: disable the binding and reply that it is disconnected (FR-CH-2). `/help`: the grammar in short.
 - Button presses (`callback_query`): `data` is `apr:<approval uuid>:a` (approve), `apr:<approval uuid>:s` (skip), `apr:<approval uuid>:e` (reply with a one-time edit link), as AGENT_RUNTIME §8.5 defines, or `mt:<match uuid>:p` (pursue) and `mt:<match uuid>:d` (dismiss) on digest matches; at most 42 bytes (limit 64). The chat must be the user's verified private chat. The workflow decides with `decided_via = 'telegram'`, calls `answerCallbackQuery` with a one-line result, then `editMessageReplyMarkup` to remove the buttons and `editMessageText` to append the outcome.
 - Plain text goes through the reply grammar (§11.7).
@@ -1239,6 +1239,8 @@ MCP writes follow the same approval rules as Bot tools (FR-API-2):
 | FR-REP-1 | §5.28 |
 
 ## 15. Schema additions requested
+
+> **Settled.** Adopted in [DATA_MODEL.md §18](DATA_MODEL.md#18-additions-adopted-from-the-supporting-specs). Conflicts with the other specs are settled in [ARCHITECTURE.md §15](ARCHITECTURE.md#15-rulings-across-the-specs), which wins over this file.
 
 DATA_MODEL.md is not edited by this spec. The endpoints above depend on the additions below. Each needs a DATA_MODEL change before the module that uses it is built.
 

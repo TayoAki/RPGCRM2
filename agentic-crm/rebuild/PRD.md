@@ -71,7 +71,7 @@ These settle disagreements during the build.
 |---|---|---|
 | **MVP** (sellable to 10 pilot owners) | M0 to M6 | Sign-up and workspaces, company profile, bid discovery and matching, CRM core, bid workspace with all seven Bots, approvals, SMS, Telegram and the digest, billing and limits |
 | **v1** (general availability) | M7 to M9 | Operator console, Managed plan review queue, public API, MCP server, outgoing webhooks, automations, reports, import and export polish, hardening |
-| **v1.5** (Segment B) | after v1 | Slack app, HubSpot and Salesforce sync, SSO and SCIM, per-seat Team plans, SOC 2 Type I, SBIR topic feed, provider exclusion UI |
+| **v1.5** (Segment B) | after v1 | Slack app, HubSpot and Salesforce sync, SSO and SCIM, per-seat Team plans, SOC 2 Type I, SBIR topic feed |
 | **v2** (capture and Segment C) | after v1.5 | Gmail and Outlook reading (after Google's CASA assessment), meeting notes, local-business prospecting (permits, new filings, local listings), custom objects, WhatsApp, native apps, dedicated database tier |
 
 Everything below is MVP unless its row says otherwise.
@@ -145,9 +145,9 @@ The bid workspace is the deal page for `kind='bid'` deals.
 | ID | Requirement | Acceptance criteria |
 |---|---|---|
 | FR-SUB-1 | Sub Finder suggests subcontractors near the place of performance by trade: from the CRM first, then from market data (SAM entities, Kontract's sub search, the businesses' own websites). | Suggestions show distance, source and contact path. Places data stores only `place_id`. |
-| FR-SUB-2 | Draft **quote requests** with scope, site details, due date and attachments. Each request uses a tracked reply address unique to that request. | Sending needs approval (external action). The email goes out from the owner's connected Gmail or Outlook when connected, or from Magpie's sending domain with the owner named, with `Reply-To` set to the tracked address. |
+| FR-SUB-2 | Draft **quote requests** with scope, site details, due date and attachments. Each request uses a tracked reply address unique to that request. | Sending needs approval (external action). The email goes out from the owner's connected Gmail or Outlook with `Reply-To` set to the tracked address. Sending through Magpie's own domain waits for Postmark's written OK (ARCHITECTURE §15 ruling 24). |
 | FR-SUB-3 | Route **replies** to the right quote request. Parse amounts, validity, scope notes and exclusions from the body and attachments. | A reply to the tracked address shows on the bid within 1 minute and is forwarded to the owner's email. Parsed amounts need a person to confirm before they reach a price sheet. |
-| FR-SUB-4 | **Follow up** automatically on quote requests with no reply: default 2 follow-ups, spaced before the due date. | Each follow-up is an approval unless the owner has allowed quote follow-ups to send without asking (allowed only for this template, after 10 unchanged approvals). |
+| FR-SUB-4 | **Follow up** on quote requests with no reply: default 2 follow-ups, spaced before the due date. Sub Finder drafts them on time. | Each follow-up is an approval in v1, like every external action. |
 | FR-SUB-5 | Compare quotes side by side; pick one to use in the price sheet. | The chosen quote becomes a subcontract line with its citation. |
 | FR-SUB-6 | Honor opt-outs. Every outreach email has a working unsubscribe link and the tenant's postal address. | Unsubscribed or bounced addresses go to `suppressions`, and sending to them is blocked. |
 
@@ -184,7 +184,7 @@ The bid workspace is the deal page for `kind='bid'` deals.
 | FR-BOT-3 | Each tool has a policy per Bot: always allow, needs approval, or off. External tools are locked to needs approval. | Policies are shown and editable on the Bot's page (owners and admins only). |
 | FR-BOT-4 | **Earned autonomy:** after 10 approvals in a row unchanged for an internal tool, Magpie suggests letting the Bot do it without asking. | The suggestion appears once per tool per Bot. Accepting changes the policy and writes an audit row. |
 | FR-BOT-5 | **Learning mode** for a new job: the Bot runs and reports what it would have done, without doing it. | No tool with an effect executes in learning mode. Tested. |
-| FR-BOT-6 | **Bot jobs** on schedules or events: scan opportunities, daily digest, deadline watch, quote follow-ups, award watch. Owners can change times and turn jobs off. | Jobs run within 5 minutes of their time. Runs show in the Bot's activity. |
+| FR-BOT-6 | **Bot jobs** on schedules or events: scan opportunities, daily digest, deadline watch, quote follow-ups, award watch. Owners and admins can change times and turn jobs off. | Jobs run within 5 minutes of their time. Runs show in the Bot's activity. |
 | FR-BOT-7 | A **runs log** per Bot: trigger, steps, tools used, approvals, cost and outcome. | Owners see cost per Bot per month. |
 | FR-BOT-8 | **Memory:** Bots remember facts and preferences the owner states ("we don't do work in DC", "always add 12% overhead"), shown and editable on a Memory page. | A remembered preference changes the next relevant run (eval). People can delete a memory. |
 | FR-BOT-9 | **Limits:** caps on steps per run and cost per run by plan. A run that hits a cap stops cleanly and tells the person. | Tested with a tool loop. |
@@ -349,3 +349,4 @@ Open questions for the founder, with the default the build uses until answered:
 1. Final plan prices and allowances. **Default:** the table in §8.
 2. Default model provider order. **Default:** Anthropic first, OpenAI fallback, configurable (ARCHITECTURE §8).
 3. Managed review staffing hours. **Default:** business hours US Eastern, with a 4-hour target.
+4. Postmark's written OK for sending quote requests from Magpie's domain. **Default:** quote requests need a connected Gmail or Outlook mailbox until Postmark says yes.

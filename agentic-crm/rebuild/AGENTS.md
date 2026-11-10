@@ -13,7 +13,7 @@ Read in this order before writing code:
 4. `docs/spec/BUILD_PLAN.md`: the milestone you're on
 5. Then, as the milestone needs them, `API.md`, `AGENT_RUNTIME.md`, `INTEGRATIONS.md`, `SECURITY.md`, `BILLING.md` and `UX.md`
 
-If two docs disagree, ARCHITECTURE.md and DATA_MODEL.md win. If the spec is silent, choose the simplest option that fits it and write a short ADR in `docs/decisions/NNNN-title.md`.
+If two docs disagree, ARCHITECTURE.md (its §15 rulings first) and DATA_MODEL.md (with its §18 additions) win. If the spec is silent, choose the simplest option that fits it and write a short ADR in `docs/decisions/NNNN-title.md`.
 
 ## Rules you must not break
 

@@ -1516,6 +1516,8 @@ Matching rules:
 
 ## 15. Schema additions requested
 
+> **Settled.** Adopted in [DATA_MODEL.md §18](DATA_MODEL.md#18-additions-adopted-from-the-supporting-specs). Conflicts with the other specs are settled in [ARCHITECTURE.md §15](ARCHITECTURE.md#15-rulings-across-the-specs), which wins over this file.
+
 These are not in DATA_MODEL.md. Do not build them until the data model is updated.
 
 1. **Table `bid_briefs`** (module `bids`, standard tenant RLS):

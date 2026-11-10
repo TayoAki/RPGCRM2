@@ -272,7 +272,7 @@ TanStack Router, file-based, in `apps/web/src/routes/`. Search params are valida
 | `__root.tsx` | Providers, event stream, toaster, theme |
 | `_public.tsx` | Centered auth card layout. Redirects signed-in people to `/today`, except `/invite/*`. The unsubscribe page is served by the api (§5.10). |
 | `_authed.tsx` | `ensureQueryData(meQueryOptions())`. No session: redirect to `/sign-in?redirect={href}`. |
-| `_authed/_workspace.tsx` | Active workspace required, else `/workspaces`. The person who created the workspace, while a step is neither done nor skipped and setup isn't hidden (`GET /profile/onboarding`): redirect to `/onboarding`. An invited person with `member_preferences.onboarded_at` null **(requested)**: redirect to `/onboarding/phone?member=1`. |
+| `_authed/_workspace.tsx` | Active workspace required, else `/workspaces`. The person who created the workspace, while a step is neither done nor skipped and setup isn't hidden (`GET /profile/onboarding`): redirect to `/onboarding`. An invited person with `memberships.onboarded_at` null **(requested)**: redirect to `/onboarding/phone?member=1`. |
 | `_authed/_workspace/_shell.tsx` | App frame: rail, header, banners, Assistant panel, bottom tabs |
 | `_authed/_workspace/onboarding.tsx` | Onboarding frame without the rail |
 | `_authed/ops.tsx` | `me.user.isStaff` required, else 404 |
@@ -580,7 +580,7 @@ User menu "Sign out" signs out this browser, clears the query cache and local dr
 - No rail. Header: logo, "Step {n} of 5", a progress bar, and the link "Skip setup" (goes to `/today`, which then shows the setup checklist).
 - Each step: `h1` as a question or task, one description sentence, the form, then a footer with Back, "Skip this step" and the primary "Continue" ("Saving…").
 - Continue saves the step's fields (`PATCH /profile`), then marks the step with `PATCH /profile/onboarding` (`step`: `business_lookup`, `what_you_do`, `where_you_work`, `certifications_limits`, `phone`; `status`: `done` or `skipped`). Progress lives in `tenant_settings.settings.onboarding` (API.md §5.3). `/onboarding` redirects to the first step that is neither done nor skipped. Leaving and returning resumes there.
-- Shown to the person who created the workspace. People who join by invite see only step 5 in its member form, tracked by `member_preferences.onboarded_at` **(requested)**.
+- Shown to the person who created the workspace. People who join by invite see only step 5 in its member form, tracked by `memberships.onboarded_at` **(requested)**.
 - Target: under 5 minutes with a UEI (FR-PRO-1).
 
 ### 6.2 Step 1: Find your business
@@ -668,7 +668,7 @@ Segmented control: Text message (default), Telegram, Email only.
 
 **Email only.** "We'll email your digest to {email}. You can add a phone later in Settings."
 
-**Digest time** (all options): "Send my digest at" hour select, default 7:00 AM, with "{timezone name}" and a "Change" link that opens a timezone select (`users.timezone`). Writes `member_preferences.digest_hour` through `PATCH /me/preferences`.
+**Digest time** (all options): "Send my digest at" hour select, default 7:00 AM, with "{timezone name}" and a "Change" link that opens a timezone select (`users.timezone`). Writes `digestHour` in `memberships.notification_prefs` through `PATCH /me/preferences`; it overrides `tenant_settings.digest_hour` for this person.
 
 ### 6.7 Your first searches
 
@@ -912,7 +912,7 @@ Phone cards: name, agency, stage pill, due, one progress line.
 | Condition | Copy | Buttons |
 |---|---|---|
 | `deals.is_ai_drafting_allowed=false` | "This solicitation doesn't allow AI drafting. Bots won't write proposal text for this bid. They still read documents, track deadlines and chase quotes." Followed by a citation chip to the clause. | "This is wrong" (`bids.ai_override`; dialog "Turn AI drafting back on for this bid?", body "Only do this if the solicitation allows AI. Magpie keeps a record of this change.", required field "Why?", button "Turn on AI drafting"; `PUT /deals/:id/ai-drafting`) |
-| `bid_brief.aiUse.rule = 'disclosure_required'` | "This solicitation asks you to disclose AI use. Magpie keeps a record of what AI wrote and drafts a disclosure statement." | See disclosure (Drafts tab, Disclosure panel) |
+| `BidBrief.aiUse.rule = 'disclosure_required'` | "This solicitation asks you to disclose AI use. Magpie keeps a record of what AI wrote and drafts a disclosure statement." | See disclosure (Drafts tab, Disclosure panel) |
 | New amendment, Bid Reader running (FR-DIS-7) | "Amendment {title} was posted on {date}. Bid Reader is checking what changed." | none |
 | Amendment processed | "Amendment {title} changed {n} requirements and {list of changed deadlines}." Dismissible. | See changes (Timeline filtered to the amendment) |
 | Award notice, winner unclear (FR-DIS-7) | "An award notice was posted. Magpie couldn't tell who won." | Mark won, Mark lost |
@@ -937,7 +937,7 @@ Phone cards: name, agency, stage pill, due, one progress line.
 
 **Route** `/bids/$dealId/brief`. **Requirements** FR-BID-2, FR-BID-5, FR-BID-6, FR-PRO-6.
 
-The brief is `deals.bid_brief` with the `BidBrief` shape (API.md §5.9): `scopeSummary`, `facts[]` (`key`, `label`, `value`, `status`, `citations`), `contractCategory`, `aiUse`, `redFlags`, `version`, `runId`, `updatedAt`. Reading progress comes from the bid summary (`GET /deals/:id/bid`).
+The brief is the current `bid_briefs` row, served by `GET /deals/:id/brief` with the `BidBrief` shape (API.md §5.9): `scopeSummary`, `facts[]` (`key`, `label`, `value`, `status`, `citations`), `contractCategory`, `aiUse`, `redFlags`, `version`, `runId`, `updatedAt`. Reading progress comes from the bid summary (`GET /deals/:id/bid`).
 
 **Layout, top to bottom.**
 
@@ -1052,7 +1052,7 @@ Row status: from `files.scan_status` first ("Checking file" while pending, "Remo
    - Total: `price_sheets.total_cents`.
    - Margin: `margin_bps` as a percent.
    - Past awards: a range bar from the lowest to the highest `award_comparables.award.amountCents` with the median marked and a marker for this total. Text under it: "Inside the range", "{n}% above the range" or "{n}% below the range".
-   - Subcontracted: share of subcontract lines in the total against the FAR 52.219-14 cap for `bid_brief.contractCategory`: "38% of a 50% cap". Shown only for set-aside bids (FR-PRC-5).
+   - Subcontracted: share of subcontract lines in the total against the FAR 52.219-14 cap for `BidBrief.contractCategory`: "38% of a 50% cap". Shown only for set-aside bids (FR-PRC-5).
 3. **Warnings** from `PriceSheet.warnings` (needs tone callouts, FR-PRC-4, FR-PRC-5):
    - `outside_comparable_range`: "Your price is {n}% above similar past awards ({low} to {high})." or "below".
    - `margin_below_floor`: "Margin is {n}%. Your floor is {floor}%." (`settings.marginFloorBps`, default 8%)
@@ -1705,7 +1705,7 @@ Every change on a Workspace or Owner page writes `audit_log` (FR-SET-1).
 
 **Route** `/settings/channels`. **Requirements** FR-CH-1, FR-CH-2, FR-CH-3, FR-CH-5, FR-CH-8, FR-BIL-4.
 
-Per person, per workspace. Bindings from `GET /channels`; preferences from `GET /me/preferences` (`member_preferences`, API.md §15).
+Per person, per workspace. Bindings from `GET /channels`; preferences from `GET /me/preferences` (`memberships.notification_prefs`, API.md §15).
 
 | Section | Rows |
 |---|---|
@@ -2026,7 +2026,7 @@ Actions:
 - Opening an unclaimed item shows "Claim" (`POST /api/ops/review-queue/:approvalId/claim`); an item claimed by someone else shows "Claimed by {name}."
 - Primary "Send to owner" (`action: send_to_owner`): `review_stage` becomes `owner`, and the owner is notified as usual.
 - "Edit": edit form as in [§14.3](#143-preview-kinds), then "Save and send to owner".
-- "Send back to Bot" (`action: return_to_bot`): requires "What should the Bot fix?" (`review_notes`). The approval closes as skipped by staff, and the run revises with the notes.
+- "Send back to Bot" (`action: return_to_bot`): requires "What should the Bot fix?" (`decision_note`). The approval closes as skipped by staff, and the run revises with the notes.
 
 Reviewers never send anything to outside recipients. The owner still approves.
 
@@ -2266,8 +2266,8 @@ Preview lines by kind: `email` shows To, Subject and the body's first 600 charac
 
 | Button | `callback_data` | Bytes |
 |---|---|---|
-| Approve | `ap:<approval uuid>:a` | 41 |
-| Skip | `ap:<approval uuid>:s` | 41 |
+| Approve | `apr:<approval uuid>:a` | 42 |
+| Skip | `apr:<approval uuid>:s` | 42 |
 | Pursue match | `mt:<match uuid>:p` | 41 |
 | Dismiss match | `mt:<match uuid>:d` | 41 |
 
@@ -2566,7 +2566,7 @@ The component that makes principle 3 true. `<CitationChip citation={Citation | S
 | Region | Full | Compact (Today, bid rail) | Inline (chat) |
 |---|---|---|---|
 | Header | Bot icon and name; `title` as `h2`; short code pill; effect pill ("Leaves your business", needs tone, or "Inside Magpie", neutral); related record link; "Asked {relative}"; expiry line | Code, title, Bot, effect, expiry on two lines | As full, `title` as `h3` |
-| Reviewer line | "Checked by your Magpie reviewer, {name}, {date}." plus `review_notes` when present | Hidden | Hidden |
+| Reviewer line | "Checked by your Magpie reviewer, {name}, {date}." plus `decision_note` when present | Hidden | Hidden |
 | Why | "Why: {preview.why}" | Hidden | Shown |
 | Preview | Per kind ([§14.3](#143-preview-kinds)) | Hidden | Collapsed to 8 lines, "Show all" |
 | Sources | Citation chips under "Sources" | Hidden | Shown |
@@ -2973,6 +2973,8 @@ US English at launch (PRD §7). Everything is ready for French and Spanish.
 
 ## 27. Schema additions requested
 
+> **Settled.** The additions below are adopted in [DATA_MODEL.md §18](DATA_MODEL.md#18-additions-adopted-from-the-supporting-specs), and the conflicts listed at the end are settled in [ARCHITECTURE.md §15](ARCHITECTURE.md#15-rulings-across-the-specs). Where this file still uses an older name, those two sections win.
+
 These are not in PRD.md, ARCHITECTURE.md or DATA_MODEL.md, and not already requested by API.md §15 or AGENT_RUNTIME.md. The spine docs were not edited. Tenant tables follow DATA_MODEL §1 and §2 (tenant column, RLS template, indexes, `set_updated_at` trigger).
 
 **Already requested elsewhere and relied on here** (no new request): `deals.bid_brief`, `member_preferences`, `approvals.review_notes`, `channel_bindings.disabled_reason`, `file_links.purpose = 'export'`, `field_provenance` record type `company_profile`, `api_keys` scope `calendar:read` (API.md §15); `approvals.decision_note` (AGENT_RUNTIME §15); `tenant_settings.settings` keys `postalAddress`, `marginFloorBps`, `quoteFollowups`, `onboarding`, `bot_jobs.config.learningMode`, `notifications.payload.items` for digests, the drafts version chain, and draft comments as `notes` (API.md §15 clarifications).
@@ -2991,7 +2993,7 @@ These are not in PRD.md, ARCHITECTURE.md or DATA_MODEL.md, and not already reque
    );
    ```
 2. **`bid_deadlines.timezone text not null`** (IANA; the service defaults it to `tenants.timezone`). FR-BID-4 says deadlines show "in the solicitation's timezone", and `timestamptz` keeps the instant but not the zone. Used by every deadline display and text ([§9.13](#913-deadlines)).
-3. **`member_preferences.onboarded_at timestamptz`**, added to API.md §15 item 6. Marks that an invited person finished or skipped the short onboarding ([§6.1](#61-frame)).
+3. **`memberships.onboarded_at timestamptz`**. Marks that an invited person finished or skipped the short onboarding ([§6.1](#61-frame)).
 4. **`users.locale text not null default 'en-US'`**. Server-rendered text (texts, Telegram, email, push) needs the person's language once French and Spanish ship (PRD §7, [§26](#26-internationalization)).
 5. **`market_opportunities.search tsvector generated always as (to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(solicitation_number,'') || ' ' || coalesce(agency,''))) stored`** with a GIN index, and a trigram GIN index on `title`. FR-CRM-6 searches matches, and this is the only searched table without a `search` column.
 

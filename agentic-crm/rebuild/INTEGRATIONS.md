@@ -636,7 +636,7 @@ Verify service settings: code length 6, Fraud Guard on, US-only geo permissions 
 
 **Retries.** Sends run in DBOS steps on queue `messaging` (per tenant 5). Twilio has no idempotency key for message creation, so the step checks `notifications.provider_message_id` first, as §9. Retry on 429, 5xx and timeouts only. Error `21610`, `21211` (invalid number) and `21614` (not mobile): no retry; disable the binding with the reason; fall back to email for that notification.
 
-**Failures and what the person sees.** Binding disabled: Settings, Phone and chat shows "Texts to (555) 123-4567 stopped: <reason>. We'll email you instead." and the next digest goes by email. Twilio down: notifications wait in the outbox, then go by email after 30 minutes for approvals and deadline reminders.
+**Failures and what the person sees.** Binding disabled: Settings, Channels and alerts shows "Texts to (555) 123-4567 stopped: <reason>. We'll email you instead." and the next digest goes by email. Twilio down: notifications wait in the outbox, then go by email after 30 minutes for approvals and deadline reminders.
 
 **Test fakes.** Twilio test credentials and magic numbers for sandbox sends; MSW handlers for Messages and Verify with recorded payloads; recorded inbound and status form posts signed with a test auth token (the reference implementation's `verifyTwilioRequest` cases, including duplicate keys); `createFakeSmsSender()` and `createFakePhoneVerifier()` (fixed code `123456`).
 
@@ -1022,6 +1022,8 @@ All validated in `packages/shared/src/env.ts`; SECURITY.md §5 must list them.
 | `LINK_SIGNING_KEY` (HMAC for `/unsubscribe` and `/files/shared` tokens), `MCP_ALLOWED_ORIGINS` | API §7, §13 |
 
 ## 26. Schema additions requested
+
+> **Settled.** Adopted in [DATA_MODEL.md §18](DATA_MODEL.md#18-additions-adopted-from-the-supporting-specs) and [ARCHITECTURE.md §15](ARCHITECTURE.md#15-rulings-across-the-specs).
 
 DATA_MODEL.md and ARCHITECTURE.md are not edited by this spec. These additions are needed by the integrations above, in addition to API.md §15.
 

@@ -1,6 +1,6 @@
 # Magpie: data model
 
-Every table the app needs, with its columns, keys and isolation rule. Names here are canonical: code, API and other specs must use them. Write the Drizzle schema in `packages/db/src/schema/<module>.ts` from this file. Write RLS, functions and triggers as hand-written SQL migrations.
+Every table the app needs, with its columns, keys and isolation rule. Names here are canonical: code, API and other specs must use them. **§18 amends earlier sections** with additions the supporting specs needed; apply them when you create each table. Write the Drizzle schema in `packages/db/src/schema/<module>.ts` from this file. Write RLS, functions and triggers as hand-written SQL migrations.
 
 ## 1. Conventions
 
@@ -1265,3 +1265,209 @@ Created in one transaction by `tenants.createTenant()`:
 5. Default `tool_policies` (tenant-wide, `bot_id null`) from the tool catalog's default policy.
 6. An empty `company_profiles` row.
 7. `subscriptions` and `entitlements` for the `trial` plan.
+
+## 18. Additions adopted from the supporting specs
+
+These amend the sections above. Build the final shape: when you create a table in its milestone, apply the additions listed here for it in the same migration. The sibling specs' "Schema additions requested" sections are the source of each item. ARCHITECTURE §15 records the rulings where specs disagreed.
+
+### 18.1 New columns on existing tables
+
+```sql
+-- users (Better Auth admin plugin, used for impersonation; map the plugin's role field to auth_role)
+alter table users add column auth_role text not null default 'user' check (auth_role in ('user','admin'));
+alter table users add column banned boolean not null default false;
+alter table users add column ban_reason text;
+alter table users add column ban_expires timestamptz;
+alter table users add column locale text not null default 'en-US';
+
+-- memberships (Better Auth additionalFields)
+alter table memberships add column notification_prefs jsonb not null default '{}';
+  -- {digest: boolean, digestHour: 0-23 | null (null = tenant_settings.digest_hour), emailDigest: boolean, phoneChannel: 'telegram'|'sms'|null}
+alter table memberships add column onboarded_at timestamptz;
+
+-- tenants (billing state)
+alter table tenants add column status_reason text check (status_reason in ('trial_ended','payment_failed','owner_canceled','ops','abuse'));
+alter table tenants add column past_due_since timestamptz;
+
+-- impersonations
+alter table impersonations add column impersonated_user_id uuid not null references users(id);
+alter table impersonations add column expires_at timestamptz not null;  -- started_at + 60 minutes
+
+-- approvals
+alter table approvals add column decision_note text;                   -- skip reason or staff send-back note
+alter table approvals add column staff_reviewed_by uuid references users(id);
+alter table approvals add column staff_reviewed_at timestamptz;
+create index on approvals (expires_at) where status = 'pending';
+
+-- drafts
+alter table drafts add column coverage jsonb not null default '{}';     -- {answers: uuid[], gaps: uuid[], unsupportedClaims: [{text, reason}]}
+
+-- bid_deadlines
+alter table bid_deadlines add column timezone text not null;            -- IANA; defaults in code to tenants.timezone
+
+-- channel_bindings
+alter table channel_bindings add column disabled_reason text check (disabled_reason in ('user','stop','blocked','undeliverable'));
+
+-- market_opportunities
+alter table market_opportunities add column documents_fingerprint text;
+alter table market_opportunities add column documents_checked_at timestamptz;
+alter table market_opportunities add constraint market_opportunities_notice_type_check check (notice_type in (
+  'solicitation','combined_synopsis_solicitation','presolicitation','sources_sought','special_notice',
+  'award','justification','intent_to_bundle','other'));
+alter table market_opportunities add column search tsvector generated always as (
+  to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(solicitation_number,'') || ' ' || coalesce(agency,''))) stored;
+create index on market_opportunities using gin (search);
+create index on market_opportunities using gin (title gin_trgm_ops);
+
+-- keyword search beside embeddings
+alter table bid_document_chunks add column search tsvector generated always as (to_tsvector('english', text)) stored;
+create index on bid_document_chunks using gin (search);
+alter table market_opportunity_texts add column search tsvector generated always as (to_tsvector('english', text)) stored;
+create index on market_opportunity_texts using gin (search);
+
+-- quote follow-up fan-out
+create index on quote_requests (next_followup_at) where status = 'sent';
+```
+
+### 18.2 Changed checks and vocabularies
+
+| Where | Change |
+|---|---|
+| `file_links.purpose` | add `'export'` |
+| `field_provenance.record_type` | also allows `'company_profile'` (with `record_id` = the tenant id) |
+| `api_keys.scopes` | `check (scopes <@ array['read','write','calendar:read'])`; a `calendar:read` key is the ICS feed token |
+| `plans.billing_interval` | add `'one_time'` (the run pack is a `plans` row) |
+| `entitlements.reset_period` | add `'day'` (for `api_requests_per_day`) |
+| `subscriptions.status` | unchanged; store Stripe's `incomplete_expired` as `canceled` |
+| `market_opportunities.set_aside` | map SAM codes: `SBA`,`SBP` to `small`; `8A`,`8AN` to `8a`; `HZC`,`HZS` to `hubzone`; `SDVOSBC`,`SDVOSBS` to `sdvosb`; `WOSB`,`WOSBSS` to `wosb`; `EDWOSB`,`EDWOSBSS` to `edwosb`; empty to `none`; anything else to `other` |
+| `usage_events.key` (comment only) | add `payment_fees`, `notification_emails`; `usage_counters` also uses `ai_cost_reserved` and `api_requests` |
+| `deals.bid_decision` (jsonb shape) | add `recommendation: 'bid' \| 'no_bid' \| null`, `recommendedAt`, `runId` |
+
+### 18.3 New tenant tables (standard RLS template)
+
+```sql
+create table bid_briefs (
+  id uuid primary key,
+  tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
+  deal_id uuid not null references deals(id) on delete cascade,
+  version int not null,
+  status text not null default 'current' check (status in ('current','superseded')),
+  summary text not null,
+  facts jsonb not null,                         -- [{key, label, value, status:'found'|'not_found', citations}]
+  red_flags jsonb not null default '[]',        -- [{text, citations}]
+  run_id uuid,
+  created_at timestamptz not null default now(),
+  unique (tenant_id, deal_id, version)
+);
+
+create table idempotency_keys (
+  tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
+  actor_key text not null,                      -- 'user:<uuid>' or 'api_key:<uuid>'
+  key text not null,
+  method text not null, path text not null,
+  request_hash text not null,
+  status text not null default 'running' check (status in ('running','done')),
+  response_status int, response_body jsonb,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,              -- created_at + 24 hours
+  primary key (tenant_id, actor_key, key)
+);
+create index on idempotency_keys (tenant_id, expires_at);
+
+create table short_links (
+  code text primary key,                        -- 7 characters, base62
+  tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  target text not null,                         -- app path, e.g. '/approvals/<id>'
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table credit_grants (
+  id uuid primary key,
+  tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
+  source text not null check (source in ('run_pack','ops_credit','carryover')),
+  grants jsonb not null,                        -- {"<entitlement key>": integer}
+  quantity int not null default 1,
+  period_start date not null,
+  stripe_checkout_session_id text unique,
+  granted_by uuid references users(id),
+  reason text,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index on credit_grants (tenant_id, period_start);
+
+create table entitlement_overrides (            -- written only through the ops pool
+  tenant_id uuid not null default app_tenant_id() references tenants(id) on delete cascade,
+  key text not null,
+  limit_value bigint,
+  reason text not null,
+  set_by uuid not null references users(id),
+  expires_at timestamptz,
+  created_at timestamptz not null default now(),
+  primary key (tenant_id, key)
+);
+```
+
+### 18.4 New global or ops-only tables (join the §2.1 exception list)
+
+```sql
+create table rate_limits (                      -- global; shaped like Better Auth's rateLimit model; magpie_app and magpie_auth read and write
+  key text primary key,                         -- 'app:<session id>', 'v1:<api key id>', 'auth:<ip>'
+  count int not null,
+  last_request bigint not null                  -- epoch milliseconds
+);
+
+create table staff_assignments (                -- magpie_ops only
+  staff_user_id uuid not null references users(id) on delete cascade,
+  tenant_id uuid not null references tenants(id) on delete cascade,
+  role text not null check (role in ('reviewer','support')),
+  created_by uuid not null references users(id),
+  created_at timestamptz not null default now(),
+  primary key (staff_user_id, tenant_id, role)
+);
+
+create table trial_claims (                     -- magpie_ops only; outlives deleted workspaces
+  id uuid primary key,
+  kind text not null check (kind in ('email','oauth_account','uei','phone','email_domain')),
+  value_hash text not null,
+  tenant_id uuid references tenants(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create unique index on trial_claims (kind, value_hash) where kind <> 'email_domain';
+create index on trial_claims (kind, value_hash, created_at);
+```
+
+v1 (M8): the tables Better Auth's MCP and OAuth provider plugins require, generated from the pinned plugin schema and mapped to `oauth_clients`, `oauth_consents`, `oauth_access_tokens`, `oauth_refresh_tokens` and `jwks`. Add `tenant_id uuid not null references tenants(id) on delete cascade` to consents and both token tables so each grant is bound to the workspace chosen at consent. They are identity tables on the `magpie_auth` pool.
+
+Materialized view `ops_tenant_daily` (owner `magpie_owner`, `select` for `magpie_ops`, refreshed nightly): per tenant per day, revenue, cost by `usage_events.key`, and run counts.
+
+### 18.5 New roles and functions
+
+```sql
+create role magpie_dbos nologin;               -- owns only the DBOS system schema; no grants on app tables
+create role magpie_backup nologin bypassrls;   -- select on all tables, for pg_dump
+
+-- security definer, owned by magpie_owner, execute granted to magpie_app; return ids only
+short_link_target(code text) returns table (tenant_id uuid, user_id uuid, target text, expires_at timestamptz)
+short_code_available(user_id uuid, code text) returns boolean   -- true if no pending approval for this user in any workspace uses it
+fanout_due_bot_jobs(p_kinds text[], p_now timestamptz) returns table (tenant_id uuid, bot_job_id uuid)
+fanout_due_digests(p_now timestamptz) returns table (tenant_id uuid, user_id uuid, local_date date)
+fanout_due_deadline_reminders(p_now timestamptz) returns table (tenant_id uuid, deadline_id uuid, mark text)
+fanout_due_quote_followups(p_now timestamptz) returns table (tenant_id uuid, quote_request_id uuid)
+fanout_expired_approvals(p_now timestamptz) returns table (tenant_id uuid, approval_id uuid)
+```
+
+### 18.6 Clarifications (no DDL)
+
+- `link_codes` for `channel = 'sms'`: `code` holds a random 32-character challenge id. Twilio Verify generates and checks the 6-digit code. `attempts` counts verify calls, at most 5.
+- `drafts.parent_draft_id`: for versions 2 and up it points at the version-1 row (the document id).
+- `price_lines.unit = 'percent'` marks overhead and profit lines whose `quantity` is a percentage.
+- `tenant_settings.settings` keys: `postalAddress`, `marginFloorBps`, `quoteFollowups`, `pricingDefaults`, `onboarding`. `bot_jobs.config.learningMode`. Each has a zod schema in `packages/shared`.
+- `opportunity_matches.dismiss_reason` stores one of the codes in API.md §5.7. Free-text notes go to `notes`.
+- `notifications.payload` for `kind = 'digest'` includes `items: [{n, matchId}]`, which the reply grammar reads.
+- `quote_requests.reply_token`: 32 random bytes in RFC 4648 base32, lowercase, unpadded (52 characters).
+- Approval `short_code` values are unique across all of a person's pending approvals in every workspace (checked with `short_code_available`), so a reply never needs a workspace prefix.
+- §17 seeding: create the Stripe customer before the seed transaction, with idempotency key `customer:<tenant_id>`, because `subscriptions.stripe_customer_id` is `not null`.
+- Kontract's `X-Workspace-Id` is `magpie-<tenant_id>`, not the slug, so metering survives renames.
