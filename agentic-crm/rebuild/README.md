@@ -17,6 +17,7 @@ This folder is everything an AI coding agent needs to rebuild Magpie as a multi-
 | [BILLING.md](BILLING.md) | Plans, entitlements, Stripe, metering, limits | as needed |
 | [UX.md](UX.md) | Screens, routes, components, message templates, design system | as needed |
 | [AGENTS.md](AGENTS.md) | Rules and conventions for the coding agent; copy to the new repo root | always |
+| [modules/TALENT.md](modules/TALENT.md) | Add-on module: find, hire and pay UGC creators and freelancers (milestone M11) | after MVP |
 
 Background research behind the decisions: [`../reports/AI native CRM SaaS rebuild.md`](../reports/AI%20native%20CRM%20SaaS%20rebuild.md) and [`../reports/Ideal customer profile.md`](../reports/Ideal%20customer%20profile.md).
 

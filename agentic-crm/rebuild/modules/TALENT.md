@@ -325,15 +325,59 @@ The person always makes the final call. The Reviewer recommends.
 
 ## 9. Sourcing and outreach channels
 
-<!-- filled from research_notes/Talent module/sourcing_and_outreach.md -->
+Everything sits behind one port, `TalentSource` (`search`, `getProfile`, `getContact`, `health`), with an adapter per source. Facts below are from [sourcing_and_outreach.md](../../research_notes/Talent%20module/sourcing_and_outreach.md) (2026-11-10). Items marked "verify" must be checked against current docs before coding.
+
+| Source | Use in v1 | Access and cost | Rules |
+|---|---|---|---|
+| Workspace pool | Always first | Free | Past hires and conversations |
+| **Influencers.club API** (default discovery provider) | Search TikTok, Instagram and YouTube creators with filters; contact email where available | Pro API from about $208 a month, monthly billing; a validated email plus profile costs about 0.2 credits (about $0.05) | Terms (v2.5, 2026-11-01) allow embedding in a customer-facing SaaS. No reselling raw data and no passing API access to others. We are an independent data controller. Compare Modash (from $16,200 a year) and HypeAuditor (quote only) on email hit rate before signing for a year. |
+| **Instagram Creator Marketplace API and Facebook Creator Discovery** | Search creators inside Meta's marketplace and get their email when available | Self-serve through Meta app review since 2025-10-01. Each customer connects its own brand through Facebook Login, must be eligible and must accept the marketplace terms. | Filters such as `has_public_contact_email` and `exclude_messaged_creators`. Rate limit unclear: 5,000 or 1,000 queries per user per hour (verify). Creator data use terms not yet found (verify). |
+| YouTube Data API and Instagram Business Discovery | Vetting stats only (followers, views, recent posts) | Free within quota | YouTube data must be refreshed or deleted within 30 days. |
+| TikTok | Creator data through the discovery provider; a deep link to TikTok One for the customer to act there | TikTok One API only through TikTok partners. Apply to the TikTok Marketing Partners program (Creator Marketing) now. | TikTok's US terms ban scraping for any purpose. |
+| **Upwork** | Freelancers: search, post a job, invite, draft offers | Each customer authorizes its own Upwork account. The documented route for third-party apps is the OAuth GraphQL API (verify mutations). Upwork's agent server (launched 2026-08-10) may restrict credentials to the account holder (verify). | Hire and pay on Upwork. Talent found there is contacted only through Upwork: a 24-month non-circumvention term and a conversion fee of 13.5% of estimated annual earnings apply off platform. |
+| **Contra** | Freelancers: search, job posts, paid proposals, invoices | Agent server; every action confirmed by the user | Contact through Contra. |
+| Fiverr | Search only | Agent server, search only | Link out to Fiverr to hire. |
+| UGC marketplaces (Collabstr, Billo, Insense, #paid, Aspire, GRIN) | No API to post briefs or invite creators | none | Magpie writes the brief and hands it to the customer's own account. Pilot JoinBrands' agent server (campaign creation unconfirmed). |
+| Public apply page | Creators apply to a brief through a link the customer shares | Free | Age confirmation; dedupe into `talent`. |
+| v1.5: opt-in creator network | Creators connect their own accounts (InsightIQ, formerly Phyllo, style) | Quote only | Consent-based stats and contact. |
+
+**Outreach rules (code-enforced):**
+1. Email only, sent from the customer's connected Gmail or Outlook after approval (ARCHITECTURE §15 ruling 24), with `Reply-To` set to the candidate's tracked reply address. No automated DMs on any platform: none allows cold DMs.
+2. Talent sourced from a marketplace is contacted only inside that marketplace.
+3. Every stored email records where it came from: `emails[].source`, plus `sourceUrl` and `capturedAt`. That is the evidence for Canada's CASL and for GDPR Article 14.
+4. The first email to a creator found through a provider includes a short notice of where their contact came from and how to opt out, plus the workspace's postal address and an unsubscribe link (CAN-SPAM).
+5. **A platform-wide do-not-contact list:** an unsubscribe from any workspace's outreach adds a hashed address to `talent_global_suppressions`, and no workspace can email that address again through Magpie. A workspace-level `do_not_contact` also applies.
+6. Per-country rules:
+   - US: CAN-SPAM.
+   - Canada: CASL. Contact only conspicuously published addresses, with the evidence logged.
+   - EU and UK: business addresses only, a legitimate-interest note on the brief, and no sole-trader personal addresses until counsel confirms.
+7. Provider data for candidates never contacted is deleted after 90 days. YouTube data follows its 30-day rule.
+
+Extra table for rule 5 (global, ops pool, read through a security definer check `talent_address_suppressed(email_hash text) returns boolean`):
+
+```sql
+create table talent_global_suppressions (
+  email_hash text primary key,                   -- sha256 of the lowercased address
+  reason text not null check (reason in ('unsubscribe','complaint','legal_request')),
+  created_at timestamptz not null default now()
+);
+```
 
 ## 10. Agreements and payouts
 
-<!-- filled from research_notes/Talent module/rates_contracts_payouts.md -->
+**Pending.** Research on pay-rate benchmarks, e-signature and payout providers, tax forms and money-transmitter rules is in progress (`research_notes/Talent module/rates_contracts_payouts.md`). Until it lands, build to these defaults:
+- Click-to-accept agreements in the portal (signed name, time, IP, PDF stored).
+- Payouts behind a `Payouts` port. The provider is chosen in this section; `talent_payments.provider = 'manual'` (record a payment made outside Magpie) works from day one.
 
 ## 11. Plans, entitlements and metering
 
-<!-- filled after §9 and §10 -->
+**Pending** with §10. Planned entitlement keys:
+- `talent_discovery_lookups` (provider credits)
+- `talent_invites_per_day`
+- `media_minutes` (transcription)
+- `talent_payout_volume_cents`
+
+The module ships as an add-on and inside a Content plan.
 
 ## 12. Screens and routes
 

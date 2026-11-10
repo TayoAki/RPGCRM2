@@ -71,6 +71,7 @@ These settle disagreements during the build.
 |---|---|---|
 | **MVP** (sellable to 10 pilot owners) | M0 to M6 | Sign-up and workspaces, company profile, bid discovery and matching, CRM core, bid workspace with all seven Bots, approvals, SMS, Telegram and the digest, billing and limits |
 | **v1** (general availability) | M7 to M9 | Operator console, Managed plan review queue, public API, MCP server, outgoing webhooks, automations, reports, import and export polish, hardening |
+| **Talent add-on** | M11, after M6 | Find, invite, negotiate with, contract, review and pay UGC creators and freelancers ([modules/TALENT.md](modules/TALENT.md)) |
 | **v1.5** (Segment B) | after v1 | Slack app, HubSpot and Salesforce sync, SSO and SCIM, per-seat Team plans, SOC 2 Type I, SBIR topic feed |
 | **v2** (capture and Segment C) | after v1.5 | Gmail and Outlook reading (after Google's CASA assessment), meeting notes, local-business prospecting (permits, new filings, local listings), custom objects, WhatsApp, native apps, dedicated database tier |
 

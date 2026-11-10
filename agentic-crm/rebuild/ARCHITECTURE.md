@@ -192,6 +192,7 @@ An API-level suite (`apps/api/test/isolation.e2e.test.ts`) calls every `GET /api
 | `events` | domain_events, webhook_receipts | outbox, fan-out, inbound webhook dedupe |
 | `ops` | impersonations, data_exports, tenant_deletions, feature_flags, pending_work, tenant_run_slots | operator console, flags, export, deletion, fair dispatch fallback |
 | `apiKeys` | api_keys | public API keys |
+| `talent` (M11) | talent, talent_briefs, talent_candidates, talent_offers, talent_agreements, talent_assignments, deliverables, talent_payments, talent_payout_accounts, talent_applications, portal_tokens, rate_benchmarks, talent_global_suppressions | creator and freelancer sourcing, outreach, agreements, review, payouts ([modules/TALENT.md](modules/TALENT.md)) |
 | `automations` (M9) | automations, automation_runs | trigger → condition → steps |
 | `reports` (M9) | reports, report_widgets | dashboards |
 

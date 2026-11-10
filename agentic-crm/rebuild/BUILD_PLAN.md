@@ -365,6 +365,10 @@ Tasks:
 
 **Done when:** all targets are met or have ADRs explaining the gap, and the founder signs off on general availability.
 
+## M11. Talent add-on (3 to 4 weeks, after M6)
+
+Specified in full in [modules/TALENT.md §15](modules/TALENT.md#15-build-milestone-m11-3-to-4-weeks-after-m6). It reuses the CRM core, Bots, approvals, tracked replies, files and billing from M1 to M6.
+
 ## Timeline at a glance
 
 | Milestone | Weeks (one agent, full time, estimate) | Cumulative |
